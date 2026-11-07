@@ -10,10 +10,32 @@ def caminho_documento_regime(empresa, nome_arquivo):
 
 
 class Colaborador(models.Model):
+    PERMISSOES = (
+        ("pode_cadastrar_cliente", "Cadastrar cliente"),
+        ("pode_editar_cliente", "Editar cliente"),
+        ("pode_inativar_cliente", "Inativar cliente"),
+        ("pode_excluir_cliente", "Excluir cliente"),
+        ("pode_triar", "Triar XML"),
+        ("pode_auditar", "Auditar e cruzar SPED"),
+    )
     nome = models.CharField(max_length=120, verbose_name="Nome")
     cargo = models.CharField(max_length=80, verbose_name="Cargo / função")
     email = models.EmailField(blank=True, verbose_name="E-mail")
+    usuario = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="colaborador",
+        verbose_name="Usuário de acesso",
+    )
     ativo = models.BooleanField(default=True)
+    pode_cadastrar_cliente = models.BooleanField(default=False, verbose_name="Cadastrar cliente")
+    pode_editar_cliente = models.BooleanField(default=False, verbose_name="Editar cliente")
+    pode_inativar_cliente = models.BooleanField(default=False, verbose_name="Inativar cliente")
+    pode_excluir_cliente = models.BooleanField(default=False, verbose_name="Excluir cliente")
+    pode_triar = models.BooleanField(default=False, verbose_name="Triar XML")
+    pode_auditar = models.BooleanField(default=False, verbose_name="Auditar e cruzar SPED")
 
     class Meta:
         ordering = ["nome"]
@@ -22,6 +44,9 @@ class Colaborador(models.Model):
 
     def __str__(self):
         return self.nome
+
+    def rotulos_permissoes(self):
+        return [rotulo for codigo, rotulo in self.PERMISSOES if getattr(self, codigo)]
 
 
 class Empresa(models.Model):

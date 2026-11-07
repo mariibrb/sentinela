@@ -9,7 +9,7 @@
       <h1 class="text-3xl font-extrabold">Clientes</h1>
       <p class="text-stone-500">Cada código Domínio é um estabelecimento. Matriz e filial são cadastros separados.</p>
     </div>
-    <a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>
+    {% if permissoes.pode_cadastrar_cliente %}<a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
   </div>
   <form method="get" class="flex flex-wrap gap-2">
     <input class="w-full max-w-sm rounded-xl border border-stone-200 px-3 py-2.5 shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome ou CNPJ">
@@ -19,20 +19,25 @@
 <section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
   <table class="w-full text-left text-sm">
     <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
-      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Perfil</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3"></th></tr>
+      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Situação</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3">Ações</th></tr>
     </thead>
     <tbody>
       {% for empresa in empresas %}
       <tr class="border-t border-stone-100">
         <td class="px-3 py-3">{{ empresa.codigo_dominio }}</td>
-        <td class="px-3 py-3"><a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a></td>
+        <td class="px-3 py-3">{% if permissoes.pode_editar_cliente %}<a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a>{% else %}{{ empresa.razao_social }}{% endif %}</td>
         <td class="px-3 py-3">{{ empresa.cnpj|cnpj }}</td>
         <td class="px-3 py-3">{{ empresa.uf }}</td>
         <td class="px-3 py-3">{{ empresa.regime_tributario }}</td>
-        <td class="px-3 py-3">{{ empresa.get_perfil_estabelecimento_display }}</td>
+        <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
         <td class="px-3 py-3">{{ empresa.notas }}</td>
         <td class="px-3 py-3">
-          <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Ativar</button></form>
+          <div class="flex flex-wrap gap-2">
+            <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Selecionar</button></form>
+            {% if permissoes.pode_editar_cliente %}<a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}">Editar</a>{% endif %}
+            {% if permissoes.pode_inativar_cliente %}<form method="post" action="{% url 'situacao_empresa' empresa.pk %}">{% csrf_token %}<button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{% if empresa.status == "Ativo" %}Inativar{% else %}Reativar{% endif %}</button></form>{% endif %}
+            {% if permissoes.pode_excluir_cliente %}<form method="post" action="{% url 'excluir_empresa' empresa.pk %}" onsubmit="return confirm('Excluir este cliente? As notas dele saem do Sentinela.');">{% csrf_token %}<button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700 shadow-sm" type="submit">Excluir</button></form>{% endif %}
+          </div>
         </td>
       </tr>
       {% empty %}

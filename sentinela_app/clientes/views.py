@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count, Q
+from django.db.models import Count, ProtectedError, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -10,7 +10,7 @@ from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.competencia import deslocar, montar
 from clientes.forms import EmpresaForm
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
-from clientes.acesso import administrador, apenas_administrador
+from clientes.acesso import administrador, apenas_administrador, exige, pode
 from clientes.backup import exportar_pacote
 from clientes.forms import ColaboradorForm
 from clientes.models import Colaborador, DocumentoXML, Empresa, LogAlteracao
@@ -100,6 +100,10 @@ def lista_empresas(request):
 @login_required
 def editar_empresa(request, empresa_id=None):
     request.modulo = "clientes"
+    codigo = "pode_editar_cliente" if empresa_id else "pode_cadastrar_cliente"
+    if not pode(request.user, codigo):
+        messages.error(request, "Seu usuário não tem permissão para esta ação.")
+        return redirect("lista_empresas")
     empresa = get_object_or_404(Empresa, pk=empresa_id) if empresa_id else None
     form = EmpresaForm(request.POST or None, request.FILES or None, instance=empresa)
     if request.method == "POST" and form.is_valid():
@@ -110,6 +114,30 @@ def editar_empresa(request, empresa_id=None):
         messages.success(request, f"Cadastro gravado. Pastas criadas em {raiz}.")
         return redirect("lista_empresas")
     return render(request, "clientes/formulario.html", {"form": form, "empresa": empresa})
+
+
+@require_POST
+@exige("pode_inativar_cliente")
+def alternar_status_empresa(request, empresa_id):
+    empresa = get_object_or_404(Empresa, pk=empresa_id)
+    anterior = empresa.status
+    empresa.status = "Inativo" if empresa.status == "Ativo" else "Ativo"
+    empresa.save(update_fields=["status"])
+    registrar(request.user, empresa, "CADASTRO", "status", anterior, empresa.status)
+    messages.success(request, f"{empresa.razao_social} está {empresa.status.lower()}.")
+    return redirect("lista_empresas")
+
+
+@require_POST
+@exige("pode_excluir_cliente")
+def excluir_empresa(request, empresa_id):
+    empresa = get_object_or_404(Empresa, pk=empresa_id)
+    nome = empresa.razao_social
+    if request.session.get("empresa_id") == empresa.pk:
+        request.session.pop("empresa_id", None)
+    empresa.delete()
+    messages.success(request, f"Cliente excluído: {nome}.")
+    return redirect("lista_empresas")
 
 
 @login_required
@@ -191,3 +219,31 @@ def editar_colaborador(request, colaborador_id=None):
         messages.success(request, "Colaborador gravado.")
         return redirect("lista_colaboradores")
     return render(request, "colaboradores/formulario.html", {"form": form, "colaborador": colaborador})
+
+
+@require_POST
+@apenas_administrador
+def alternar_colaborador(request, colaborador_id):
+    pessoa = get_object_or_404(Colaborador, pk=colaborador_id)
+    pessoa.ativo = not pessoa.ativo
+    pessoa.save(update_fields=["ativo"])
+    situacao = "ativo" if pessoa.ativo else "inativo"
+    messages.success(request, f"{pessoa.nome} está {situacao}.")
+    return redirect("lista_colaboradores")
+
+
+@require_POST
+@apenas_administrador
+def excluir_colaborador(request, colaborador_id):
+    pessoa = get_object_or_404(Colaborador, pk=colaborador_id)
+    nome = pessoa.nome
+    try:
+        pessoa.delete()
+    except ProtectedError:
+        messages.error(
+            request,
+            f"{nome} é responsável pela apuração ou pela revisão de um cliente. Troque o responsável ou inative o colaborador.",
+        )
+        return redirect("lista_colaboradores")
+    messages.success(request, f"Colaborador excluído: {nome}.")
+    return redirect("lista_colaboradores")

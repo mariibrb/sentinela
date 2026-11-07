@@ -15,9 +15,9 @@ class EmpresaAdmin(admin.ModelAdmin):
 
 @admin.register(Colaborador)
 class ColaboradorAdmin(admin.ModelAdmin):
-    list_display = ("nome", "cargo", "email", "ativo")
-    search_fields = ("nome", "cargo", "email")
-    list_filter = ("ativo",)
+    list_display = ("nome", "cargo", "email", "usuario", "ativo")
+    search_fields = ("nome", "cargo", "email", "usuario__username")
+    list_filter = ("ativo", "pode_cadastrar_cliente", "pode_editar_cliente", "pode_inativar_cliente", "pode_excluir_cliente", "pode_triar", "pode_auditar")
 
 
 @admin.register(DocumentoXML)

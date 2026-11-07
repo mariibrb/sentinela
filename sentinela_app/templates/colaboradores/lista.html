@@ -6,7 +6,7 @@
     <div>
       <p class="text-sm font-semibold text-pink-700">Administração</p>
       <h1 class="text-3xl font-extrabold">Colaboradores</h1>
-      <p class="text-stone-500">Quem apura e quem revisa o fechamento das empresas.</p>
+      <p class="text-stone-500">Cada pessoa tem as ações marcadas no cadastro. Sem a permissão, o botão some.</p>
     </div>
     <a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm" href="{% url 'novo_colaborador' %}">Novo colaborador</a>
   </div>
@@ -14,18 +14,26 @@
 <section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
   <table class="w-full text-left text-sm">
     <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
-      <tr><th class="px-3 py-3">Nome</th><th class="px-3 py-3">Cargo</th><th class="px-3 py-3">E-mail</th><th class="px-3 py-3">Situação</th></tr>
+      <tr><th class="px-3 py-3">Nome</th><th class="px-3 py-3">Cargo</th><th class="px-3 py-3">Acesso</th><th class="px-3 py-3">Pode fazer</th><th class="px-3 py-3">Situação</th><th class="px-3 py-3">Ações</th></tr>
     </thead>
     <tbody>
       {% for pessoa in colaboradores %}
       <tr class="border-t border-stone-100">
         <td class="px-3 py-3"><a class="font-semibold text-pink-700" href="{% url 'editar_colaborador' pessoa.pk %}">{{ pessoa.nome }}</a></td>
         <td class="px-3 py-3">{{ pessoa.cargo }}</td>
-        <td class="px-3 py-3">{{ pessoa.email }}</td>
+        <td class="px-3 py-3">{% if pessoa.usuario %}{{ pessoa.usuario.username }}{% else %}Sem acesso{% endif %}</td>
+        <td class="px-3 py-3">{% for rotulo in pessoa.rotulos_permissoes %}{{ rotulo }}{% if not forloop.last %}, {% endif %}{% empty %}Nenhuma ação{% endfor %}</td>
         <td class="px-3 py-3">{% if pessoa.ativo %}Ativo{% else %}Inativo{% endif %}</td>
+        <td class="px-3 py-3">
+          <div class="flex flex-wrap gap-2">
+            <a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_colaborador' pessoa.pk %}">Editar</a>
+            <form method="post" action="{% url 'situacao_colaborador' pessoa.pk %}">{% csrf_token %}<button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{% if pessoa.ativo %}Inativar{% else %}Reativar{% endif %}</button></form>
+            <form method="post" action="{% url 'excluir_colaborador' pessoa.pk %}" onsubmit="return confirm('Excluir este colaborador?');">{% csrf_token %}<button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700 shadow-sm" type="submit">Excluir</button></form>
+          </div>
+        </td>
       </tr>
       {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="4">Nenhum colaborador cadastrado.</td></tr>
+      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhum colaborador cadastrado.</td></tr>
       {% endfor %}
     </tbody>
   </table>

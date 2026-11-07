@@ -7,9 +7,20 @@
   <div class="mb-4 grid gap-4 sm:grid-cols-2">
     {% include "clientes/_campo.html" with campo=form.nome %}
     {% include "clientes/_campo.html" with campo=form.cargo %}
-    {% include "clientes/_campo.html" with campo=form.email largo=1 %}
+    {% include "clientes/_campo.html" with campo=form.email %}
+    {% include "clientes/_campo.html" with campo=form.usuario %}
     <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.ativo }} Ativo</label>
   </div>
+  <fieldset class="mb-4 rounded-2xl border border-stone-200 p-4">
+    <legend class="px-2 text-sm font-semibold text-pink-700">O que este colaborador pode fazer</legend>
+    <div class="grid gap-2 sm:grid-cols-2">
+      {% for campo in form %}
+      {% if "pode_" in campo.name %}
+      <label class="flex items-center gap-2 rounded-xl border border-stone-200 px-3 py-2 text-sm">{{ campo }} {{ campo.label }}</label>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </fieldset>
   <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm" type="submit">Gravar colaborador</button>
 </form>
 {% endblock %}

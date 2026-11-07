@@ -2,12 +2,12 @@ import tempfile
 from pathlib import Path
 
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
 from auditoria.sped_motor import MotorSpedCruzamento
+from clientes.acesso import exige
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa
 from clientes.trilha import registrar
@@ -29,7 +29,7 @@ def _totais(documentos):
     return {nome: agregados[nome] or 0 for nome in nomes}
 
 
-@login_required
+@exige("pode_auditar")
 def painel(request):
     request.modulo = "auditoria"
     empresa = _empresa_ativa(request)
@@ -50,13 +50,16 @@ def painel(request):
     )
 
 
-@login_required
 @require_POST
+@exige("pode_auditar")
 def cruzar(request):
     empresa = _empresa_ativa(request)
     if empresa is None:
         messages.error(request, "Escolha a empresa ativa antes do cruzamento.")
         return redirect("painel")
+    if empresa.status != "Ativo":
+        messages.error(request, "Este cliente está inativo.")
+        return redirect("auditoria")
     arquivo = request.FILES.get("sped")
     if arquivo is None:
         messages.error(request, "Selecione o arquivo SPED.")

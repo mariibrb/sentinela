@@ -3,6 +3,8 @@ import os
 from django.contrib.auth import get_user_model
 from django.core.management.base import BaseCommand
 
+from clientes.models import Colaborador
+
 
 class Command(BaseCommand):
     help = "Garante usuários iniciais configurados por variáveis de ambiente no deploy em nuvem."
@@ -46,3 +48,21 @@ class Command(BaseCommand):
             if criado or not colaborador.has_usable_password():
                 colaborador.set_password(colab_pass)
                 colaborador.save()
+            if not Colaborador.objects.filter(usuario=colaborador).exists():
+                pessoa = Colaborador.objects.filter(usuario__isnull=True, email__iexact=colab_email).first()
+                if pessoa is None:
+                    Colaborador.objects.create(
+                        nome=f"{colaborador.first_name} {colaborador.last_name}".strip() or colaborador.username,
+                        cargo="Analista",
+                        email=colab_email,
+                        usuario=colaborador,
+                        ativo=True,
+                        pode_cadastrar_cliente=True,
+                        pode_editar_cliente=True,
+                        pode_inativar_cliente=True,
+                        pode_triar=True,
+                        pode_auditar=True,
+                    )
+                else:
+                    pessoa.usuario = colaborador
+                    pessoa.save(update_fields=["usuario"])

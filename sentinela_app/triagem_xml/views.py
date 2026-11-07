@@ -1,8 +1,8 @@
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from clientes.acesso import exige
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa
 from clientes.trilha import registrar
@@ -16,7 +16,7 @@ def _empresa_ativa(request):
     return Empresa.objects.filter(pk=empresa_id).first()
 
 
-@login_required
+@exige("pode_triar")
 def painel(request):
     request.modulo = "triagem"
     empresa = _empresa_ativa(request)
@@ -26,13 +26,16 @@ def painel(request):
     return render(request, "triagem/painel.html", {"documentos": documentos, "empresa_travada": empresa})
 
 
-@login_required
 @require_POST
+@exige("pode_triar")
 def importar(request):
     empresa = _empresa_ativa(request)
     if empresa is None:
         messages.error(request, "Escolha a empresa ativa antes de importar os XML.")
         return redirect("painel")
+    if empresa.status != "Ativo":
+        messages.error(request, "Este cliente está inativo.")
+        return redirect("triagem")
     arquivos = request.FILES.getlist("arquivos")
     if not arquivos:
         messages.error(request, "Selecione ao menos um XML ou um zip.")

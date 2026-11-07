@@ -1,6 +1,6 @@
 from django.utils import timezone
 
-from clientes.acesso import administrador
+from clientes.acesso import administrador, mapa_permissoes
 from clientes.competencia import MESES, interpretar, rotulo
 from clientes.models import Empresa
 
@@ -30,4 +30,5 @@ def contexto_sentinela(request):
         "meses_nomes": MESES,
         "modulo": getattr(request, "modulo", "painel"),
         "eh_administrador": administrador(usuario),
+        "permissoes": mapa_permissoes(usuario),
     }

@@ -104,7 +104,7 @@
 {% endif %}
 <section class="grid gap-4 md:grid-cols-3">
   <a class="rounded-2xl border border-pink-100 bg-pink-50 p-5 shadow-sm" href="{% url 'lista_empresas' %}"><p class="text-sm text-pink-700">Módulo 1</p><strong class="mt-1 block text-xl">Clientes</strong><p class="mt-2 text-stone-600">Cadastro, consulta de CNPJ e pastas da empresa.</p></a>
-  <a class="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm" href="{% url 'triagem' %}"><p class="text-sm text-violet-700">Módulo 2</p><strong class="mt-1 block text-xl">Triagem de XML</strong><p class="mt-2 text-stone-600">Lê NF-e e NFC-e e separa a pasta da empresa ativa.</p></a>
-  <a class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm" href="{% url 'auditoria' %}"><p class="text-sm text-blue-700">Módulo 3</p><strong class="mt-1 block text-xl">Auditoria</strong><p class="mt-2 text-stone-600">Soma o XML da competência e cruza com o C100 do SPED.</p></a>
+  {% if permissoes.pode_triar %}<a class="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm" href="{% url 'triagem' %}"><p class="text-sm text-violet-700">Módulo 2</p><strong class="mt-1 block text-xl">Triagem de XML</strong><p class="mt-2 text-stone-600">Lê NF-e e NFC-e e separa a pasta da empresa ativa.</p></a>{% endif %}
+  {% if permissoes.pode_auditar %}<a class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm" href="{% url 'auditoria' %}"><p class="text-sm text-blue-700">Módulo 3</p><strong class="mt-1 block text-xl">Auditoria</strong><p class="mt-2 text-stone-600">Soma o XML da competência e cruza com o C100 do SPED.</p></a>{% endif %}
 </section>
 {% endblock %}

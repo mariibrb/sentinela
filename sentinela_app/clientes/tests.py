@@ -34,9 +34,20 @@ class FluxoSentinelaTest(TestCase):
         self.pasta = tempfile.TemporaryDirectory()
         self.ajuste = override_settings(PASTA_MAE=self.pasta.name, MEDIA_ROOT=self.pasta.name)
         self.ajuste.enable()
-        User.objects.create_user("analista", password="senha-teste-123")
+        self.usuario = User.objects.create_user("analista", password="senha-teste-123")
         self.apuracao = Colaborador.objects.create(nome="Ismael", cargo="Analista", email="contato@nascel.com.br")
         self.revisao = Colaborador.objects.create(nome="Mariana Barbosa", cargo="Revisão", email="mariana.barbosa@nascel.com.br")
+        Colaborador.objects.create(
+            nome="Operador teste",
+            cargo="Analista",
+            usuario=self.usuario,
+            pode_cadastrar_cliente=True,
+            pode_editar_cliente=True,
+            pode_inativar_cliente=True,
+            pode_excluir_cliente=True,
+            pode_triar=True,
+            pode_auditar=True,
+        )
         self.client.login(username="analista", password="senha-teste-123")
 
     def tearDown(self):
@@ -166,6 +177,38 @@ class FluxoSentinelaTest(TestCase):
         self.assertTrue(empresa.documento_regime_especial.name.endswith(".pdf"))
         self.assertTrue(empresa.possui_regime_especial)
         self.assertEqual(empresa.regime_pis_cofins, "Não-Cumulativo")
+
+    def test_acoes_respeitam_a_permissao_do_colaborador(self):
+        empresa = Empresa.objects.create(
+            codigo_dominio="2",
+            cnpj="11222333000181",
+            razao_social="CLIENTE PERMISSAO",
+            responsavel_apuracao=self.apuracao,
+            responsavel_revisao=self.revisao,
+            cnae_principal="4772500",
+            cep="01310930",
+            logradouro="PAULISTA",
+            numero="1",
+            bairro="BELA VISTA",
+            uf="SP",
+            municipio="SAO PAULO",
+            codigo_ibge="3550308",
+            regime_tributario="Lucro Presumido",
+        )
+        sem = User.objects.create_user("sem", password="senha-teste-123")
+        navegador = self.client.__class__()
+        navegador.login(username="sem", password="senha-teste-123")
+        bloqueado = navegador.post(f"/clientes/{empresa.pk}/excluir/", follow=True)
+        self.assertContains(bloqueado, "não tem permissão")
+        self.assertTrue(Empresa.objects.filter(pk=empresa.pk).exists())
+        lista = self.client.get("/clientes/")
+        self.assertContains(lista, "Inativar")
+        self.assertContains(lista, "Excluir")
+        self.client.post(f"/clientes/{empresa.pk}/situacao/")
+        empresa.refresh_from_db()
+        self.assertEqual(empresa.status, "Inativo")
+        travado = navegador.post(f"/colaboradores/{self.apuracao.pk}/excluir/", follow=True)
+        self.assertContains(travado, "restrita ao administrador")
 
     def test_colaborador_nao_entra_no_admin(self):
         bloqueado = self.client.get("/colaboradores/", follow=True)

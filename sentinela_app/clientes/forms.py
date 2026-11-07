@@ -1,4 +1,5 @@
 from django import forms
+from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from clientes.cnpj import somente_digitos
@@ -112,9 +113,33 @@ class EmpresaForm(forms.ModelForm):
 class ColaboradorForm(forms.ModelForm):
     class Meta:
         model = Colaborador
-        fields = ("nome", "cargo", "email", "ativo")
+        fields = (
+            "nome",
+            "cargo",
+            "email",
+            "usuario",
+            "ativo",
+            *(codigo for codigo, _rotulo in Colaborador.PERMISSOES),
+        )
         widgets = {
             "nome": forms.TextInput(attrs=CAMPO),
             "cargo": forms.TextInput(attrs=CAMPO),
             "email": forms.EmailInput(attrs=CAMPO),
+            "usuario": forms.Select(attrs=CAMPO),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        Usuario = get_user_model()
+        ocupados = Colaborador.objects.exclude(usuario=None)
+        if self.instance.pk:
+            ocupados = ocupados.exclude(pk=self.instance.pk)
+        opcoes = Usuario.objects.filter(is_staff=False, is_superuser=False).exclude(
+            pk__in=ocupados.values("usuario_id")
+        )
+        atual = self.instance.usuario_id
+        if atual:
+            opcoes = Usuario.objects.filter(Q(pk__in=opcoes.values("pk")) | Q(pk=atual))
+        self.fields["usuario"].queryset = opcoes.order_by("username")
+        self.fields["usuario"].required = False
+        self.fields["usuario"].empty_label = "Sem acesso ao sistema"
