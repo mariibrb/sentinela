@@ -75,7 +75,46 @@ class ServicoConsultaCNPJ:
             "codigo_ibge": codigo_ibge,
             "cnae_principal": str(data.get("cnae_fiscal", "") or ""),
             "regime_tributario": "Simples Nacional" if data.get("opcao_pelo_simples") else "Lucro Presumido",
+            "inscricao_estadual": ServicoConsultaCNPJ.inscricao_da_uf(cnpj, uf),
         }
+
+    @staticmethod
+    def escolher_inscricao_estadual(inscricoes, uf):
+        sigla = (uf or "").strip().upper()
+        if not sigla:
+            return ""
+        candidatas = []
+        for item in inscricoes or []:
+            if not isinstance(item, dict):
+                continue
+            estado = str(((item.get("estado") or {}).get("sigla") or "")).upper()
+            if estado != sigla:
+                continue
+            numero = "".join(caractere for caractere in str(item.get("inscricao_estadual") or "") if caractere.isdigit())
+            if numero:
+                candidatas.append((bool(item.get("ativo")), numero))
+        if not candidatas:
+            return ""
+        candidatas.sort(key=lambda par: not par[0])
+        return candidatas[0][1]
+
+    @staticmethod
+    def inscricao_da_uf(cnpj, uf):
+        try:
+            response = requests.get(
+                f"https://publica.cnpj.ws/cnpj/{cnpj}",
+                timeout=12,
+                headers=_CABECALHO,
+            )
+            if response.status_code != 200:
+                return ""
+            estabelecimento = response.json().get("estabelecimento") or {}
+            return ServicoConsultaCNPJ.escolher_inscricao_estadual(
+                estabelecimento.get("inscricoes_estaduais"),
+                uf,
+            )
+        except (requests.RequestException, ValueError, TypeError):
+            return ""
 
     @staticmethod
     def buscar_codigo_ibge(municipio, uf):

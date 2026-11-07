@@ -14,6 +14,12 @@ def validar_cadastro_para_apuracao(empresa_obj):
         campos_faltantes.append("CNAE Principal")
     if not empresa_obj.regime_tributario:
         campos_faltantes.append("Regime Tributário")
+    if not (empresa_obj.inscricao_estadual or "").strip():
+        campos_faltantes.append("Inscrição estadual")
+    if empresa_obj.responsavel_apuracao_id is None:
+        campos_faltantes.append("Responsável pela apuração")
+    if empresa_obj.responsavel_revisao_id is None:
+        campos_faltantes.append("Responsável pela revisão")
 
     if campos_faltantes:
         raise CadastroIncompleto(

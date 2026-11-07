@@ -31,7 +31,7 @@ class EmpresaForm(forms.ModelForm):
             "status": forms.TextInput(attrs=CAMPO),
             "responsavel_apuracao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
             "responsavel_revisao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
-            "inscricao_estadual": forms.TextInput(attrs=CAMPO),
+            "inscricao_estadual": forms.TextInput(attrs={**CAMPO, "placeholder": "Preenchida pela UF do CNPJ, ou ISENTO"}),
             "inscricao_municipal": forms.TextInput(attrs=CAMPO),
             "suframa": forms.TextInput(attrs=CAMPO),
             "cnae_principal": forms.TextInput(attrs=CAMPO),
@@ -63,7 +63,8 @@ class EmpresaForm(forms.ModelForm):
             if atual:
                 opcoes = Colaborador.objects.filter(Q(ativo=True) | Q(pk=atual))
             self.fields[nome].queryset = opcoes.order_by("nome")
-            self.fields[nome].empty_label = "Buscar colaborador"
+            self.fields[nome].required = False
+            self.fields[nome].empty_label = "Definir depois"
 
     def clean(self):
         limpo = super().clean()

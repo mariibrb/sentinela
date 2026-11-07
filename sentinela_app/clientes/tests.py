@@ -6,6 +6,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
 from clientes.models import Colaborador, DocumentoXML, Empresa
+from clientes.services import ServicoConsultaCNPJ
 
 CNPJ = "45785442000390"
 CHAVE = "31261045785442000390550010000001231123456789"
@@ -220,3 +221,42 @@ class FluxoSentinelaTest(TestCase):
         liberado = self.client.get("/colaboradores/")
         self.assertEqual(liberado.status_code, 200)
         self.assertContains(liberado, "Ismael")
+
+    def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
+        tela = self.client.get("/clientes/nova/")
+        self.assertNotContains(tela, 'value="ISENTO"')
+        gravado = self.client.post("/clientes/nova/", {
+            "codigo_dominio": "581",
+            "cnpj": "45785442000390",
+            "tipo_estabelecimento": "Filial",
+            "razao_social": "AFFONSO DESCARTAVEIS LTDA",
+            "status": "Ativo",
+            "inscricao_estadual": "0047805660026",
+            "cnae_principal": "4649499",
+            "cep": "37646028",
+            "logradouro": "ESTRADA",
+            "numero": "1137",
+            "bairro": "RODEIO",
+            "uf": "MG",
+            "municipio": "EXTREMA",
+            "codigo_ibge": "3125101",
+            "regime_tributario": "Lucro Presumido",
+            "perfil_estabelecimento": "GERAL",
+            "contribuinte_icms": "on",
+        })
+        self.assertEqual(gravado.status_code, 302, gravado.content.decode()[:1500] if gravado.status_code != 302 else "")
+        empresa = Empresa.objects.get(codigo_dominio="581")
+        self.assertIsNone(empresa.responsavel_apuracao_id)
+        self.assertIsNone(empresa.responsavel_revisao_id)
+        self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/"})
+        uso = self.client.post("/triagem/importar/", {"arquivos": SimpleUploadedFile("nota.xml", xml_cancelada())}, follow=True)
+        self.assertContains(uso, "APURAÇÃO BLOQUEADA")
+        self.assertContains(uso, "Responsável pela apuração")
+        self.assertEqual(DocumentoXML.objects.count(), 0)
+        inscricoes = [
+            {"inscricao_estadual": "248025829", "ativo": True, "estado": {"sigla": "BA"}},
+            {"inscricao_estadual": "0047805660026", "ativo": True, "estado": {"sigla": "MG"}},
+            {"inscricao_estadual": "000", "ativo": False, "estado": {"sigla": "MG"}},
+        ]
+        self.assertEqual(ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, "MG"), "0047805660026")
+        self.assertEqual(ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, "RJ"), "")

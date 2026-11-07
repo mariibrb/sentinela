@@ -95,6 +95,7 @@ class Empresa(models.Model):
     responsavel_apuracao = models.ForeignKey(
         Colaborador,
         null=True,
+        blank=True,
         on_delete=models.PROTECT,
         related_name="apuracoes",
         verbose_name="Responsável pela apuração",
@@ -102,13 +103,14 @@ class Empresa(models.Model):
     responsavel_revisao = models.ForeignKey(
         Colaborador,
         null=True,
+        blank=True,
         on_delete=models.PROTECT,
         related_name="revisoes",
         verbose_name="Responsável pela revisão",
     )
 
     # Bloco B: Inscrições e Dados Cadastrais
-    inscricao_estadual = models.CharField(max_length=30, default="ISENTO", verbose_name="IE Principal")
+    inscricao_estadual = models.CharField(max_length=30, blank=True, default="", verbose_name="IE Principal")
     inscricao_municipal = models.CharField(max_length=30, blank=True, null=True, verbose_name="Inscrição Municipal")
     suframa = models.CharField(max_length=20, blank=True, null=True)
     cnae_principal = models.CharField(max_length=10, verbose_name="CNAE Principal")
