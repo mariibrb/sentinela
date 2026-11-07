@@ -75,7 +75,6 @@ class ServicoConsultaCNPJ:
             "uf": uf,
             "codigo_ibge": codigo_ibge,
             "cnae_principal": str(data.get("cnae_fiscal", "") or ""),
-            "regime_tributario": "Simples Nacional" if data.get("opcao_pelo_simples") else "Lucro Presumido",
             "inscricao_estadual": ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, uf),
             "substituicoes": ServicoConsultaCNPJ.substituicoes_das_inscricoes(inscricoes, uf),
         }

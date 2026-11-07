@@ -225,8 +225,33 @@ class FluxoSentinelaTest(TestCase):
     def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
         tela = self.client.get("/clientes/nova/")
         self.assertNotContains(tela, 'value="ISENTO"')
+        self.assertContains(tela, "Selecione o regime")
+        self.assertNotContains(tela, "selected>Lucro Presumido")
+        self.assertNotContains(tela, "selected>Simples Nacional")
         self.assertContains(tela, "Inscrição de substituto tributário")
         self.assertContains(tela, "id_ie_st_SP")
+        sem_regime = self.client.post("/clientes/nova/", {
+            "codigo_dominio": "581",
+            "cnpj": "45785442000390",
+            "tipo_estabelecimento": "Filial",
+            "razao_social": "AFFONSO DESCARTAVEIS LTDA",
+            "status": "Ativo",
+            "inscricao_estadual": "0047805660026",
+            "cnae_principal": "4649499",
+            "cep": "37646028",
+            "logradouro": "ESTRADA",
+            "numero": "1137",
+            "bairro": "RODEIO",
+            "uf": "MG",
+            "municipio": "EXTREMA",
+            "codigo_ibge": "3125101",
+            "regime_tributario": "",
+            "perfil_estabelecimento": "GERAL",
+            "contribuinte_icms": "on",
+        })
+        self.assertEqual(sem_regime.status_code, 200)
+        self.assertContains(sem_regime, "Selecione o regime tributário.")
+        self.assertFalse(Empresa.objects.filter(codigo_dominio="581").exists())
         gravado = self.client.post("/clientes/nova/", {
             "codigo_dominio": "581",
             "cnpj": "45785442000390",

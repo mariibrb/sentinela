@@ -102,6 +102,7 @@
         return;
       }
       Object.entries(dados.campos || {}).forEach(([nome, valor]) => {
+        if (nome === "regime_tributario" || nome === "regime_pis_cofins") return;
         const campo = document.getElementById(`id_${nome}`);
         if (campo && valor) {
           campo.value = valor;
@@ -112,7 +113,7 @@
         const campo = document.getElementById(`id_ie_st_${uf}`);
         if (campo && valor) campo.value = valor;
       });
-      mostrar("Dados públicos do CNPJ preenchidos. Confira a inscrição estadual, o regime e o código Domínio.", true);
+      mostrar("Dados públicos do CNPJ preenchidos. Selecione o regime na lista. Confira a inscrição estadual e o código Domínio.", true);
     } catch (_erro) {
       mostrar("Consulta automática indisponível no momento. Preencha razão social, endereço, município e código IBGE neste formulário.", true);
     }

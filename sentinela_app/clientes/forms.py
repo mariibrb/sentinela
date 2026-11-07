@@ -53,8 +53,13 @@ class EmpresaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["regime_tributario"].choices = [("", "Selecione o regime")] + list(Empresa.REGIMES_TRIBUTARIOS)
+        self.fields["regime_tributario"].required = True
+        self.fields["regime_tributario"].error_messages = {"required": "Selecione o regime tributário."}
         self.fields["regime_pis_cofins"].required = False
-        self.fields["regime_pis_cofins"].choices = list(Empresa.REGIMES_PIS_COFINS)
+        self.fields["regime_pis_cofins"].choices = [("", "Aguarda o regime tributário")] + list(Empresa.REGIMES_PIS_COFINS)
+        if not self.instance.pk:
+            self.initial["regime_tributario"] = ""
+            self.initial["regime_pis_cofins"] = ""
         self.fields["anexo_simples"].choices = [("", "Selecione o anexo")] + list(Empresa.ANEXOS_SIMPLES)
         self.fields["perfil_estabelecimento"].choices = list(Empresa.PERFIS_ESTABELECIMENTO)
         for nome in ("responsavel_apuracao", "responsavel_revisao"):
@@ -91,6 +96,12 @@ class EmpresaForm(forms.ModelForm):
             if not arquivo and "documento_regime_especial" not in self.errors:
                 self.add_error("documento_regime_especial", "Anexe o PDF do PTA ou do regime especial.")
         return limpo
+
+    def clean_regime_tributario(self):
+        regime = (self.cleaned_data.get("regime_tributario") or "").strip()
+        if regime not in dict(Empresa.REGIMES_TRIBUTARIOS):
+            raise forms.ValidationError("Selecione o regime tributário.")
+        return regime
 
     def clean_documento_regime_especial(self):
         arquivo = self.cleaned_data.get("documento_regime_especial")
