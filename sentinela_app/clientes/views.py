@@ -108,8 +108,17 @@ def editar_empresa(request, empresa_id=None):
     form = EmpresaForm(request.POST or None, request.FILES or None, instance=empresa)
     if request.method == "POST" and form.is_valid():
         antes = foto_empresa(empresa)
+        antes_substituicoes = empresa.texto_substituicoes() if empresa else ""
         empresa = form.save()
         registrar_empresa(request.user, antes, empresa)
+        registrar(
+            request.user,
+            empresa,
+            "CADASTRO",
+            "Inscrições de substituto",
+            antes_substituicoes,
+            empresa.texto_substituicoes(),
+        )
         raiz = criar_pastas(empresa)
         messages.success(request, f"Cadastro gravado. Pastas criadas em {raiz}.")
         return redirect("lista_empresas")
@@ -150,7 +159,8 @@ def buscar_cnpj(request, cnpj):
         return JsonResponse({"erro": str(erro), "manual": True})
     except Exception:
         return JsonResponse({"erro": "Consulta automática indisponível no momento", "manual": True})
-    return JsonResponse({"campos": dados})
+    substituicoes = dados.pop("substituicoes", {})
+    return JsonResponse({"campos": dados, "substituicoes": substituicoes})
 
 
 def _empresa_da_sessao(request):

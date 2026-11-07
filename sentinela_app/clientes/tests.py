@@ -225,6 +225,8 @@ class FluxoSentinelaTest(TestCase):
     def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
         tela = self.client.get("/clientes/nova/")
         self.assertNotContains(tela, 'value="ISENTO"')
+        self.assertContains(tela, "Inscrição de substituto tributário")
+        self.assertContains(tela, "id_ie_st_SP")
         gravado = self.client.post("/clientes/nova/", {
             "codigo_dominio": "581",
             "cnpj": "45785442000390",
@@ -232,6 +234,9 @@ class FluxoSentinelaTest(TestCase):
             "razao_social": "AFFONSO DESCARTAVEIS LTDA",
             "status": "Ativo",
             "inscricao_estadual": "0047805660026",
+            "ie_st_BA": "248025829",
+            "ie_st_CE": "073307130",
+            "ie_st_SP": "813035560114",
             "cnae_principal": "4649499",
             "cep": "37646028",
             "logradouro": "ESTRADA",
@@ -248,6 +253,10 @@ class FluxoSentinelaTest(TestCase):
         empresa = Empresa.objects.get(codigo_dominio="581")
         self.assertIsNone(empresa.responsavel_apuracao_id)
         self.assertIsNone(empresa.responsavel_revisao_id)
+        self.assertEqual(
+            set(empresa.substituicoes.values_list("uf", "numero")),
+            {("BA", "248025829"), ("CE", "073307130"), ("SP", "813035560114")},
+        )
         self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/"})
         uso = self.client.post("/triagem/importar/", {"arquivos": SimpleUploadedFile("nota.xml", xml_cancelada())}, follow=True)
         self.assertContains(uso, "APURAÇÃO BLOQUEADA")
@@ -255,8 +264,14 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(DocumentoXML.objects.count(), 0)
         inscricoes = [
             {"inscricao_estadual": "248025829", "ativo": True, "estado": {"sigla": "BA"}},
+            {"inscricao_estadual": "073307130", "ativo": True, "estado": {"sigla": "CE"}},
             {"inscricao_estadual": "0047805660026", "ativo": True, "estado": {"sigla": "MG"}},
+            {"inscricao_estadual": "813035560114", "ativo": True, "estado": {"sigla": "SP"}},
             {"inscricao_estadual": "000", "ativo": False, "estado": {"sigla": "MG"}},
         ]
         self.assertEqual(ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, "MG"), "0047805660026")
         self.assertEqual(ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, "RJ"), "")
+        self.assertEqual(
+            ServicoConsultaCNPJ.substituicoes_das_inscricoes(inscricoes, "MG"),
+            {"BA": "248025829", "CE": "073307130", "SP": "813035560114"},
+        )

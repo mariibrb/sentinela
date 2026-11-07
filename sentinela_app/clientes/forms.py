@@ -3,7 +3,7 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from clientes.cnpj import somente_digitos
-from clientes.models import Colaborador, Empresa
+from clientes.models import Colaborador, Empresa, InscricaoSubstituto
 
 CAMPO = {
     "class": (
@@ -65,6 +65,16 @@ class EmpresaForm(forms.ModelForm):
             self.fields[nome].queryset = opcoes.order_by("nome")
             self.fields[nome].required = False
             self.fields[nome].empty_label = "Definir depois"
+        gravadas = {}
+        if self.instance.pk:
+            gravadas = {item.uf: item.numero for item in self.instance.substituicoes.all()}
+        for sigla, nome in InscricaoSubstituto.UFS:
+            self.fields[f"ie_st_{sigla}"] = forms.CharField(
+                label=sigla,
+                required=False,
+                initial=gravadas.get(sigla, ""),
+                widget=forms.TextInput(attrs={**CAMPO, "placeholder": nome, "inputmode": "numeric"}),
+            )
 
     def clean(self):
         limpo = super().clean()
@@ -88,6 +98,24 @@ class EmpresaForm(forms.ModelForm):
         if nome and not nome.lower().endswith(".pdf"):
             raise forms.ValidationError("Anexe o regime especial em PDF.")
         return arquivo
+
+    def save(self, commit=True):
+        empresa = super().save(commit=commit)
+        if commit:
+            self.gravar_substituicoes(empresa)
+        return empresa
+
+    def gravar_substituicoes(self, empresa):
+        for sigla, _nome in InscricaoSubstituto.UFS:
+            numero = somente_digitos(self.cleaned_data.get(f"ie_st_{sigla}") or "")
+            atual = empresa.substituicoes.filter(uf=sigla).first()
+            if numero and atual:
+                atual.numero = numero
+                atual.save(update_fields=["numero"])
+            elif numero:
+                InscricaoSubstituto.objects.create(empresa=empresa, uf=sigla, numero=numero)
+            elif atual:
+                atual.delete()
 
     def clean_codigo_dominio(self):
         codigo = somente_digitos(self.cleaned_data["codigo_dominio"])

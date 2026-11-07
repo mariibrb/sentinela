@@ -33,6 +33,16 @@
     {% include "clientes/_campo.html" with campo=form.cnae_principal %}
   </div>
 
+  <h2 class="mb-1 text-lg font-bold">Inscrição de substituto tributário</h2>
+  <p class="mb-3 text-sm text-stone-500">Uma inscrição por UF, como no registro 0015 do SPED. A IE da UF do estabelecimento fica no campo principal.</p>
+  <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    {% for campo in form %}
+      {% if "ie_st_" in campo.name %}
+        {% include "clientes/_campo.html" with campo=campo %}
+      {% endif %}
+    {% endfor %}
+  </div>
+
   <h2 class="mb-3 text-lg font-bold">Localização</h2>
   <div class="mb-6 grid gap-4 sm:grid-cols-2">
     {% include "clientes/_campo.html" with campo=form.cep %}
@@ -97,6 +107,10 @@
           campo.value = valor;
           campo.dispatchEvent(new Event("change"));
         }
+      });
+      Object.entries(dados.substituicoes || {}).forEach(([uf, valor]) => {
+        const campo = document.getElementById(`id_ie_st_${uf}`);
+        if (campo && valor) campo.value = valor;
       });
       mostrar("Dados públicos do CNPJ preenchidos. Confira a inscrição estadual, o regime e o código Domínio.", true);
     } catch (_erro) {

@@ -55,6 +55,7 @@ class ServicoConsultaCNPJ:
             raise ValidationError("Os 14 números foram lidos, mas os dois últimos dígitos não conferem. Confira o CNPJ.")
 
         data = ServicoConsultaCNPJ._baixar_cadastro(cnpj)
+        inscricoes = ServicoConsultaCNPJ.baixar_inscricoes(cnpj)
         municipio = data.get("municipio", "") or ""
         uf = data.get("uf", "") or ""
         codigo_ibge = ServicoConsultaCNPJ.buscar_codigo_ibge(municipio, uf) or str(data.get("codigo_municipio_ibge") or "")
@@ -75,7 +76,8 @@ class ServicoConsultaCNPJ:
             "codigo_ibge": codigo_ibge,
             "cnae_principal": str(data.get("cnae_fiscal", "") or ""),
             "regime_tributario": "Simples Nacional" if data.get("opcao_pelo_simples") else "Lucro Presumido",
-            "inscricao_estadual": ServicoConsultaCNPJ.inscricao_da_uf(cnpj, uf),
+            "inscricao_estadual": ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, uf),
+            "substituicoes": ServicoConsultaCNPJ.substituicoes_das_inscricoes(inscricoes, uf),
         }
 
     @staticmethod
@@ -99,7 +101,20 @@ class ServicoConsultaCNPJ:
         return candidatas[0][1]
 
     @staticmethod
-    def inscricao_da_uf(cnpj, uf):
+    def substituicoes_das_inscricoes(inscricoes, uf):
+        casa = (uf or "").strip().upper()
+        resultado = {}
+        for item in inscricoes or []:
+            if not isinstance(item, dict) or not item.get("ativo"):
+                continue
+            estado = str(((item.get("estado") or {}).get("sigla") or "")).upper()
+            numero = "".join(caractere for caractere in str(item.get("inscricao_estadual") or "") if caractere.isdigit())
+            if estado and estado != casa and numero and estado not in resultado:
+                resultado[estado] = numero
+        return resultado
+
+    @staticmethod
+    def baixar_inscricoes(cnpj):
         try:
             response = requests.get(
                 f"https://publica.cnpj.ws/cnpj/{cnpj}",
@@ -107,14 +122,11 @@ class ServicoConsultaCNPJ:
                 headers=_CABECALHO,
             )
             if response.status_code != 200:
-                return ""
+                return []
             estabelecimento = response.json().get("estabelecimento") or {}
-            return ServicoConsultaCNPJ.escolher_inscricao_estadual(
-                estabelecimento.get("inscricoes_estaduais"),
-                uf,
-            )
+            return estabelecimento.get("inscricoes_estaduais") or []
         except (requests.RequestException, ValueError, TypeError):
-            return ""
+            return []
 
     @staticmethod
     def buscar_codigo_ibge(municipio, uf):

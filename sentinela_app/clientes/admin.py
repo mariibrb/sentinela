@@ -1,16 +1,22 @@
 from django.contrib import admin
 
-from clientes.models import Colaborador, DocumentoXML, Empresa, LogAlteracao
+from clientes.models import Colaborador, DocumentoXML, Empresa, InscricaoSubstituto, LogAlteracao
 
 admin.site.site_header = "Sentinela"
 admin.site.site_title = "Sentinela"
 admin.site.index_title = "Cadastros"
 
 
+class InscricaoSubstitutoInline(admin.TabularInline):
+    model = InscricaoSubstituto
+    extra = 0
+
+
 @admin.register(Empresa)
 class EmpresaAdmin(admin.ModelAdmin):
     list_display = ("codigo_dominio", "razao_social", "cnpj", "uf", "regime_tributario", "perfil_estabelecimento", "responsavel_apuracao", "responsavel_revisao", "status")
     search_fields = ("codigo_dominio", "razao_social", "cnpj", "responsavel_apuracao__nome", "responsavel_revisao__nome")
+    inlines = (InscricaoSubstitutoInline,)
 
 
 @admin.register(Colaborador)

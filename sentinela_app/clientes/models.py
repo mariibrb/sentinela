@@ -182,6 +182,35 @@ class Empresa(models.Model):
                 kwargs["update_fields"] = set(campos) | {"regime_pis_cofins"}
         super().save(*args, **kwargs)
 
+    def texto_substituicoes(self):
+        if not self.pk:
+            return ""
+        return ", ".join(f"{item.uf} {item.numero}" for item in self.substituicoes.all())
+
+
+class InscricaoSubstituto(models.Model):
+    UFS = (
+        ("AC", "Acre"), ("AL", "Alagoas"), ("AM", "Amazonas"), ("AP", "Amapá"),
+        ("BA", "Bahia"), ("CE", "Ceará"), ("DF", "Distrito Federal"), ("ES", "Espírito Santo"),
+        ("GO", "Goiás"), ("MA", "Maranhão"), ("MG", "Minas Gerais"), ("MS", "Mato Grosso do Sul"),
+        ("MT", "Mato Grosso"), ("PA", "Pará"), ("PB", "Paraíba"), ("PE", "Pernambuco"),
+        ("PI", "Piauí"), ("PR", "Paraná"), ("RJ", "Rio de Janeiro"), ("RN", "Rio Grande do Norte"),
+        ("RO", "Rondônia"), ("RR", "Roraima"), ("RS", "Rio Grande do Sul"), ("SC", "Santa Catarina"),
+        ("SE", "Sergipe"), ("SP", "São Paulo"), ("TO", "Tocantins"),
+    )
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="substituicoes")
+    uf = models.CharField(max_length=2, choices=UFS)
+    numero = models.CharField(max_length=30, verbose_name="Inscrição")
+
+    class Meta:
+        ordering = ["uf"]
+        constraints = [models.UniqueConstraint(fields=["empresa", "uf"], name="inscricao_substituto_unica")]
+        verbose_name = "Inscrição de substituto tributário"
+        verbose_name_plural = "Inscrições de substituto tributário"
+
+    def __str__(self):
+        return f"{self.uf} {self.numero}"
+
 
 class DocumentoXML(models.Model):
     empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="documentos")
