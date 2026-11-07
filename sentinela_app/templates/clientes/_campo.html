@@ -1,0 +1,5 @@
+<div class="{% if largo %}sm:col-span-2{% endif %}">
+  <label class="mb-1 block text-sm font-semibold text-stone-500" for="{{ campo.id_for_label }}">{{ campo.label }}</label>
+  {{ campo }}
+  {% for erro in campo.errors %}<p class="mt-1 text-sm text-red-600">{{ erro }}</p>{% endfor %}
+</div>

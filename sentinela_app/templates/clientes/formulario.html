@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block titulo %}Cadastro · Sentinela{% endblock %}
+{% block corpo %}
+<form method="post" enctype="multipart/form-data" class="rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
+  {% csrf_token %}
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-sm font-semibold text-pink-700">Cadastro do estabelecimento</p>
+      <h1 class="text-3xl font-extrabold">{% if empresa %}{{ empresa.razao_social }}{% else %}Novo cliente{% endif %}</h1>
+    </div>
+    <button type="button" class="rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 font-semibold text-pink-700 shadow-sm" id="buscar-cnpj">Buscar CNPJ</button>
+  </div>
+  <p id="aviso-cnpj" class="mb-4 hidden rounded-xl border px-4 py-3 shadow-sm"></p>
+  {% if form.non_field_errors %}<p class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm">{{ form.non_field_errors }}</p>{% endif %}
+
+  <h2 class="mb-3 text-lg font-bold">Identificação</h2>
+  <div class="mb-6 grid gap-4 sm:grid-cols-2">
+    {% include "clientes/_campo.html" with campo=form.codigo_dominio %}
+    {% include "clientes/_campo.html" with campo=form.cnpj %}
+    {% include "clientes/_campo.html" with campo=form.tipo_estabelecimento %}
+    {% include "clientes/_campo.html" with campo=form.status %}
+    {% include "clientes/_campo.html" with campo=form.razao_social largo=1 %}
+    {% include "clientes/_campo.html" with campo=form.nome_fantasia %}
+    {% include "clientes/_campo.html" with campo=form.responsavel_apuracao %}
+    {% include "clientes/_campo.html" with campo=form.responsavel_revisao %}
+  </div>
+
+  <h2 class="mb-3 text-lg font-bold">Inscrições</h2>
+  <div class="mb-6 grid gap-4 sm:grid-cols-2">
+    {% include "clientes/_campo.html" with campo=form.inscricao_estadual %}
+    {% include "clientes/_campo.html" with campo=form.inscricao_municipal %}
+    {% include "clientes/_campo.html" with campo=form.suframa %}
+    {% include "clientes/_campo.html" with campo=form.cnae_principal %}
+  </div>
+
+  <h2 class="mb-3 text-lg font-bold">Localização</h2>
+  <div class="mb-6 grid gap-4 sm:grid-cols-2">
+    {% include "clientes/_campo.html" with campo=form.cep %}
+    {% include "clientes/_campo.html" with campo=form.uf %}
+    {% include "clientes/_campo.html" with campo=form.logradouro largo=1 %}
+    {% include "clientes/_campo.html" with campo=form.numero %}
+    {% include "clientes/_campo.html" with campo=form.complemento %}
+    {% include "clientes/_campo.html" with campo=form.bairro %}
+    {% include "clientes/_campo.html" with campo=form.municipio %}
+    {% include "clientes/_campo.html" with campo=form.codigo_ibge %}
+  </div>
+
+  <h2 class="mb-3 text-lg font-bold">Parâmetros tributários</h2>
+  <div class="mb-6 grid gap-4 sm:grid-cols-2">
+    {% include "clientes/_campo.html" with campo=form.regime_tributario %}
+    {% include "clientes/_campo.html" with campo=form.anexo_simples %}
+    {% include "clientes/_campo.html" with campo=form.regime_pis_cofins %}
+    <p id="ajuda-pis" class="text-sm text-pink-800 sm:col-span-2">O regime de PIS/COFINS acompanha o regime tributário.</p>
+    {% include "clientes/_campo.html" with campo=form.perfil_estabelecimento largo=1 %}
+    <div class="flex flex-wrap gap-4 sm:col-span-2">
+      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_icms }} Contribuinte de ICMS</label>
+      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_ipi }} Contribuinte de IPI</label>
+      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.possui_regime_especial }} Regime especial</label>
+    </div>
+    <div id="caixa-pta" class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:col-span-2">
+      <p id="chamada-pta" class="mb-3 text-sm text-stone-500">O PDF do PTA entra em evidência quando o perfil for regime especial de MG ou de SP.</p>
+      {% include "clientes/_campo.html" with campo=form.documento_regime_especial %}
+    </div>
+  </div>
+  <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Gravar cadastro e criar pastas</button>
+</form>
+<script>
+  document.getElementById("buscar-cnpj").addEventListener("click", async () => {
+    const aviso = document.getElementById("aviso-cnpj");
+    const cnpj = document.getElementById("id_cnpj").value.replace(/\D/g, "");
+    const mostrar = (texto, indisponivel) => {
+      aviso.hidden = false;
+      aviso.classList.remove("hidden");
+      aviso.textContent = texto;
+      aviso.className = indisponivel
+        ? "mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm"
+        : "mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm";
+    };
+    if (cnpj.length !== 14) {
+      mostrar("Informe os 14 números do CNPJ. Pontos, barra e traço são ignorados.", false);
+      return;
+    }
+    mostrar("Consultando o CNPJ…", true);
+    try {
+      const resposta = await fetch(`/clientes/cnpj/${cnpj}/`);
+      let dados = {};
+      try { dados = await resposta.json(); } catch (_erro) { dados = {}; }
+      if (!resposta.ok || dados.manual) {
+        const texto = dados.erro || "Consulta automática indisponível no momento";
+        const queda = texto.startsWith("Consulta automática indisponível");
+        mostrar(queda ? `${texto}. Preencha razão social, endereço, município e código IBGE neste formulário.` : texto, queda);
+        return;
+      }
+      Object.entries(dados.campos || {}).forEach(([nome, valor]) => {
+        const campo = document.getElementById(`id_${nome}`);
+        if (campo && valor) {
+          campo.value = valor;
+          campo.dispatchEvent(new Event("change"));
+        }
+      });
+      mostrar("Dados públicos do CNPJ preenchidos. Confira a inscrição estadual, o regime e o código Domínio.", true);
+    } catch (_erro) {
+      mostrar("Consulta automática indisponível no momento. Preencha razão social, endereço, município e código IBGE neste formulário.", true);
+    }
+  });
+
+  const regime = document.getElementById("id_regime_tributario");
+  const pis = document.getElementById("id_regime_pis_cofins");
+  const perfil = document.getElementById("id_perfil_estabelecimento");
+  const caixaPta = document.getElementById("caixa-pta");
+  const chamadaPta = document.getElementById("chamada-pta");
+  const anexo = document.getElementById("id_anexo_simples");
+  const ajudaPis = document.getElementById("ajuda-pis");
+  const vinculoPis = {
+    "Lucro Real": "Não-Cumulativo",
+    "Lucro Presumido": "Cumulativo",
+    "Simples Nacional": "Simples Nacional",
+  };
+  const textosPis = {
+    "Lucro Real": "Lucro Real define o PIS/COFINS como Não-Cumulativo.",
+    "Lucro Presumido": "Lucro Presumido define o PIS/COFINS como Cumulativo.",
+    "Simples Nacional": "No Simples Nacional, o PIS/COFINS segue o anexo escolhido.",
+  };
+  const ajustarPis = () => {
+    const valor = vinculoPis[regime.value] || "";
+    pis.innerHTML = "";
+    const opcao = document.createElement("option");
+    opcao.value = valor;
+    opcao.textContent = valor || "Aguarda o regime tributário";
+    pis.appendChild(opcao);
+    pis.value = valor;
+    pis.disabled = Boolean(valor);
+    pis.classList.toggle("bg-stone-100", Boolean(valor));
+    const simples = regime.value === "Simples Nacional";
+    if (anexo) {
+      anexo.required = simples;
+      anexo.closest("div").classList.toggle("rounded-xl", simples);
+      anexo.closest("div").classList.toggle("bg-pink-50", simples);
+      anexo.closest("div").classList.toggle("p-3", simples);
+    }
+    if (ajudaPis) {
+      ajudaPis.textContent = textosPis[regime.value] || "O regime de PIS/COFINS acompanha o regime tributário.";
+    }
+  };
+  const ajustarPta = (rolar) => {
+    const especial = perfil.value === "REGIME_ESPECIAL_MG" || perfil.value === "REGIME_ESPECIAL_SP";
+    caixaPta.className = especial
+      ? "rounded-2xl border-2 border-pink-600 bg-pink-50 p-4 shadow-sm ring-2 ring-pink-200 sm:col-span-2"
+      : "rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:col-span-2";
+    chamadaPta.textContent = especial
+      ? "Anexe o PDF oficial do PTA ou do regime especial. Este documento comprova o tratamento tributário do cliente."
+      : "O PDF do PTA entra em evidência quando o perfil for regime especial de MG ou de SP.";
+    chamadaPta.className = especial ? "mb-3 text-sm font-semibold text-pink-800" : "mb-3 text-sm text-stone-500";
+    if (especial) {
+      const marcador = document.getElementById("id_possui_regime_especial");
+      if (marcador) marcador.checked = true;
+      if (rolar) caixaPta.scrollIntoView({ block: "nearest" });
+    }
+  };
+  regime.addEventListener("change", ajustarPis);
+  perfil.addEventListener("change", () => ajustarPta(true));
+  ajustarPis();
+  ajustarPta(false);
+</script>
+{% endblock %}

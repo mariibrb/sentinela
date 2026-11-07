@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block classe %}flex min-h-screen items-center justify-center px-4{% endblock %}
+{% block titulo %}Entrar · Sentinela{% endblock %}
+{% block corpo %}
+<section class="w-full max-w-md rounded-2xl border border-pink-100 bg-white p-6 shadow-sm">
+  <h1 class="mb-1 text-3xl font-extrabold">Sentinela</h1>
+  <p class="mb-4 text-stone-500">Entre com o usuário do escritório. A empresa e a competência ficam travadas na sessão.</p>
+  <form method="post" class="space-y-3">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<p class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm">{{ form.non_field_errors }}</p>{% endif %}
+    <p><label class="text-sm font-semibold text-stone-500" for="{{ form.username.id_for_label }}">Usuário</label>{{ form.username }}</p>
+    <p><label class="text-sm font-semibold text-stone-500" for="{{ form.password.id_for_label }}">Senha</label>{{ form.password }}</p>
+    <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Entrar</button>
+  </form>
+</section>
+{% endblock %}

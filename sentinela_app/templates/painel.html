@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load sentinela_tags %}
+{% block titulo %}Painel · Sentinela{% endblock %}
+{% block corpo %}
+<section class="mb-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+  <h1 class="text-3xl font-extrabold">{% if empresa_ativa %}{{ empresa_ativa.codigo_dominio }} · {{ empresa_ativa.razao_social }}{% else %}Escolha a empresa ativa{% endif %}</h1>
+  <p class="mb-3 text-stone-500">A competência {{ competencia_rotulo }} vale para a triagem e para a auditoria.</p>
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    <form method="post" action="{% url 'definir_competencia' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="ano" value="{{ ano_ativo|add:'-1' }}"><input type="hidden" name="mes" value="{{ mes_ativo }}"><button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{{ ano_ativo|add:"-1" }}</button></form>
+    <strong>{{ ano_ativo }}</strong>
+    <form method="post" action="{% url 'definir_competencia' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="ano" value="{{ ano_ativo|add:'1' }}"><input type="hidden" name="mes" value="{{ mes_ativo }}"><button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{{ ano_ativo|add:"1" }}</button></form>
+  </div>
+  <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    {% for nome in meses_nomes %}
+    <form method="post" action="{% url 'definir_competencia' %}">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.path }}">
+      <input type="hidden" name="mes" value="{{ forloop.counter }}">
+      <input type="hidden" name="ano" value="{{ ano_ativo }}">
+      <button type="submit" class="w-full rounded-xl px-2 py-2 text-sm shadow-sm {% if mes_ativo == forloop.counter %}bg-pink-600 text-white{% else %}border border-stone-200 bg-white{% endif %}">{{ nome }}</button>
+    </form>
+    {% endfor %}
+  </div>
+</section>
+{% if empresa_ativa %}
+{% if bloqueio %}
+<p class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm">{{ bloqueio }}</p>
+{% endif %}
+{% if resumo_icms %}
+<section class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <article class="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Débitos de ICMS</p><p class="text-2xl font-extrabold">R$ {{ resumo_icms.total_debitos|brl }}</p></article>
+  <article class="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Créditos de ICMS</p><p class="text-2xl font-extrabold">R$ {{ resumo_icms.total_creditos|brl }}</p></article>
+  <article class="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Saldo apurado</p><p class="text-2xl font-extrabold">R$ {{ resumo_icms.saldo_icms|brl }}</p></article>
+  <article class="rounded-2xl border border-blue-100 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">ICMS-ST acumulado</p><p class="text-2xl font-extrabold">R$ {{ resumo_icms.total_icms_st|brl }}</p></article>
+</section>
+<section class="mb-4 rounded-2xl border border-emerald-100 bg-emerald-50 p-5 shadow-sm">
+  <h2 class="mb-1 text-lg font-bold">PIS e COFINS</h2>
+  <p class="mb-3 text-sm text-emerald-900">{{ pis.regime }}. {{ pis.explicacao }}</p>
+  <div class="grid gap-3 sm:grid-cols-2">
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-sm text-stone-500">PIS</span><strong class="block">R$ {{ pis.pis|brl }}</strong></div>
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-sm text-stone-500">COFINS</span><strong class="block">R$ {{ pis.cofins|brl }}</strong></div>
+  </div>
+</section>
+{% if resumo_icms.alertas_encontrados %}
+<section class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+  <h2 class="mb-2 text-lg font-bold text-red-700">Alertas de emissão</h2>
+  {% for alerta in resumo_icms.alertas_encontrados %}
+  <p class="text-red-800">{{ alerta.numero }} · {{ alerta.descricao }} {{ alerta.sugestao }}</p>
+  {% endfor %}
+</section>
+{% endif %}
+{% endif %}
+<section class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+  <h2 class="text-lg font-bold text-red-700">Notas com incorreções ou ausentes no SPED</h2>
+  <p class="mb-3 text-sm text-red-800">{{ notas_divergentes|length }} ocorrência(s)</p>
+  <div class="overflow-auto rounded-2xl border border-red-100 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-red-50 text-xs uppercase tracking-wide text-red-800"><tr><th class="px-3 py-3">Nota / chave</th><th class="px-3 py-3">Diagnóstico</th><th class="px-3 py-3">Sugestão</th></tr></thead>
+      <tbody>
+        {% for nota in notas_divergentes %}
+        <tr class="border-t border-red-50">
+          <td class="px-3 py-3">Nº {{ nota.numero_nota }}<br><span class="font-mono text-xs">{{ nota.chave_acesso }}</span></td>
+          <td class="px-3 py-3">{{ nota.mensagem_divergencia }}</td>
+          <td class="px-3 py-3">{{ nota.sugestao_correcao }}</td>
+        </tr>
+        {% empty %}
+        <tr><td class="px-3 py-4 text-stone-500" colspan="3">Nenhuma divergência encontrada nesta competência.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% else %}
+<section class="mb-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+  <h2 class="mb-3 text-lg font-bold">Empresas do escritório</h2>
+  <div class="overflow-auto rounded-2xl border border-stone-200">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800"><tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3"></th></tr></thead>
+      <tbody>
+        {% for empresa in empresas %}
+        <tr class="border-t border-stone-100">
+          <td class="px-3 py-3">{{ empresa.codigo_dominio }}</td>
+          <td class="px-3 py-3">{{ empresa.razao_social }}</td>
+          <td class="px-3 py-3">{{ empresa.cnpj }}</td>
+          <td class="px-3 py-3">
+            <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Ativar</button></form>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td class="px-3 py-4 text-stone-500" colspan="4">Nenhuma empresa ainda. Abra Clientes e faça o primeiro cadastro.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+<section class="grid gap-4 md:grid-cols-3">
+  <a class="rounded-2xl border border-pink-100 bg-pink-50 p-5 shadow-sm" href="{% url 'lista_empresas' %}"><p class="text-sm text-pink-700">Módulo 1</p><strong class="mt-1 block text-xl">Clientes</strong><p class="mt-2 text-stone-600">Cadastro, consulta de CNPJ e pastas da empresa.</p></a>
+  <a class="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm" href="{% url 'triagem' %}"><p class="text-sm text-violet-700">Módulo 2</p><strong class="mt-1 block text-xl">Triagem de XML</strong><p class="mt-2 text-stone-600">Lê NF-e e NFC-e e separa a pasta da empresa ativa.</p></a>
+  <a class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm" href="{% url 'auditoria' %}"><p class="text-sm text-blue-700">Módulo 3</p><strong class="mt-1 block text-xl">Auditoria</strong><p class="mt-2 text-stone-600">Soma o XML da competência e cruza com o C100 do SPED.</p></a>
+</section>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% load sentinela_tags %}
+{% block titulo %}Clientes · Sentinela{% endblock %}
+{% block corpo %}
+<section class="mb-4 rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <p class="text-sm font-semibold text-pink-700">Módulo de clientes</p>
+      <h1 class="text-3xl font-extrabold">Clientes</h1>
+      <p class="text-stone-500">Cada código Domínio é um estabelecimento. Matriz e filial são cadastros separados.</p>
+    </div>
+    <a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>
+  </div>
+  <form method="get" class="flex flex-wrap gap-2">
+    <input class="w-full max-w-sm rounded-xl border border-stone-200 px-3 py-2.5 shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome ou CNPJ">
+    <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 shadow-sm" type="submit">Filtrar</button>
+  </form>
+</section>
+<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <table class="w-full text-left text-sm">
+    <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
+      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Perfil</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3"></th></tr>
+    </thead>
+    <tbody>
+      {% for empresa in empresas %}
+      <tr class="border-t border-stone-100">
+        <td class="px-3 py-3">{{ empresa.codigo_dominio }}</td>
+        <td class="px-3 py-3"><a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a></td>
+        <td class="px-3 py-3">{{ empresa.cnpj|cnpj }}</td>
+        <td class="px-3 py-3">{{ empresa.uf }}</td>
+        <td class="px-3 py-3">{{ empresa.regime_tributario }}</td>
+        <td class="px-3 py-3">{{ empresa.get_perfil_estabelecimento_display }}</td>
+        <td class="px-3 py-3">{{ empresa.notas }}</td>
+        <td class="px-3 py-3">
+          <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Ativar</button></form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="8">Nenhum cliente encontrado.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}
