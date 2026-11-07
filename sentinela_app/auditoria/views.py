@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 from auditoria.sped_motor import MotorSpedCruzamento
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa
+from clientes.trilha import registrar
 
 
 def _empresa_ativa(request):
@@ -65,14 +66,31 @@ def cruzar(request):
     except CadastroIncompleto as erro:
         messages.error(request, str(erro))
         return redirect("auditoria")
+    competencia = request.session.get("competencia", "")
+    anteriores = {
+        nota.chave_acesso: f"{nota.mensagem_divergencia or ''} | {nota.sugestao_correcao or ''}"
+        for nota in DocumentoXML.objects.filter(empresa=empresa, competencia=competencia)
+    }
     with tempfile.TemporaryDirectory() as pasta:
         caminho = Path(pasta) / "sped.txt"
         caminho.write_bytes(arquivo.read())
-        resultado = MotorSpedCruzamento(empresa, request.session.get("competencia", ""), caminho).executar_cruzamento()
+        resultado = MotorSpedCruzamento(empresa, competencia, caminho).executar_cruzamento()
     if resultado["erro"]:
         messages.error(request, resultado["erro"])
         return redirect("auditoria")
     request.session["sped_ausentes"] = resultado["sem_xml_no_sped"]
+    for nota in DocumentoXML.objects.filter(empresa=empresa, competencia=competencia):
+        novo = f"{nota.mensagem_divergencia or ''} | {nota.sugestao_correcao or ''}"
+        registrar(request.user, empresa, "AJUSTE", f"Nota {nota.numero_nota}", anteriores.get(nota.chave_acesso, ""), novo)
+    for nota in resultado["sem_xml_no_sped"]:
+        registrar(
+            request.user,
+            empresa,
+            "AJUSTE",
+            f"C100 {nota['numero']}",
+            "",
+            "A chave está no SPED e não há XML nesta competência.",
+        )
     messages.success(
         request,
         f"Cruzamento feito com {resultado['total_notas_sped']} chaves do C100 e {resultado['total_xmls_lidos']} XML da competência.",

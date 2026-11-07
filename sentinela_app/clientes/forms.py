@@ -1,7 +1,8 @@
 from django import forms
+from django.db.models import Q
 
 from clientes.cnpj import somente_digitos
-from clientes.models import Empresa
+from clientes.models import Colaborador, Empresa
 
 CAMPO = {
     "class": (
@@ -27,8 +28,8 @@ class EmpresaForm(forms.ModelForm):
             "razao_social": forms.TextInput(attrs=CAMPO),
             "nome_fantasia": forms.TextInput(attrs=CAMPO),
             "status": forms.TextInput(attrs=CAMPO),
-            "responsavel_apuracao": forms.TextInput(attrs=CAMPO),
-            "responsavel_revisao": forms.TextInput(attrs=CAMPO),
+            "responsavel_apuracao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
+            "responsavel_revisao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
             "inscricao_estadual": forms.TextInput(attrs=CAMPO),
             "inscricao_municipal": forms.TextInput(attrs=CAMPO),
             "suframa": forms.TextInput(attrs=CAMPO),
@@ -55,6 +56,13 @@ class EmpresaForm(forms.ModelForm):
         self.fields["regime_pis_cofins"].choices = list(Empresa.REGIMES_PIS_COFINS)
         self.fields["anexo_simples"].choices = [("", "Selecione o anexo")] + list(Empresa.ANEXOS_SIMPLES)
         self.fields["perfil_estabelecimento"].choices = list(Empresa.PERFIS_ESTABELECIMENTO)
+        for nome in ("responsavel_apuracao", "responsavel_revisao"):
+            atual = getattr(self.instance, f"{nome}_id", None)
+            opcoes = Colaborador.objects.filter(ativo=True)
+            if atual:
+                opcoes = Colaborador.objects.filter(Q(ativo=True) | Q(pk=atual))
+            self.fields[nome].queryset = opcoes.order_by("nome")
+            self.fields[nome].empty_label = "Buscar colaborador"
 
     def clean(self):
         limpo = super().clean()
@@ -99,3 +107,14 @@ class EmpresaForm(forms.ModelForm):
         if len(codigo) != 7:
             raise forms.ValidationError("O código IBGE do município tem 7 números.")
         return codigo
+
+
+class ColaboradorForm(forms.ModelForm):
+    class Meta:
+        model = Colaborador
+        fields = ("nome", "cargo", "email", "ativo")
+        widgets = {
+            "nome": forms.TextInput(attrs=CAMPO),
+            "cargo": forms.TextInput(attrs=CAMPO),
+            "email": forms.EmailInput(attrs=CAMPO),
+        }

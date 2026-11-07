@@ -10,4 +10,4 @@ class FormularioEntrada(AuthenticationForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields["username"].widget.attrs["class"] = CAMPO
-        self.fields["password"].widget.attrs["class"] = CAMPO
+        self.fields["password"].widget.attrs["class"] = CAMPO.replace("px-3", "pl-3 pr-12")

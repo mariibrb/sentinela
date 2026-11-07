@@ -161,5 +161,54 @@
   perfil.addEventListener("change", () => ajustarPta(true));
   ajustarPis();
   ajustarPta(false);
+
+  document.querySelectorAll("select[data-busca='colaborador']").forEach((select) => {
+    const caixa = document.createElement("div");
+    caixa.className = "relative";
+    select.parentNode.insertBefore(caixa, select);
+    caixa.appendChild(select);
+    select.classList.add("hidden");
+    const campo = document.createElement("input");
+    campo.type = "text";
+    campo.placeholder = "Digite o nome do colaborador";
+    campo.autocomplete = "off";
+    campo.className = "w-full rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-stone-900 shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100";
+    const escolhida = select.selectedOptions[0];
+    if (escolhida && escolhida.value) campo.value = escolhida.textContent.trim();
+    const lista = document.createElement("ul");
+    lista.className = "absolute z-30 mt-1 hidden max-h-48 w-full overflow-auto rounded-xl border border-stone-200 bg-white p-1 shadow-sm";
+    const opcoes = [...select.options].filter((opcao) => opcao.value);
+    const desenhar = () => {
+      const termo = campo.value.trim().toLocaleLowerCase("pt-BR");
+      lista.replaceChildren();
+      opcoes.filter((opcao) => opcao.textContent.toLocaleLowerCase("pt-BR").includes(termo)).forEach((opcao) => {
+        const item = document.createElement("li");
+        const botao = document.createElement("button");
+        botao.type = "button";
+        botao.className = "w-full rounded-xl px-3 py-2 text-left text-sm hover:bg-pink-50";
+        botao.textContent = opcao.textContent.trim();
+        botao.addEventListener("click", () => {
+          select.value = opcao.value;
+          campo.value = opcao.textContent.trim();
+          lista.classList.add("hidden");
+        });
+        item.appendChild(botao);
+        lista.appendChild(item);
+      });
+      lista.classList.toggle("hidden", lista.children.length === 0);
+    };
+    campo.addEventListener("focus", desenhar);
+    campo.addEventListener("input", () => { select.value = ""; desenhar(); });
+    caixa.appendChild(campo);
+    caixa.appendChild(lista);
+  });
+  document.addEventListener("click", (evento) => {
+    document.querySelectorAll("select[data-busca='colaborador']").forEach((select) => {
+      if (!select.parentElement.contains(evento.target)) {
+        const lista = select.parentElement.querySelector("ul");
+        if (lista) lista.classList.add("hidden");
+      }
+    });
+  });
 </script>
 {% endblock %}

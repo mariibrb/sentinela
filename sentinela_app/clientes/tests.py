@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
-from clientes.models import DocumentoXML, Empresa
+from clientes.models import Colaborador, DocumentoXML, Empresa
 
 CNPJ = "45785442000390"
 CHAVE = "31261045785442000390550010000001231123456789"
@@ -35,6 +35,8 @@ class FluxoSentinelaTest(TestCase):
         self.ajuste = override_settings(PASTA_MAE=self.pasta.name, MEDIA_ROOT=self.pasta.name)
         self.ajuste.enable()
         User.objects.create_user("analista", password="senha-teste-123")
+        self.apuracao = Colaborador.objects.create(nome="Ismael", cargo="Analista", email="contato@nascel.com.br")
+        self.revisao = Colaborador.objects.create(nome="Mariana Barbosa", cargo="Revisão", email="mariana.barbosa@nascel.com.br")
         self.client.login(username="analista", password="senha-teste-123")
 
     def tearDown(self):
@@ -54,8 +56,8 @@ class FluxoSentinelaTest(TestCase):
             "razao_social": "AFFONSO DESCARTAVEIS LTDA",
             "nome_fantasia": "AFFONSO",
             "status": "Ativo",
-            "responsavel_apuracao": "Ismael",
-            "responsavel_revisao": "Mariana Barbosa",
+            "responsavel_apuracao": self.apuracao.pk,
+            "responsavel_revisao": self.revisao.pk,
             "inscricao_estadual": "0047805660026",
             "cnae_principal": "4649499",
             "cep": "37646028",
@@ -108,8 +110,8 @@ class FluxoSentinelaTest(TestCase):
             codigo_dominio="1",
             cnpj="11222333000181",
             razao_social="SEM CNAE",
-            responsavel_apuracao="Ismael",
-            responsavel_revisao="Mariana Barbosa",
+            responsavel_apuracao=self.apuracao,
+            responsavel_revisao=self.revisao,
             regime_pis_cofins="Cumulativo",
             cnae_principal="",
             cep="01310930",
@@ -133,8 +135,8 @@ class FluxoSentinelaTest(TestCase):
             "tipo_estabelecimento": "Matriz",
             "razao_social": "CLIENTE REGIME ESPECIAL",
             "status": "Ativo",
-            "responsavel_apuracao": "Ismael",
-            "responsavel_revisao": "Mariana Barbosa",
+            "responsavel_apuracao": self.apuracao.pk,
+            "responsavel_revisao": self.revisao.pk,
             "inscricao_estadual": "ISENTO",
             "cnae_principal": "4649499",
             "cep": "01310930",
@@ -164,3 +166,14 @@ class FluxoSentinelaTest(TestCase):
         self.assertTrue(empresa.documento_regime_especial.name.endswith(".pdf"))
         self.assertTrue(empresa.possui_regime_especial)
         self.assertEqual(empresa.regime_pis_cofins, "Não-Cumulativo")
+
+    def test_colaborador_nao_entra_no_admin(self):
+        bloqueado = self.client.get("/colaboradores/", follow=True)
+        self.assertContains(bloqueado, "Essa área é restrita ao administrador.")
+        admin = self.client.get("/admin/", follow=True)
+        self.assertContains(admin, "O painel administrativo é restrito ao administrador.")
+        User.objects.create_user("dev", password="senha-admin-123", is_staff=True)
+        self.client.login(username="dev", password="senha-admin-123")
+        liberado = self.client.get("/colaboradores/")
+        self.assertEqual(liberado.status_code, 200)
+        self.assertContains(liberado, "Ismael")

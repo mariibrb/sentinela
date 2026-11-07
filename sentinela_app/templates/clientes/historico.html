@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block titulo %}Histórico · Sentinela{% endblock %}
+{% block corpo %}
+<section class="mb-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <h1 class="text-3xl font-extrabold">Histórico</h1>
+      <p class="text-stone-500">
+        {% if empresa_travada %}{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }}{% else %}Todas as empresas do escritório{% endif %}.
+        Cada linha guarda quem alterou, quando, o valor anterior e o valor novo.
+      </p>
+    </div>
+    <form method="post" action="{% url 'exportar_sharepoint' %}">
+      {% csrf_token %}
+      <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm" type="submit">Atualizar acervo no SharePoint</button>
+    </form>
+  </div>
+</section>
+<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <table class="w-full text-left text-sm">
+    <thead class="bg-stone-100 text-xs uppercase tracking-wide text-stone-600">
+      <tr>
+        <th class="px-3 py-3">Quando</th>
+        <th class="px-3 py-3">Quem</th>
+        <th class="px-3 py-3">Ação</th>
+        <th class="px-3 py-3">Campo</th>
+        <th class="px-3 py-3">Valor anterior</th>
+        <th class="px-3 py-3">Valor novo</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr class="border-t border-stone-100 {% if log.acao == 'AJUSTE' %}bg-red-50{% endif %}">
+        <td class="px-3 py-3 whitespace-nowrap">{{ log.quando|date:"d/m/Y H:i:s" }}</td>
+        <td class="px-3 py-3">{% if log.usuario %}{{ log.usuario.get_full_name|default:log.usuario.username }}{% else %}sistema{% endif %}</td>
+        <td class="px-3 py-3">{{ log.get_acao_display }}</td>
+        <td class="px-3 py-3">{{ log.campo }}</td>
+        <td class="px-3 py-3">{{ log.valor_anterior }}</td>
+        <td class="px-3 py-3">{{ log.valor_novo }}</td>
+      </tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhuma alteração registrada nesta visão.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endblock %}

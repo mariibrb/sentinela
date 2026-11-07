@@ -10,9 +10,13 @@ from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.competencia import deslocar, montar
 from clientes.forms import EmpresaForm
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
-from clientes.models import DocumentoXML, Empresa
+from clientes.acesso import administrador, apenas_administrador
+from clientes.backup import exportar_pacote
+from clientes.forms import ColaboradorForm
+from clientes.models import Colaborador, DocumentoXML, Empresa, LogAlteracao
 from clientes.pastas import criar_pastas
 from clientes.services import ConsultaIndisponivel, ServicoConsultaCNPJ
+from clientes.trilha import foto_empresa, registrar, registrar_empresa
 
 
 @login_required
@@ -99,7 +103,9 @@ def editar_empresa(request, empresa_id=None):
     empresa = get_object_or_404(Empresa, pk=empresa_id) if empresa_id else None
     form = EmpresaForm(request.POST or None, request.FILES or None, instance=empresa)
     if request.method == "POST" and form.is_valid():
+        antes = foto_empresa(empresa)
         empresa = form.save()
+        registrar_empresa(request.user, antes, empresa)
         raiz = criar_pastas(empresa)
         messages.success(request, f"Cadastro gravado. Pastas criadas em {raiz}.")
         return redirect("lista_empresas")
@@ -117,3 +123,71 @@ def buscar_cnpj(request, cnpj):
     except Exception:
         return JsonResponse({"erro": "Consulta automática indisponível no momento", "manual": True})
     return JsonResponse({"campos": dados})
+
+
+def _empresa_da_sessao(request):
+    empresa_id = request.session.get("empresa_id")
+    if not empresa_id:
+        return None
+    return Empresa.objects.filter(pk=empresa_id).first()
+
+
+@login_required
+def historico(request):
+    request.modulo = "historico"
+    empresa = _empresa_da_sessao(request)
+    logs = LogAlteracao.objects.select_related("usuario", "empresa")
+    if empresa is not None:
+        logs = logs.filter(empresa=empresa)
+    elif not administrador(request.user):
+        logs = logs.none()
+    return render(request, "clientes/historico.html", {"logs": logs[:200], "empresa_travada": empresa})
+
+
+@login_required
+@require_POST
+def exportar_sharepoint(request):
+    empresa = _empresa_da_sessao(request)
+    competencia = request.session.get("competencia", "")
+    if empresa is None or not competencia:
+        messages.error(request, "Escolha a empresa e a competência antes de atualizar o acervo.")
+        return redirect("historico")
+    try:
+        destino = exportar_pacote(empresa, competencia)
+    except ValueError as erro:
+        messages.error(request, str(erro))
+        return redirect("historico")
+    registrar(
+        request.user,
+        empresa,
+        "BACKUP",
+        "Pacote do mês",
+        "",
+        str(destino),
+    )
+    messages.success(request, f"Acervo atualizado em {destino}.")
+    return redirect("historico")
+
+
+@apenas_administrador
+def area_restrita(request):
+    request.modulo = "restrita"
+    return render(request, "restrita.html")
+
+
+@apenas_administrador
+def lista_colaboradores(request):
+    request.modulo = "colaboradores"
+    return render(request, "colaboradores/lista.html", {"colaboradores": Colaborador.objects.all()})
+
+
+@apenas_administrador
+def editar_colaborador(request, colaborador_id=None):
+    request.modulo = "colaboradores"
+    colaborador = get_object_or_404(Colaborador, pk=colaborador_id) if colaborador_id else None
+    form = ColaboradorForm(request.POST or None, instance=colaborador)
+    if request.method == "POST" and form.is_valid():
+        form.save()
+        messages.success(request, "Colaborador gravado.")
+        return redirect("lista_colaboradores")
+    return render(request, "colaboradores/formulario.html", {"form": form, "colaborador": colaborador})

@@ -5,6 +5,7 @@ from django.views.decorators.http import require_POST
 
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa
+from clientes.trilha import registrar
 from triagem_xml.servico import importar_uploads
 
 
@@ -38,7 +39,9 @@ def importar(request):
         return redirect("triagem")
     try:
         validar_cadastro_para_apuracao(empresa)
-        total = importar_uploads(empresa, arquivos, request.session.get("competencia", ""))
+        competencia = request.session.get("competencia", "")
+        total = importar_uploads(empresa, arquivos, competencia)
+        registrar(request.user, empresa, "TRIAGEM", "Lote de XML", "", f"{total} XML na competência {competencia}")
     except CadastroIncompleto as erro:
         messages.error(request, str(erro))
         return redirect("triagem")

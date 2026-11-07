@@ -29,6 +29,7 @@
         <a href="{% url 'lista_empresas' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'clientes' %}bg-pink-50 font-semibold text-pink-700{% else %}text-stone-500{% endif %}">Clientes</a>
         <a href="{% url 'triagem' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'triagem' %}bg-violet-50 font-semibold text-violet-700{% else %}text-stone-500{% endif %}">Triagem</a>
         <a href="{% url 'auditoria' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'auditoria' %}bg-blue-50 font-semibold text-blue-700{% else %}text-stone-500{% endif %}">Auditoria</a>
+        <a href="{% url 'historico' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'historico' %}bg-stone-200 font-semibold text-stone-900{% else %}text-stone-500{% endif %}">Histórico</a>
       </nav>
       <div class="ml-auto flex flex-wrap items-center gap-2">
         <form method="post" action="{% url 'definir_competencia' %}">
@@ -58,6 +59,9 @@
             {% endfor %}
           </ul>
         </div>
+        {% if eh_administrador %}
+        <a href="{% url 'area_restrita' %}" class="rounded-xl px-3 py-2 text-sm font-semibold shadow-sm {% if modulo == 'restrita' or modulo == 'colaboradores' %}bg-pink-600 text-white{% else %}bg-pink-50 text-pink-700{% endif %}">Área restrita</a>
+        {% endif %}
         <form method="post" action="{% url 'sair' %}">{% csrf_token %}<button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">Sair</button></form>
       </div>
     </div>

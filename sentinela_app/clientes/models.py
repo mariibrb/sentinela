@@ -1,11 +1,27 @@
 from pathlib import Path
 
+from django.conf import settings
 from django.db import models
 
 
 def caminho_documento_regime(empresa, nome_arquivo):
     cnpj = "".join(caractere for caractere in str(empresa.cnpj or "") if caractere.isdigit()) or "sem-cnpj"
     return f"regimes_especiais/{cnpj}/{Path(nome_arquivo).name}"
+
+
+class Colaborador(models.Model):
+    nome = models.CharField(max_length=120, verbose_name="Nome")
+    cargo = models.CharField(max_length=80, verbose_name="Cargo / função")
+    email = models.EmailField(blank=True, verbose_name="E-mail")
+    ativo = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["nome"]
+        verbose_name = "Colaborador"
+        verbose_name_plural = "Colaboradores"
+
+    def __str__(self):
+        return self.nome
 
 
 class Empresa(models.Model):
@@ -51,8 +67,20 @@ class Empresa(models.Model):
     razao_social = models.CharField(max_length=255, verbose_name="Razão Social")
     nome_fantasia = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome Fantasia / Pasta")
     status = models.CharField(max_length=20, default="Ativo", verbose_name="Status")
-    responsavel_apuracao = models.CharField(max_length=100, verbose_name="Responsável pela apuração")
-    responsavel_revisao = models.CharField(max_length=100, verbose_name="Responsável pela revisão")
+    responsavel_apuracao = models.ForeignKey(
+        Colaborador,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="apuracoes",
+        verbose_name="Responsável pela apuração",
+    )
+    responsavel_revisao = models.ForeignKey(
+        Colaborador,
+        null=True,
+        on_delete=models.PROTECT,
+        related_name="revisoes",
+        verbose_name="Responsável pela revisão",
+    )
 
     # Bloco B: Inscrições e Dados Cadastrais
     inscricao_estadual = models.CharField(max_length=30, default="ISENTO", verbose_name="IE Principal")
@@ -160,3 +188,41 @@ class DocumentoXML(models.Model):
 
     def __str__(self):
         return f"{self.modelo} {self.numero_nota} · {self.chave_acesso}"
+
+
+class LogAlteracao(models.Model):
+    ACOES = [
+        ("CADASTRO", "Cadastro"),
+        ("REGIME", "Regime"),
+        ("TRIAGEM", "Triagem de XML"),
+        ("AJUSTE", "Ajuste fiscal"),
+        ("BACKUP", "Backup do acervo"),
+    ]
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="logs_sentinela",
+    )
+    quando = models.DateTimeField(auto_now_add=True)
+    empresa = models.ForeignKey(
+        Empresa,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="logs",
+    )
+    acao = models.CharField(max_length=20, choices=ACOES)
+    campo = models.CharField(max_length=80)
+    valor_anterior = models.TextField(blank=True)
+    valor_novo = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ["-quando", "-id"]
+        verbose_name = "Log de alteração"
+        verbose_name_plural = "Logs de alteração"
+        indexes = [models.Index(fields=["empresa", "quando"])]
+
+    def __str__(self):
+        return f"{self.quando:%d/%m/%Y %H:%M} {self.campo}"
