@@ -144,7 +144,9 @@ def excluir_empresa(request, empresa_id):
     nome = empresa.razao_social
     if request.session.get("empresa_id") == empresa.pk:
         request.session.pop("empresa_id", None)
+    codigo = empresa.codigo_dominio
     empresa.delete()
+    registrar(request.user, None, "EXCLUSAO", f"Cliente {codigo}", nome, "excluído")
     messages.success(request, f"Cliente excluído: {nome}.")
     return redirect("lista_empresas")
 
@@ -228,7 +230,14 @@ def editar_colaborador(request, colaborador_id=None):
         form.save()
         messages.success(request, "Colaborador gravado.")
         return redirect("lista_colaboradores")
-    return render(request, "colaboradores/formulario.html", {"form": form, "colaborador": colaborador})
+    feitos = []
+    if colaborador is not None and colaborador.usuario_id:
+        feitos = LogAlteracao.objects.filter(usuario_id=colaborador.usuario_id).select_related("empresa")[:150]
+    return render(
+        request,
+        "colaboradores/formulario.html",
+        {"form": form, "colaborador": colaborador, "feitos": feitos},
+    )
 
 
 @require_POST
@@ -255,5 +264,6 @@ def excluir_colaborador(request, colaborador_id):
             f"{nome} é responsável pela apuração ou pela revisão de um cliente. Troque o responsável ou inative o colaborador.",
         )
         return redirect("lista_colaboradores")
+    registrar(request.user, None, "EXCLUSAO", "Colaborador", nome, "excluído")
     messages.success(request, f"Colaborador excluído: {nome}.")
     return redirect("lista_colaboradores")

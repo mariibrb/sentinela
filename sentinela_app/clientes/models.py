@@ -253,6 +253,9 @@ class LogAlteracao(models.Model):
         ("TRIAGEM", "Triagem de XML"),
         ("AJUSTE", "Ajuste fiscal"),
         ("BACKUP", "Backup do acervo"),
+        ("ENTRADA", "Entrada"),
+        ("SAIDA", "Saída"),
+        ("EXCLUSAO", "Exclusão"),
     ]
     usuario = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -282,3 +285,14 @@ class LogAlteracao(models.Model):
 
     def __str__(self):
         return f"{self.quando:%d/%m/%Y %H:%M} {self.campo}"
+
+    def tipo_feito(self):
+        if self.acao == "ENTRADA":
+            return "Entrada"
+        if self.acao == "SAIDA":
+            return "Saída"
+        if self.acao == "EXCLUSAO":
+            return "Exclusão"
+        if not (self.valor_anterior or "").strip():
+            return "Inclusão"
+        return "Alteração"

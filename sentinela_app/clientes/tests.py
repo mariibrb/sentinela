@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 
-from clientes.models import Colaborador, DocumentoXML, Empresa
+from clientes.models import Colaborador, DocumentoXML, Empresa, LogAlteracao
 from clientes.services import ServicoConsultaCNPJ
 
 CNPJ = "45785442000390"
@@ -221,6 +221,23 @@ class FluxoSentinelaTest(TestCase):
         liberado = self.client.get("/colaboradores/")
         self.assertEqual(liberado.status_code, 200)
         self.assertContains(liberado, "Ismael")
+
+    def test_cadastro_mostra_situacao_e_acoes_reais(self):
+        pessoa = Colaborador.objects.get(usuario=self.usuario)
+        self.assertTrue(LogAlteracao.objects.filter(usuario=self.usuario, acao="ENTRADA").exists())
+        User.objects.create_user("dev2", password="senha-admin-123", is_staff=True)
+        self.client.login(username="dev2", password="senha-admin-123")
+        tela = self.client.get(f"/colaboradores/{pessoa.pk}/")
+        self.assertContains(tela, "Ativo")
+        self.assertContains(tela, "Inativo")
+        self.assertContains(tela, "Entrada")
+        self.assertContains(tela, "Entrou no Sentinela")
+        self.client.logout()
+        self.assertTrue(LogAlteracao.objects.filter(usuario__username="dev2", acao="SAIDA").exists())
+        pessoa.ativo = False
+        pessoa.save(update_fields=["ativo"])
+        recusa = self.client.post("/entrar/", {"username": "analista", "password": "senha-teste-123"})
+        self.assertContains(recusa, "Este colaborador está inativo.")
 
     def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
         tela = self.client.get("/clientes/nova/")

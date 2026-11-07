@@ -183,3 +183,12 @@ class ColaboradorForm(forms.ModelForm):
         self.fields["usuario"].queryset = opcoes.order_by("username")
         self.fields["usuario"].required = False
         self.fields["usuario"].empty_label = "Sem acesso ao sistema"
+        self.fields["ativo"] = forms.ChoiceField(
+            label="Situação",
+            choices=[("1", "Ativo"), ("0", "Inativo")],
+            widget=forms.Select(attrs=CAMPO),
+            initial="1" if self.instance.ativo else "0",
+        )
+
+    def clean_ativo(self):
+        return self.cleaned_data["ativo"] == "1"
