@@ -8,27 +8,90 @@
   <p class="mb-4 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}. O XML entra na pasta da empresa e na leitura da sessão.</p>
   <form id="lote" method="post" action="{% url 'importar_xml' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte aqui o ZIP, os XML ou uma pasta. Até 10 mil arquivos por envio. PDF e imagem ficam de fora.</div>
+    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Até 10 mil arquivos por leitura. PDF e imagem ficam de fora.</div>
+    <p id="resumo-lote" class="mb-2 text-sm font-semibold text-violet-800">Nenhum arquivo na fila. Pode acrescentar aos poucos.</p>
+    <ul id="fila-lote" class="mb-3 max-h-64 space-y-1 overflow-auto"></ul>
     <div class="flex flex-wrap items-center gap-2">
-      <input class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" id="arquivos" type="file" name="arquivos" accept=".xml,.zip" multiple required>
-      <input class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" id="pasta" type="file" name="arquivos" webkitdirectory directory multiple>
-      <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm" type="submit">Ler XML</button>
+      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-arquivos" type="button">Acrescentar XML ou ZIP</button>
+      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-pasta" type="button">Acrescentar pasta</button>
+      <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm disabled:bg-stone-300" id="ler-xml" type="submit" disabled>Ler XML</button>
+      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-stone-600 shadow-sm" id="limpar-fila" type="button">Limpar fila</button>
     </div>
+    <input class="hidden" id="arquivos" type="file" accept=".xml,.zip" multiple>
+    <input class="hidden" id="pasta" type="file" webkitdirectory directory multiple>
+    <input class="hidden" id="envio" type="file" name="arquivos" multiple>
   </form>
   <script>
+    const formulario = document.getElementById("lote");
     const zona = document.getElementById("soltar");
     const campo = document.getElementById("arquivos");
     const pasta = document.getElementById("pasta");
+    const envio = document.getElementById("envio");
+    const fila = document.getElementById("fila-lote");
+    const resumo = document.getElementById("resumo-lote");
+    const ler = document.getElementById("ler-xml");
+    const acumulado = new Map();
+    const chave = (arquivo) => `${arquivo.webkitRelativePath || arquivo.name}|${arquivo.size}|${arquivo.lastModified}`;
+    const acrescentar = (lista) => {
+      for (const arquivo of lista) acumulado.set(chave(arquivo), arquivo);
+      desenhar();
+    };
+    const desenhar = () => {
+      fila.replaceChildren();
+      const arquivos = [...acumulado.values()];
+      resumo.textContent = arquivos.length
+        ? `${arquivos.length} arquivo(s) na fila. Pode acrescentar mais antes de ler.`
+        : "Nenhum arquivo na fila. Pode acrescentar aos poucos.";
+      ler.disabled = arquivos.length === 0;
+      ler.textContent = arquivos.length ? `Ler ${arquivos.length} arquivo(s)` : "Ler XML";
+      arquivos.forEach((arquivo) => {
+        const item = document.createElement("li");
+        item.className = "flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm";
+        const nome = document.createElement("span");
+        nome.className = "truncate";
+        nome.textContent = arquivo.webkitRelativePath || arquivo.name;
+        const tirar = document.createElement("button");
+        tirar.type = "button";
+        tirar.className = "rounded-xl px-2 py-1 text-stone-500 hover:bg-stone-100";
+        tirar.textContent = "Tirar";
+        tirar.addEventListener("click", () => {
+          acumulado.delete(chave(arquivo));
+          desenhar();
+        });
+        item.append(nome, tirar);
+        fila.append(item);
+      });
+    };
+    document.getElementById("abrir-arquivos").addEventListener("click", () => campo.click());
+    document.getElementById("abrir-pasta").addEventListener("click", () => pasta.click());
+    campo.addEventListener("change", () => {
+      acrescentar(campo.files);
+      campo.value = "";
+    });
+    pasta.addEventListener("change", () => {
+      acrescentar(pasta.files);
+      pasta.value = "";
+    });
+    document.getElementById("limpar-fila").addEventListener("click", () => {
+      acumulado.clear();
+      desenhar();
+    });
     zona.addEventListener("dragover", (evento) => { evento.preventDefault(); zona.classList.add("bg-white"); });
     zona.addEventListener("dragleave", () => zona.classList.remove("bg-white"));
     zona.addEventListener("drop", (evento) => {
       evento.preventDefault();
       zona.classList.remove("bg-white");
-      campo.files = evento.dataTransfer.files;
-      pasta.value = "";
-      campo.required = true;
+      acrescentar(evento.dataTransfer.files);
     });
-    pasta.addEventListener("change", () => { if (pasta.files.length) campo.required = false; });
+    formulario.addEventListener("submit", (evento) => {
+      if (!acumulado.size) {
+        evento.preventDefault();
+        return;
+      }
+      const transferencia = new DataTransfer();
+      for (const arquivo of acumulado.values()) transferencia.items.add(arquivo);
+      envio.files = transferencia.files;
+    });
   </script>
   {% else %}
   <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">Escolha a empresa ativa no painel. A triagem só lê a empresa travada na sessão.</p>
