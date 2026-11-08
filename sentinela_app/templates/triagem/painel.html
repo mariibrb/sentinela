@@ -8,7 +8,7 @@
   <p class="mb-4 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}. O XML entra na pasta da empresa e na leitura da sessão. O Garimpeiro lê o mesmo lote e grava o arquivo, a autenticidade e o fechamento na pasta Garimpeiro, junto do que o Sentinela guarda.</p>
   <form id="lote" method="post" action="{% url 'importar_xml' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Até 10 mil arquivos por leitura. PDF e imagem ficam de fora.</div>
+    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Até 100 mil arquivos por leitura. PDF e imagem ficam de fora.</div>
     <p id="resumo-lote" class="mb-2 text-sm font-semibold text-violet-800">Nenhum arquivo na fila. Pode acrescentar aos poucos.</p>
     <ul id="fila-lote" class="mb-3 max-h-64 space-y-1 overflow-auto"></ul>
     <div class="flex flex-wrap items-center gap-2">

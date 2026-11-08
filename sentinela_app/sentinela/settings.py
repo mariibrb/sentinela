@@ -159,8 +159,8 @@ for _pasta in (STATIC_ROOT, MEDIA_ROOT, SHAREPOINT_ROOT_DIR, PASTA_MAE):
     _pasta.mkdir(parents=True, exist_ok=True)
 
 # Um lote de XML passa fácil de 100 arquivos. O padrão do Django recusa o envio inteiro.
-DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", "10000"))
-DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FIELDS", "20000"))
+DATA_UPLOAD_MAX_NUMBER_FILES = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FILES", "100000"))
+DATA_UPLOAD_MAX_NUMBER_FIELDS = int(os.getenv("DATA_UPLOAD_MAX_NUMBER_FIELDS", "200000"))
 FILE_UPLOAD_MAX_MEMORY_SIZE = int(os.getenv("FILE_UPLOAD_MAX_MEMORY_SIZE", str(256 * 1024)))
 
 LOGIN_URL = 'login'
