@@ -346,16 +346,29 @@ class FluxoSentinelaTest(TestCase):
         )
         self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/garimpeiro/"})
         self.client.post("/clientes/competencia/", {"mes": "10", "ano": "2026", "next": "/triagem/garimpeiro/"})
+        from datetime import date
+        DocumentoXML.objects.create(
+            empresa=empresa, competencia="102026", modelo="55", chave_acesso=CHAVE,
+            numero_nota="1", serie="1", data_emissao=date(2026, 10, 15),
+            tipo_operacao="SAIDA_PROPRIA", status_sefa="AUTORIZADA",
+        )
+        chave_cancelada = CHAVE[:-1] + "0"
+        DocumentoXML.objects.create(
+            empresa=empresa, competencia="102026", modelo="55", chave_acesso=chave_cancelada,
+            numero_nota="3", serie="1", data_emissao=date(2026, 10, 16),
+            tipo_operacao="SAIDA_PROPRIA", status_sefa="CANCELADA",
+        )
         tela = self.client.get("/triagem/garimpeiro/")
         self.assertContains(tela, "O que foi lido")
+        self.assertContains(tela, CHAVE)
         self.assertContains(tela, "Buracos")
         self.assertContains(tela, "Canceladas")
         self.assertContains(tela, "Extrair planilha")
         self.assertContains(tela, "Extrair XML")
         canceladas = self.client.get("/triagem/garimpeiro/?aba=canceladas")
-        self.assertContains(canceladas, "Nada nesta aba")
+        self.assertContains(canceladas, chave_cancelada)
         buracos = self.client.get("/triagem/garimpeiro/?aba=buracos")
-        self.assertContains(buracos, "Nenhum buraco")
+        self.assertContains(buracos, ">2<")
         planilha = self.client.post("/triagem/garimpeiro/extrair/", {"aba": "lidos", "tipo": "planilha"})
         self.assertEqual(planilha.status_code, 200)
         self.assertIn("text/csv", planilha["Content-Type"])

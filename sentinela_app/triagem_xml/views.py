@@ -85,8 +85,7 @@ def garimpeiro(request):
     painel = None
     periodo = _periodo(request)
     if empresa is not None and periodo is not None:
-        ano, mes = periodo
-        painel = montar(empresa.cnpj, ano, mes, aba)
+        painel = montar(empresa, request.session.get("competencia", ""), aba)
     return render(request, "triagem/garimpeiro.html", {
         "empresa_travada": empresa,
         "aba": aba,
@@ -105,10 +104,11 @@ def extrair_garimpeiro(request):
         messages.error(request, "Escolha a empresa e a competência antes de extrair.")
         return redirect("garimpeiro")
     ano, mes = periodo
+    competencia = request.session.get("competencia", "")
     aba = _aba(request.POST.get("aba", ""))
     nome = f"garimpeiro_{aba}_{mes:02d}{ano}"
     if request.POST.get("tipo") == "xml":
-        conteudo, gravados, sem_arquivo = zip_xml(empresa.cnpj, ano, mes, aba)
+        conteudo, gravados, sem_arquivo = zip_xml(empresa, competencia, aba)
         if gravados == 0:
             messages.warning(
                 request,
@@ -120,7 +120,7 @@ def extrair_garimpeiro(request):
         resposta = HttpResponse(conteudo, content_type="application/zip")
         resposta["Content-Disposition"] = f'attachment; filename="{nome}.zip"'
         return resposta
-    texto = planilha(empresa.cnpj, ano, mes, aba)
+    texto = planilha(empresa, competencia, aba)
     resposta = HttpResponse("\ufeff" + texto, content_type="text/csv; charset=utf-8")
     resposta["Content-Disposition"] = f'attachment; filename="{nome}.csv"'
     return resposta

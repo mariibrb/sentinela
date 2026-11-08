@@ -18,7 +18,7 @@
   <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm"><p class="text-sm text-violet-700">Lidos</p><strong class="text-2xl">{{ painel.resumo.total }}</strong></div>
   <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Próprias</p><strong class="text-2xl">{{ painel.resumo.propria }}</strong></div>
   <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Terceiros</p><strong class="text-2xl">{{ painel.resumo.terceiros }}</strong></div>
-  <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm"><p class="text-sm text-red-700">Canceladas</p><strong class="text-2xl">{{ painel.contagens.CANCELADOS|default:0 }}</strong></div>
+  <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm"><p class="text-sm text-red-700">Canceladas</p><strong class="text-2xl">{{ painel.contagens.CANCELADA|default:0 }}</strong></div>
 </section>
 <nav class="mb-4 flex flex-wrap gap-2">
   {% for codigo, rotulo in abas %}
@@ -92,7 +92,7 @@
     <thead class="bg-violet-50 text-xs uppercase tracking-wide text-violet-800"><tr><th class="px-3 py-3">Modelo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Nota</th><th class="px-3 py-3">Emissão</th><th class="px-3 py-3">Lado</th><th class="px-3 py-3">Status</th><th class="px-3 py-3">Chave</th></tr></thead>
     <tbody>
       {% for linha in painel.linhas %}
-      <tr class="border-t border-stone-100 {% if linha.status == 'CANCELADOS' or linha.status == 'REJEITADOS' or linha.status == 'DENEGADOS' %}bg-red-50{% endif %}">
+      <tr class="border-t border-stone-100 {% if linha.status == 'CANCELADA' or linha.status == 'OUTROS' or linha.status == 'DENEGADA' %}bg-red-50{% endif %}">
         <td class="px-3 py-3">{{ linha.modelo }}</td>
         <td class="px-3 py-3">{{ linha.serie }}</td>
         <td class="px-3 py-3">{{ linha.numero }}</td>
