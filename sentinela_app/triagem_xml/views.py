@@ -43,7 +43,7 @@ def importar(request):
     try:
         validar_cadastro_para_apuracao(empresa)
         competencia = request.session.get("competencia", "")
-        total = importar_uploads(empresa, arquivos, competencia)
+        total, garimpo_ok, texto_garimpo = importar_uploads(empresa, arquivos, competencia)
         registrar(request.user, empresa, "TRIAGEM", "Lote de XML", "", f"{total} XML na competência {competencia}")
     except CadastroIncompleto as erro:
         messages.error(request, str(erro))
@@ -55,4 +55,8 @@ def importar(request):
         )
         return redirect("triagem")
     messages.success(request, f"Leitura concluída: {total} XML processados na pasta do mês.")
+    if garimpo_ok:
+        messages.success(request, f"Garimpeiro: {texto_garimpo}")
+    else:
+        messages.warning(request, texto_garimpo)
     return redirect("triagem")

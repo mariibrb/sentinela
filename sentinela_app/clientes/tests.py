@@ -348,3 +348,21 @@ class MatrioscaZipTest(SimpleTestCase):
             encontrados = list(destino.rglob("nota.xml"))
             self.assertEqual(len(encontrados), 1)
             self.assertEqual(encontrados[0].read_bytes(), b"<nfe>dentro</nfe>")
+
+
+class GarimpeiroOriginalTest(SimpleTestCase):
+    def test_motor_original_grava_arquivo_fora_da_pasta_do_escritorio(self):
+        from garimpeiro_legado.ponte import pasta_resultados, processar_garimpo
+
+        with tempfile.TemporaryDirectory() as pasta:
+            os_environ = __import__("os").environ
+            os_environ["GARIMPEIRO_DATA_ROOT"] = pasta
+            nota = Path(pasta) / "nota.xml"
+            nota.write_bytes(xml_cancelada())
+            ok, mensagem, quantidade = processar_garimpo(CNPJ, [nota])
+            raiz = pasta_resultados()
+        self.assertNotIn("escritafiscal", str(raiz).lower())
+        self.assertNotIn("onedrive", str(raiz).lower())
+        self.assertTrue(ok, mensagem)
+        self.assertGreaterEqual(quantidade, 1)
+        self.assertIn("documento", mensagem.lower())
