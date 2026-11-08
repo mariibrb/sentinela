@@ -361,8 +361,20 @@ class GarimpeiroOriginalTest(SimpleTestCase):
             nota.write_bytes(xml_cancelada())
             ok, mensagem, quantidade = processar_garimpo(CNPJ, [nota])
             raiz = pasta_resultados()
+            self.assertTrue((raiz / "ArquivoFiscal").is_dir())
         self.assertNotIn("escritafiscal", str(raiz).lower())
         self.assertNotIn("onedrive", str(raiz).lower())
         self.assertTrue(ok, mensagem)
         self.assertGreaterEqual(quantidade, 1)
         self.assertIn("documento", mensagem.lower())
+
+    def test_garimpeiro_fica_dentro_da_pasta_do_sentinela(self):
+        from django.test import override_settings
+
+        from garimpeiro_legado.ponte import pasta_do_sentinela
+
+        with tempfile.TemporaryDirectory() as pasta:
+            with override_settings(PASTA_MAE=pasta):
+                destino = pasta_do_sentinela()
+            self.assertEqual(destino, Path(pasta) / "Garimpeiro")
+            self.assertTrue(destino.is_dir())

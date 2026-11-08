@@ -9,9 +9,6 @@ import threading
 import types
 from pathlib import Path
 
-PASTA_ESCRITORIO = Path(
-    r"C:\Users\bjmar\OneDrive - NASCEL CONTABILIDADE LTDA\Nascel Contabilidade - escritafiscal\escritafiscal\Garimpeiro"
-)
 _MOTOR = None
 _TRAVA = threading.Lock()
 
@@ -91,8 +88,17 @@ def _em_teste() -> bool:
     return any(parte == "test" for parte in sys.argv)
 
 
+def pasta_do_sentinela() -> Path:
+    """Garimpeiro dentro da pasta mapeada em que o Sentinela guarda os clientes."""
+    from django.conf import settings
+
+    pasta = Path(settings.PASTA_MAE) / "Garimpeiro"
+    pasta.mkdir(parents=True, exist_ok=True)
+    return pasta
+
+
 def pasta_resultados() -> Path:
-    """Pasta em que o arquivo, a autenticidade e o fechamento já vivem."""
+    """Arquivo, autenticidade e fechamento ficam na pasta do Sentinela."""
     env = (os.environ.get("GARIMPEIRO_DATA_ROOT") or "").strip().strip('"').strip("'")
     if _em_teste():
         if env and "onedrive" not in env.lower() and "escritafiscal" not in env.lower():
@@ -101,12 +107,8 @@ def pasta_resultados() -> Path:
             pasta = Path(tempfile.gettempdir()) / "sentinela_garimpeiro_teste"
     elif env:
         pasta = Path(env)
-    elif PASTA_ESCRITORIO.is_dir():
-        pasta = PASTA_ESCRITORIO
     else:
-        from django.conf import settings
-
-        pasta = Path(settings.MEDIA_ROOT) / "garimpeiro"
+        return pasta_do_sentinela()
     pasta.mkdir(parents=True, exist_ok=True)
     return pasta
 
@@ -167,6 +169,9 @@ def processar_garimpo(cnpj: str, caminhos) -> tuple[bool, str, int]:
             motor,
             cnpj,
             [Path(caminho) for caminho in caminhos],
+            enviar_sieg=False,
+            enviar_autenticidade=True,
+            enviar_contabilidade=True,
         )
         return bool(ok), str(mensagem), int(quantidade or 0)
     except Exception as erro:
