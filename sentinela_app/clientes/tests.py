@@ -239,6 +239,10 @@ class FluxoSentinelaTest(TestCase):
         recusa = self.client.post("/entrar/", {"username": "analista", "password": "senha-teste-123"})
         self.assertContains(recusa, "Este colaborador está inativo.")
 
+    def test_lote_aceita_mais_de_cem_arquivos(self):
+        from django.conf import settings
+        self.assertGreaterEqual(settings.DATA_UPLOAD_MAX_NUMBER_FILES, 10000)
+
     def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
         tela = self.client.get("/clientes/nova/")
         self.assertNotContains(tela, 'value="ISENTO"')

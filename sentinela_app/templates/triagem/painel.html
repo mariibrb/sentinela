@@ -8,7 +8,7 @@
   <p class="mb-4 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}. O XML entra na pasta da empresa e na leitura da sessão.</p>
   <form id="lote" method="post" action="{% url 'importar_xml' %}" enctype="multipart/form-data">
     {% csrf_token %}
-    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte aqui o ZIP, os XML ou uma pasta. PDF e imagem ficam de fora.</div>
+    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte aqui o ZIP, os XML ou uma pasta. Até 10 mil arquivos por envio. PDF e imagem ficam de fora.</div>
     <div class="flex flex-wrap items-center gap-2">
       <input class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" id="arquivos" type="file" name="arquivos" accept=".xml,.zip" multiple required>
       <input class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" id="pasta" type="file" name="arquivos" webkitdirectory directory multiple>

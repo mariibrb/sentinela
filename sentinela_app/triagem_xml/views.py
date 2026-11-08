@@ -48,5 +48,11 @@ def importar(request):
     except CadastroIncompleto as erro:
         messages.error(request, str(erro))
         return redirect("triagem")
+    except Exception:
+        messages.error(
+            request,
+            "A leitura desse lote não terminou. Envie os XML em um ZIP ou divida em partes menores.",
+        )
+        return redirect("triagem")
     messages.success(request, f"Leitura concluída: {total} XML processados na pasta do mês.")
     return redirect("triagem")

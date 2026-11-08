@@ -1,9 +1,11 @@
 from django.conf import settings
 from django.conf.urls.static import static
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.contrib.auth import views as auth_views
+from django.core.exceptions import TooManyFilesSent
 from django.shortcuts import redirect
 from django.urls import include, path
+from django.views.defaults import bad_request
 
 from clientes.views import area_restrita, exportar_sharepoint, historico, painel
 from sentinela.forms import FormularioEntrada
@@ -13,6 +15,17 @@ def inicio(request):
     if request.user.is_authenticated:
         return redirect("painel")
     return redirect("login")
+
+
+def erro_de_envio(request, exception):
+    if isinstance(exception, TooManyFilesSent):
+        messages.error(
+            request,
+            f"O lote passou de {settings.DATA_UPLOAD_MAX_NUMBER_FILES} arquivos de uma vez. "
+            "Junte os XML em um ZIP ou envie em partes.",
+        )
+        return redirect("triagem")
+    return bad_request(request, exception)
 
 
 urlpatterns = [
@@ -29,5 +42,7 @@ urlpatterns = [
     path("triagem/", include("triagem_xml.urls")),
     path("auditoria/", include("auditoria.urls")),
 ]
+handler400 = erro_de_envio
+
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
