@@ -28,6 +28,7 @@
         <a href="{% url 'painel' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'painel' %}bg-pink-50 font-semibold text-pink-700{% else %}text-stone-500{% endif %}">Painel</a>
         <a href="{% url 'lista_empresas' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'clientes' %}bg-pink-50 font-semibold text-pink-700{% else %}text-stone-500{% endif %}">Clientes</a>
         {% if permissoes.pode_triar %}<a href="{% url 'triagem' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'triagem' %}bg-violet-50 font-semibold text-violet-700{% else %}text-stone-500{% endif %}">Triagem</a>{% endif %}
+        {% if permissoes.pode_triar %}<a href="{% url 'garimpeiro' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'garimpeiro' %}bg-violet-50 font-semibold text-violet-700{% else %}text-stone-500{% endif %}">Garimpeiro</a>{% endif %}
         {% if permissoes.pode_auditar %}<a href="{% url 'auditoria' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'auditoria' %}bg-blue-50 font-semibold text-blue-700{% else %}text-stone-500{% endif %}">Auditoria</a>{% endif %}
         <a href="{% url 'historico' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'historico' %}bg-stone-200 font-semibold text-stone-900{% else %}text-stone-500{% endif %}">Histórico</a>
       </nav>

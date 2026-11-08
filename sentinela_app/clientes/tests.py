@@ -325,6 +325,44 @@ class FluxoSentinelaTest(TestCase):
         )
 
 
+    def test_tela_do_garimpeiro_lista_o_que_foi_lido(self):
+        empresa = Empresa.objects.create(
+            codigo_dominio="580",
+            cnpj=CNPJ,
+            razao_social="AFFONSO DESCARTAVEIS LTDA",
+            responsavel_apuracao=self.apuracao,
+            responsavel_revisao=self.revisao,
+            regime_pis_cofins="Cumulativo",
+            cnae_principal="4649499",
+            cep="37646028",
+            logradouro="ESTRADA",
+            numero="1137",
+            bairro="RODEIO",
+            uf="MG",
+            municipio="EXTREMA",
+            codigo_ibge="3125101",
+            regime_tributario="Lucro Presumido",
+            inscricao_estadual="0047805660026",
+        )
+        self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/garimpeiro/"})
+        self.client.post("/clientes/competencia/", {"mes": "10", "ano": "2026", "next": "/triagem/garimpeiro/"})
+        tela = self.client.get("/triagem/garimpeiro/")
+        self.assertContains(tela, "O que foi lido")
+        self.assertContains(tela, "Buracos")
+        self.assertContains(tela, "Canceladas")
+        self.assertContains(tela, "Extrair planilha")
+        self.assertContains(tela, "Extrair XML")
+        canceladas = self.client.get("/triagem/garimpeiro/?aba=canceladas")
+        self.assertContains(canceladas, "Nada nesta aba")
+        buracos = self.client.get("/triagem/garimpeiro/?aba=buracos")
+        self.assertContains(buracos, "Nenhum buraco")
+        planilha = self.client.post("/triagem/garimpeiro/extrair/", {"aba": "lidos", "tipo": "planilha"})
+        self.assertEqual(planilha.status_code, 200)
+        self.assertIn("text/csv", planilha["Content-Type"])
+        painel = self.client.get("/", follow=True)
+        self.assertContains(painel, "Garimpeiro")
+
+
 class MatrioscaZipTest(SimpleTestCase):
     def test_abre_oito_zips_dentro_de_pastas(self):
         from triagem_xml.garimpeiro_motor import MotorGarimpeiroSentinela

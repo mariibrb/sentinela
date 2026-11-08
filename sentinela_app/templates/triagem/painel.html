@@ -15,6 +15,7 @@
       <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-arquivos" type="button">Acrescentar XML ou ZIP</button>
       <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-pasta" type="button">Acrescentar pasta</button>
       <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm disabled:bg-stone-300" id="ler-xml" type="submit" disabled>Ler XML</button>
+      <a class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 font-semibold text-violet-800 shadow-sm" href="{% url 'garimpeiro' %}">Abrir Garimpeiro</a>
       <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-stone-600 shadow-sm" id="limpar-fila" type="button">Limpar fila</button>
     </div>
     <input class="hidden" id="arquivos" type="file" accept=".xml,.zip" multiple>

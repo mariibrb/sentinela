@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block titulo %}Garimpeiro · Sentinela{% endblock %}
+{% block corpo %}
+<section class="mb-4 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
+  <p class="text-sm font-semibold text-violet-700">Garimpeiro</p>
+  <h1 class="text-3xl font-extrabold">O que foi lido</h1>
+  {% if empresa_travada %}
+  <p class="mt-2 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}.</p>
+  {% else %}
+  <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">Escolha a empresa ativa no painel.</p>
+  {% endif %}
+  {% if empresa_travada and not periodo_ok %}
+  <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">Defina a competência no topo da tela.</p>
+  {% endif %}
+</section>
+{% if painel %}
+<section class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm"><p class="text-sm text-violet-700">Lidos</p><strong class="text-2xl">{{ painel.resumo.total }}</strong></div>
+  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Próprias</p><strong class="text-2xl">{{ painel.resumo.propria }}</strong></div>
+  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Terceiros</p><strong class="text-2xl">{{ painel.resumo.terceiros }}</strong></div>
+  <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm"><p class="text-sm text-red-700">Canceladas</p><strong class="text-2xl">{{ painel.contagens.CANCELADOS|default:0 }}</strong></div>
+</section>
+<nav class="mb-4 flex flex-wrap gap-2">
+  {% for codigo, rotulo in abas %}
+  <a class="rounded-xl px-3 py-2 text-sm shadow-sm {% if aba == codigo %}bg-violet-700 font-semibold text-white{% else %}border border-stone-200 bg-white{% endif %}" href="{% url 'garimpeiro' %}?aba={{ codigo }}">{{ rotulo }}</a>
+  {% endfor %}
+</nav>
+{% if painel.erro %}
+<p class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">{{ painel.erro }}</p>
+{% endif %}
+<section class="mb-4 flex flex-wrap items-center gap-2">
+  <form method="post" action="{% url 'extrair_garimpeiro' %}">
+    {% csrf_token %}
+    <input type="hidden" name="aba" value="{{ aba }}">
+    <input type="hidden" name="tipo" value="planilha">
+    <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm" type="submit">Extrair planilha</button>
+  </form>
+  {% if aba != "buracos" and aba != "series" %}
+  <form method="post" action="{% url 'extrair_garimpeiro' %}">
+    {% csrf_token %}
+    <input type="hidden" name="aba" value="{{ aba }}">
+    <input type="hidden" name="tipo" value="xml">
+    <button class="rounded-xl border border-violet-200 bg-white px-4 py-2.5 font-semibold text-violet-800 shadow-sm" type="submit">Extrair XML</button>
+  </form>
+  <p class="text-sm text-stone-500">A planilha sai do que já foi lido. O XML só entra no pacote quando o arquivo já está gravado num caminho.</p>
+  {% endif %}
+</section>
+{% if aba == "buracos" %}
+<section class="mb-4 overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <h2 class="border-b border-stone-100 px-4 py-3 font-extrabold">Buracos</h2>
+  <table class="w-full text-left text-sm">
+    <thead class="bg-amber-50 text-xs uppercase tracking-wide text-amber-900"><tr><th class="px-3 py-3">Tipo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Número</th><th class="px-3 py-3">Período</th><th class="px-3 py-3">Mês possível</th></tr></thead>
+    <tbody>
+      {% for linha in painel.linhas %}
+      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.tipo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.numero }}</td><td class="px-3 py-3">{{ linha.periodo }}</td><td class="px-3 py-3">{{ linha.mes_possivel }}</td></tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="5">Nenhum buraco nesta competência.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <h2 class="border-b border-stone-100 px-4 py-3 font-extrabold">Nota localizada em outro mês</h2>
+  <table class="w-full text-left text-sm">
+    <thead class="bg-stone-50 text-xs uppercase tracking-wide text-stone-600"><tr><th class="px-3 py-3">Tipo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Número</th><th class="px-3 py-3">Buraco em</th><th class="px-3 py-3">Emitida em</th><th class="px-3 py-3">Status</th></tr></thead>
+    <tbody>
+      {% for linha in painel.linhas_falsas %}
+      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.tipo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.numero }}</td><td class="px-3 py-3">{{ linha.buraco_em }}</td><td class="px-3 py-3">{{ linha.emitida_em }}</td><td class="px-3 py-3">{{ linha.status }}</td></tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhuma nota de outro mês nesta competência.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% elif aba == "series" %}
+<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <table class="w-full text-left text-sm">
+    <thead class="bg-violet-50 text-xs uppercase tracking-wide text-violet-800"><tr><th class="px-3 py-3">Modelo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Autorizadas</th><th class="px-3 py-3">Canceladas</th><th class="px-3 py-3">Inutilizadas</th><th class="px-3 py-3">Total</th></tr></thead>
+    <tbody>
+      {% for linha in painel.series %}
+      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.modelo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.autorizadas }}</td><td class="px-3 py-3">{{ linha.canceladas }}</td><td class="px-3 py-3">{{ linha.inutilizadas }}</td><td class="px-3 py-3">{{ linha.total }}</td></tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhuma série própria nesta competência.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% else %}
+<p class="mb-2 text-sm text-stone-500">Mostrando {{ painel.mostrando }} de {{ painel.total_aba }}.</p>
+<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <table class="w-full text-left text-sm">
+    <thead class="bg-violet-50 text-xs uppercase tracking-wide text-violet-800"><tr><th class="px-3 py-3">Modelo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Nota</th><th class="px-3 py-3">Emissão</th><th class="px-3 py-3">Lado</th><th class="px-3 py-3">Status</th><th class="px-3 py-3">Chave</th></tr></thead>
+    <tbody>
+      {% for linha in painel.linhas %}
+      <tr class="border-t border-stone-100 {% if linha.status == 'CANCELADOS' or linha.status == 'REJEITADOS' or linha.status == 'DENEGADOS' %}bg-red-50{% endif %}">
+        <td class="px-3 py-3">{{ linha.modelo }}</td>
+        <td class="px-3 py-3">{{ linha.serie }}</td>
+        <td class="px-3 py-3">{{ linha.numero }}</td>
+        <td class="px-3 py-3">{{ linha.data_emissao }}</td>
+        <td class="px-3 py-3">{% if linha.is_propria %}Própria{% else %}Terceiros{% endif %}</td>
+        <td class="px-3 py-3">{{ linha.status }}</td>
+        <td class="px-3 py-3 font-mono text-xs">{{ linha.chave }}</td>
+      </tr>
+      {% empty %}
+      <tr><td class="px-3 py-4 text-stone-500" colspan="7">Nada nesta aba para a competência.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}
