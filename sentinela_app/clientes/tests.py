@@ -16,9 +16,14 @@ NS = "http://www.portalfiscal.inf.br/nfe"
 
 
 def xml_cancelada() -> bytes:
+    return xml_numero(123, CHAVE)
+
+
+def xml_numero(numero: int, chave: str | None = None) -> bytes:
+    chave = chave or (CHAVE[:25] + f"{numero:09d}" + CHAVE[34:])
     return f"""<?xml version="1.0" encoding="UTF-8"?>
-<nfeProc xmlns="{NS}"><NFe><infNFe Id="NFe{CHAVE}" versao="4.00">
-<ide><mod>55</mod><serie>1</serie><nNF>123</nNF><dhEmi>2026-10-15T10:00:00-03:00</dhEmi><tpNF>1</tpNF></ide>
+<nfeProc xmlns="{NS}"><NFe><infNFe Id="NFe{chave}" versao="4.00">
+<ide><mod>55</mod><serie>1</serie><nNF>{numero}</nNF><dhEmi>2026-10-15T10:00:00-03:00</dhEmi><tpNF>1</tpNF></ide>
 <emit><CNPJ>{CNPJ}</CNPJ></emit><dest><CNPJ>11222333000181</CNPJ></dest>
 <total><ICMSTot><vBC>100.00</vBC><vICMS>18.00</vICMS><vBCST>0</vBCST><vST>0</vST><vIPI>0</vIPI><vPIS>1.65</vPIS><vCOFINS>7.60</vCOFINS><vNF>100.00</vNF></ICMSTot></total>
 </infNFe></NFe><protNFe><infProt><cStat>101</cStat></infProt></protNFe></nfeProc>""".encode()
@@ -245,6 +250,80 @@ class FluxoSentinelaTest(TestCase):
         from django.conf import settings
         self.assertGreaterEqual(settings.DATA_UPLOAD_MAX_NUMBER_FILES, 100000)
         self.assertGreaterEqual(settings.DATA_UPLOAD_MAX_NUMBER_FIELDS, 200000)
+
+    def _empresa_pronta(self, codigo="582"):
+        empresa = Empresa.objects.create(
+            codigo_dominio=codigo,
+            cnpj=CNPJ,
+            razao_social="AFFONSO DESCARTAVEIS LTDA",
+            responsavel_apuracao=self.apuracao,
+            responsavel_revisao=self.revisao,
+            regime_tributario="Lucro Presumido",
+            regime_pis_cofins="Cumulativo",
+            cnae_principal="4649499",
+            cep="37646028",
+            logradouro="ESTRADA",
+            numero="1137",
+            bairro="RODEIO",
+            uf="MG",
+            municipio="EXTREMA",
+            codigo_ibge="3125101",
+            inscricao_estadual="0047805660026",
+        )
+        self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/"})
+        self.client.post("/clientes/competencia/", {"mes": "10", "ano": "2026", "next": "/triagem/"})
+        return empresa
+
+    def test_leitura_em_partes_grava_e_responde_json(self):
+        self._empresa_pronta()
+        resposta = self.client.post("/triagem/importar/", {
+            "resposta": "json",
+            "fim": "1",
+            "arquivos": SimpleUploadedFile("nota.xml", xml_cancelada(), content_type="text/xml"),
+        })
+        self.assertEqual(resposta.status_code, 200)
+        corpo = resposta.json()
+        self.assertTrue(corpo["ok"])
+        self.assertEqual(corpo["gravados"], 1)
+        self.assertFalse(corpo["continua"])
+        self.assertEqual(DocumentoXML.objects.filter(competencia="102026").count(), 1)
+        tela = self.client.get("/triagem/")
+        self.assertContains(tela, "partes de 30 notas")
+
+    def test_zip_grande_anda_em_partes(self):
+        from triagem_xml.fatias import avancar
+
+        empresa = self._empresa_pronta("583")
+        interno = BytesIO()
+        with zipfile.ZipFile(interno, "w") as pacote:
+            pacote.writestr("dentro.xml", xml_numero(204))
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w") as pacote:
+            for numero in (201, 202, 203):
+                pacote.writestr(f"n{numero}.xml", xml_numero(numero))
+            pacote.writestr("../fora.xml", xml_numero(209))
+            pacote.writestr("nivel.zip", interno.getvalue())
+        arquivo = SimpleUploadedFile("lote.zip", buffer.getvalue(), content_type="application/zip")
+        token = "a1b2c3d4e5f60789"
+        continua = True
+        primeira = True
+        rodadas = 0
+        while continua and rodadas < 8:
+            resultado = avancar(
+                empresa,
+                "102026",
+                self.usuario.pk,
+                token,
+                [arquivo] if primeira else [],
+                por_vez=1,
+            )
+            primeira = False
+            continua = resultado["continua"]
+            rodadas += 1
+        self.assertFalse(continua)
+        self.assertLessEqual(rodadas, 6)
+        self.assertEqual(DocumentoXML.objects.count(), 4)
+        self.assertFalse(DocumentoXML.objects.filter(numero_nota="209").exists())
 
     def test_salva_sem_responsavel_e_bloqueia_o_uso(self):
         tela = self.client.get("/clientes/nova/")

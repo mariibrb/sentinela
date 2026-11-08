@@ -1,5 +1,7 @@
+import secrets
+
 from django.contrib import messages
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
@@ -9,6 +11,7 @@ from clientes.governance import CadastroIncompleto, validar_cadastro_para_apurac
 from clientes.models import DocumentoXML, Empresa
 from clientes.trilha import registrar
 from garimpeiro_legado.consulta import ABAS, ABAS_TELA, montar, planilha, zip_xml
+from triagem_xml.fatias import avancar, token_valido
 from triagem_xml.servico import importar_uploads
 
 
@@ -29,6 +32,39 @@ def painel(request):
     return render(request, "triagem/painel.html", {"documentos": documentos, "empresa_travada": empresa})
 
 
+def _importar_em_partes(request, empresa):
+    """Cada resposta grava um punhado de notas e volta, para o lote não derrubar o site."""
+    try:
+        validar_cadastro_para_apuracao(empresa)
+    except CadastroIncompleto as erro:
+        return JsonResponse({"ok": False, "mensagem": str(erro)}, status=400)
+    token = (request.POST.get("token") or "").strip()
+    arquivos = request.FILES.getlist("arquivos")
+    if token and not token_valido(token):
+        return JsonResponse({"ok": False, "mensagem": "Esta parte da leitura não foi encontrada. Envie o lote de novo."}, status=400)
+    if not token and not arquivos:
+        return JsonResponse({"ok": False, "mensagem": "Selecione ao menos um XML ou um zip."}, status=400)
+    if not token:
+        token = secrets.token_hex(8)
+    try:
+        resultado = avancar(
+            empresa,
+            request.session.get("competencia", ""),
+            request.user.pk,
+            token,
+            arquivos,
+        )
+    except Exception:
+        return JsonResponse(
+            {"ok": False, "mensagem": "Esta parte não terminou. O que já foi lido permanece. Mande o restante de novo."},
+            status=500,
+        )
+    if request.POST.get("fim") == "1" and not resultado["continua"]:
+        registrar(request.user, empresa, "TRIAGEM", "Lote de XML", "", "Leitura em partes concluída")
+        messages.success(request, "Leitura concluída. As notas desta competência estão no Garimpeiro.")
+    return JsonResponse({"ok": True, "mensagem": "", **resultado})
+
+
 @require_POST
 @exige("pode_triar")
 def importar(request):
@@ -39,6 +75,8 @@ def importar(request):
     if empresa.status != "Ativo":
         messages.error(request, "Este cliente está inativo.")
         return redirect("triagem")
+    if request.POST.get("resposta") == "json":
+        return _importar_em_partes(request, empresa)
     arquivos = request.FILES.getlist("arquivos")
     if not arquivos:
         messages.error(request, "Selecione ao menos um XML ou um zip.")

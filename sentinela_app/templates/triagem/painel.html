@@ -5,10 +5,10 @@
 <section class="mb-4 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
   <h1 class="text-3xl font-extrabold">Triagem de XML</h1>
   {% if empresa_travada %}
-  <p class="mb-4 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}. O XML entra na pasta da empresa e na leitura da sessão. O Garimpeiro lê o mesmo lote e grava o arquivo, a autenticidade e o fechamento na pasta Garimpeiro, junto do que o Sentinela guarda.</p>
-  <form id="lote" method="post" action="{% url 'importar_xml' %}" enctype="multipart/form-data">
+  <p class="mb-4 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}. O XML entra na pasta da empresa e na leitura da sessão. Um lote grande segue sozinho, de 30 em 30 notas, e o Garimpeiro mostra o que já entrou.</p>
+  <form id="lote" method="post" action="{% url 'importar_xml' %}" enctype="multipart/form-data" data-destino="{% url 'garimpeiro' %}">
     {% csrf_token %}
-    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Até 100 mil arquivos por leitura. PDF e imagem ficam de fora.</div>
+    <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Lote grande segue em partes de 30 notas. PDF e imagem ficam de fora.</div>
     <p id="resumo-lote" class="mb-2 text-sm font-semibold text-violet-800">Nenhum arquivo na fila. Pode acrescentar aos poucos.</p>
     <ul id="fila-lote" class="mb-3 max-h-64 space-y-1 overflow-auto"></ul>
     <div class="flex flex-wrap items-center gap-2">
@@ -45,7 +45,8 @@
         : "Nenhum arquivo na fila. Pode acrescentar aos poucos.";
       ler.disabled = arquivos.length === 0;
       ler.textContent = arquivos.length ? `Ler ${arquivos.length} arquivo(s)` : "Ler XML";
-      arquivos.forEach((arquivo) => {
+      const visiveis = arquivos.slice(0, 40);
+      visiveis.forEach((arquivo) => {
         const item = document.createElement("li");
         item.className = "flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm";
         const nome = document.createElement("span");
@@ -62,6 +63,12 @@
         item.append(nome, tirar);
         fila.append(item);
       });
+      if (arquivos.length > visiveis.length) {
+        const extra = document.createElement("li");
+        extra.className = "px-3 py-2 text-sm text-stone-500";
+        extra.textContent = `e mais ${arquivos.length - visiveis.length} arquivo(s) na fila.`;
+        fila.append(extra);
+      }
     };
     document.getElementById("abrir-arquivos").addEventListener("click", () => campo.click());
     document.getElementById("abrir-pasta").addEventListener("click", () => pasta.click());
@@ -84,14 +91,91 @@
       zona.classList.remove("bg-white");
       acrescentar(evento.dataTransfer.files);
     });
+    let lendo = false;
+    const gruposDe = (lista) => {
+      const grupos = [];
+      let soltos = [];
+      const fecharSoltos = () => {
+        if (!soltos.length) return;
+        grupos.push(soltos);
+        soltos = [];
+      };
+      for (const arquivo of lista) {
+        if (arquivo.name.toLowerCase().endsWith(".zip")) {
+          fecharSoltos();
+          grupos.push([arquivo]);
+        } else {
+          soltos.push(arquivo);
+          if (soltos.length === 30) fecharSoltos();
+        }
+      }
+      fecharSoltos();
+      return grupos;
+    };
+    const enviarParte = async (arquivos, token, fim) => {
+      const dados = new FormData();
+      dados.append("csrfmiddlewaretoken", formulario.querySelector("[name=csrfmiddlewaretoken]").value);
+      dados.append("resposta", "json");
+      if (token) dados.append("token", token);
+      if (fim) dados.append("fim", "1");
+      for (const arquivo of arquivos) dados.append("arquivos", arquivo, arquivo.webkitRelativePath || arquivo.name);
+      const resposta = await fetch(formulario.action, { method: "POST", body: dados, credentials: "same-origin" });
+      const corpo = await resposta.json().catch(() => null);
+      if (!resposta.ok || !corpo || !corpo.ok) {
+        throw new Error((corpo && corpo.mensagem) || "O servidor caiu nesta parte. O que já entrou permanece. Leia de novo o que ficou na fila.");
+      }
+      return corpo;
+    };
+    const lerEmPartes = async (lista) => {
+      if (lendo) return;
+      lendo = true;
+      ler.disabled = true;
+      const grupos = gruposDe(lista);
+      let gravados = 0;
+      try {
+        for (let indice = 0; indice < grupos.length; indice += 1) {
+          const grupo = grupos[indice];
+          let token = "";
+          let continua = true;
+          let primeira = true;
+          let rodadas = 0;
+          while (continua) {
+            rodadas += 1;
+            if (rodadas > 8000) {
+              throw new Error("A leitura passou do limite de partes. O que já entrou permanece.");
+            }
+            const corpo = await enviarParte(primeira ? grupo : [], token, indice === grupos.length - 1);
+            primeira = false;
+            token = corpo.token;
+            continua = corpo.continua;
+            gravados += corpo.gravados;
+            resumo.textContent = `Lendo… ${gravados} nota(s) gravadas. Parte ${indice + 1} de ${grupos.length}.`;
+            ler.textContent = `Lendo ${gravados}`;
+          }
+          for (const arquivo of grupo) acumulado.delete(chave(arquivo));
+        }
+        window.location = formulario.dataset.destino;
+      } catch (erro) {
+        lendo = false;
+        desenhar();
+        resumo.textContent = `${erro.message} ${gravados} nota(s) já ficaram gravadas.`;
+      }
+    };
     formulario.addEventListener("submit", (evento) => {
-      if (!acumulado.size) {
+      if (!acumulado.size || lendo) {
         evento.preventDefault();
         return;
       }
-      const transferencia = new DataTransfer();
-      for (const arquivo of acumulado.values()) transferencia.items.add(arquivo);
-      envio.files = transferencia.files;
+      const lista = [...acumulado.values()];
+      const temZip = lista.some((arquivo) => arquivo.name.toLowerCase().endsWith(".zip"));
+      if (lista.length <= 80 && !temZip) {
+        const transferencia = new DataTransfer();
+        for (const arquivo of lista) transferencia.items.add(arquivo);
+        envio.files = transferencia.files;
+        return;
+      }
+      evento.preventDefault();
+      lerEmPartes(lista);
     });
   </script>
   {% else %}
