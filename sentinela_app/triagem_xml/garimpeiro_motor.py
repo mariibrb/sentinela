@@ -7,6 +7,8 @@ from pathlib import Path
 from clientes.models import DocumentoXML
 from triagem_xml.motor import SentinelaMotorTriagem
 
+# Doze zips encaixados. Pasta no meio não conta como nível.
+_PROFUNDIDADE_MAXIMA_ZIP = 11
 _PASTA_STATUS = {
     "AUTORIZADA": "01_AUTORIZADAS",
     "CANCELADA": "02_CANCELADAS",
@@ -28,16 +30,18 @@ class MotorGarimpeiroSentinela:
         self.pasta_base_mes = Path(pasta_cliente_sharepoint)
         self._leitor = SentinelaMotorTriagem(self.cnpj_cliente)
         self._zips_lidos = set()
+        self._seq_zip = 0
 
-    def extrair_zip_recursivo(self, caminho_zip, pasta_destino, profundidade=0):
+    def extrair_zip_recursivo(self, caminho_zip, pasta_destino, profundidade=0, raiz_curta=None):
         """Descompacta o ZIP e os ZIP que estiverem dentro, sem sair da pasta de destino."""
-        if profundidade > 5:
+        if profundidade > _PROFUNDIDADE_MAXIMA_ZIP:
             return
         origem = Path(caminho_zip).resolve()
         if str(origem) in self._zips_lidos:
             return
         self._zips_lidos.add(str(origem))
         destino = Path(pasta_destino).resolve()
+        raiz = Path(raiz_curta or destino).resolve()
         destino.mkdir(parents=True, exist_ok=True)
         try:
             with zipfile.ZipFile(origem) as pacote:
@@ -58,7 +62,8 @@ class MotorGarimpeiroSentinela:
         except (zipfile.BadZipFile, OSError):
             return
         for encontrado in list(destino.rglob("*.zip")):
-            self.extrair_zip_recursivo(encontrado, encontrado.parent / f"descompactado_{encontrado.stem}", profundidade + 1)
+            self._seq_zip += 1
+            self.extrair_zip_recursivo(encontrado, raiz / f"z{self._seq_zip}", profundidade + 1, raiz)
 
     def processar_lote_arquivos(self, caminho_origem_lote):
         pasta_temp = self.pasta_base_mes / "01_XML_BRUTOS_RECEBIDOS" / "temp_processamento"

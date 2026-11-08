@@ -1,9 +1,11 @@
 import tempfile
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 from django.contrib.auth.models import User
 from django.core.files.uploadedfile import SimpleUploadedFile
-from django.test import TestCase, override_settings
+from django.test import SimpleTestCase, TestCase, override_settings
 
 from clientes.models import Colaborador, DocumentoXML, Empresa, LogAlteracao
 from clientes.services import ServicoConsultaCNPJ
@@ -321,3 +323,28 @@ class FluxoSentinelaTest(TestCase):
             ServicoConsultaCNPJ.substituicoes_das_inscricoes(inscricoes, "MG"),
             {"BA": "248025829", "CE": "073307130", "SP": "813035560114"},
         )
+
+
+class MatrioscaZipTest(SimpleTestCase):
+    def test_abre_oito_zips_dentro_de_pastas(self):
+        from triagem_xml.garimpeiro_motor import MotorGarimpeiroSentinela
+
+        conteudo = b"<nfe>dentro</nfe>"
+        nome = "nota.xml"
+        for nivel in range(8):
+            pacote = BytesIO()
+            with zipfile.ZipFile(pacote, "w") as arquivo:
+                arquivo.writestr(f"pasta_{nivel}/{nome}", conteudo)
+            conteudo = pacote.getvalue()
+            nome = f"nivel_{nivel}.zip"
+        with tempfile.TemporaryDirectory() as pasta:
+            raiz = Path(pasta)
+            externo = raiz / "lote.zip"
+            externo.write_bytes(conteudo)
+            destino = raiz / "saida"
+            empresa = type("Empresa", (), {"cnpj": CNPJ, "id": 1})()
+            motor = MotorGarimpeiroSentinela(empresa, "112026", str(raiz / "mes"))
+            motor.extrair_zip_recursivo(externo, destino)
+            encontrados = list(destino.rglob("nota.xml"))
+            self.assertEqual(len(encontrados), 1)
+            self.assertEqual(encontrados[0].read_bytes(), b"<nfe>dentro</nfe>")
