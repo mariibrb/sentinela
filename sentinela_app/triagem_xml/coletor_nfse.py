@@ -1056,7 +1056,7 @@ class GerenciadorColetorSentinela:
             daemon=True,
         )
         t.start()
-        return True, "Apanhador 1.4.5 iniciado! O Google Chrome abrirá na tela de login do Portal Nacional."
+        return True, "O Chrome está abrindo na tela de login do Portal Nacional. Se a janela ficou atrás, procure o Google Chrome na barra de tarefas."
 
     def _executar_thread(self, empresa_id: int, competencia: str, periodo: Periodo, usuario_id: int | None) -> None:
         from django.contrib.auth import get_user_model
@@ -1223,18 +1223,28 @@ def _rodar_motor_145(
     log: LogFn,
 ) -> list[dict]:
     """Executa o fluxo completo do Coletor 1.4.5 vinculado à Empresa Ativa do Sentinela."""
-    from playwright.sync_api import sync_playwright
+    from triagem_xml.chrome_portal import JanelaChrome
+
+    log(f"Abrindo o Google Chrome no Emissor Nacional para {empresa.codigo_dominio} · {empresa.razao_social}…")
+    janela = JanelaChrome.abrir(pasta_dados)
+    log("O Chrome abriu na tela de login. Se a janela ficou atrás, procure o Google Chrome na barra de tarefas.")
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as erro:
+        raise RuntimeError(
+            "O Chrome ficou aberto na tela de login. O robô não assumiu a janela neste computador."
+        ) from erro
 
     portal, ui = _carregar_modulos_coletor_145(pasta_coletor_novo)
     ui._instalar_login_direto()
     ui._instalar_retomada(parar, confirmar_login)
 
-    log(f"Abrindo o Google Chrome no Emissor Nacional para {empresa.codigo_dominio} · {empresa.razao_social}…")
-    playwright = sync_playwright().start()
+    playwright = None
     ctx = None
     grupos: list[dict] = []
     try:
-        ctx = portal.abrir_navegador(playwright, pasta_dados)
+        playwright = sync_playwright().start()
+        ctx = janela.conectar(playwright)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
         portal._forcar_tela_login(page, log)
         ui.aplicar_tipo("prestados")

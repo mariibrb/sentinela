@@ -314,6 +314,13 @@ def iniciar_coletor_nfse(request):
         messages.error(request, str(erro))
         return redirect("coletor_nfse")
 
+    from triagem_xml.chrome_portal import motivo_sem_chrome
+
+    motivo = motivo_sem_chrome()
+    if motivo:
+        messages.error(request, motivo)
+        return redirect("coletor_nfse")
+
     ok, msg = GERENCIADOR_COLETOR.iniciar_coleta(
         empresa=empresa,
         competencia=competencia,

@@ -84,6 +84,7 @@
       </div>
       <span id="status-curto" class="text-xs text-stone-300">{{ estado_coletor.ultimo_status }}</span>
     </div>
+    <p id="aviso-chrome" class="mb-3 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold text-red-800 {% if not estado_coletor.erro %}hidden{% endif %}">{{ estado_coletor.erro }}</p>
     <pre id="console-coletor" class="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-stone-200">{% if estado_coletor.logs %}{% for linha in estado_coletor.logs %}{{ linha }}
 {% endfor %}{% else %}Pronto para iniciar. Selecione o período acima e clique em "Iniciar Robô Apanhador {{ versao_coletor }}".{% endif %}</pre>
   </div>
@@ -393,6 +394,11 @@
       }
       if (statusCurto && dados.ultimo_status) {
         statusCurto.textContent = dados.ultimo_status;
+      }
+      const aviso = document.getElementById("aviso-chrome");
+      if (aviso && dados.erro) {
+        aviso.textContent = dados.erro;
+        aviso.classList.remove("hidden");
       }
       if (btnIniciar) btnIniciar.disabled = !!dados.rodando;
       if (btnParar) btnParar.disabled = !dados.rodando;

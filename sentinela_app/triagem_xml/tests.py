@@ -17,6 +17,15 @@ from triagem_xml.coletor_nfse import (
 
 
 class ColetorNFSeSentinelaTests(TestCase):
+    def test_chrome_abre_o_login_do_portal(self):
+        from triagem_xml.chrome_portal import URL_LOGIN, montar_comando, raiz_do_perfil
+
+        comando = montar_comando(r"C:\chrome.exe", r"C:\perfil")
+        self.assertNotIn("--incognito", comando)
+        self.assertIn("--remote-debugging-port=0", comando)
+        self.assertIn(URL_LOGIN, comando)
+        self.assertNotIn("onedrive", str(raiz_do_perfil()).lower())
+
     def setUp(self):
         self.user = User.objects.create_superuser(username="admin_teste", password="123", email="a@b.com")
         self.empresa = Empresa.objects.create(
