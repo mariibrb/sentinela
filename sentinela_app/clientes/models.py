@@ -51,19 +51,24 @@ class Colaborador(models.Model):
 
 class Empresa(models.Model):
     REGIMES_TRIBUTARIOS = [
+        ("MEI", "MEI"),
         ("Simples Nacional", "Simples Nacional"),
         ("Lucro Presumido", "Lucro Presumido"),
         ("Lucro Real", "Lucro Real"),
+        ("Imune/Isenta", "Imune/Isenta"),
     ]
     REGIMES_PIS_COFINS = [
         ("Cumulativo", "Cumulativo"),
         ("Não-Cumulativo", "Não-Cumulativo"),
         ("Simples Nacional", "Simples Nacional"),
+        ("Isento / Imune", "Isento / Imune"),
     ]
     VINCULO_PIS_COFINS = {
         "Lucro Real": "Não-Cumulativo",
         "Lucro Presumido": "Cumulativo",
         "Simples Nacional": "Simples Nacional",
+        "MEI": "Simples Nacional",
+        "Imune/Isenta": "Isento / Imune",
     }
     ANEXOS_SIMPLES = [
         ("I", "Anexo I"),
@@ -159,6 +164,26 @@ class Empresa(models.Model):
         verbose_name="PDF do PTA / Regime Especial",
     )
 
+    # Bloco E: Onboarding, Contrato, Contatos e Escopo de Trabalho
+    data_abertura = models.CharField(max_length=20, blank=True, default="", verbose_name="Data de Abertura")
+    data_inicio_cliente = models.CharField(max_length=10, blank=True, default="", verbose_name="Cliente a partir de (MM/AAAA)")
+    contatos = models.JSONField(default=list, blank=True, verbose_name="Contatos dos Responsáveis")
+    resumo_cliente = models.TextField(blank=True, default="", verbose_name="Resumo / Histórico do Cliente")
+
+    escopo_fiscal = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Compliance Fiscal")
+    qtd_notas_entrada = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd média Entradas")
+    qtd_notas_saida = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd média Saídas")
+    qtd_emissao_notas_servico = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd Emissão Serviços")
+    qtd_emissao_notas_produto = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd Emissão Produtos")
+    tipos_icms_incentivado = models.JSONField(default=list, blank=True, verbose_name="Incentivos TTS (ICMS Incentivado)")
+    estados_icms_st = models.JSONField(default=list, blank=True, verbose_name="Estados Apuração ICMS-ST")
+
+    escopo_contabil = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Contabilidade")
+    escopo_dp = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Departamento Pessoal")
+    escopo_regularizacao = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Regularização / Abertura")
+    estados_st = models.JSONField(default=list, blank=True, verbose_name="Estados para Inscrição ST")
+    busca_escopo = models.TextField(blank=True, default="", verbose_name="Índice de pesquisa do escopo")
+
     data_cadastro = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -174,13 +199,23 @@ class Empresa(models.Model):
         return cls.VINCULO_PIS_COFINS.get(regime_tributario, "")
 
     def save(self, *args, **kwargs):
+        from clientes.escopo import montar_busca_escopo
+
         vinculado = self.pis_cofins_do_regime(self.regime_tributario)
         if vinculado:
             self.regime_pis_cofins = vinculado
             campos = kwargs.get("update_fields")
             if campos is not None:
                 kwargs["update_fields"] = set(campos) | {"regime_pis_cofins"}
+        self.busca_escopo = montar_busca_escopo(self)
+        if kwargs.get("update_fields") is not None:
+            kwargs["update_fields"] = set(kwargs["update_fields"]) | {"busca_escopo"}
         super().save(*args, **kwargs)
+
+    def resumo_escopo(self):
+        from clientes.escopo import resumo_escopo_empresa
+
+        return resumo_escopo_empresa(self)
 
     def texto_substituicoes(self):
         if not self.pk:
@@ -246,11 +281,81 @@ class DocumentoXML(models.Model):
         return f"{self.modelo} {self.numero_nota} · {self.chave_acesso}"
 
 
+class NotaServico(models.Model):
+    TIPOS = [
+        ("PRESTADO", "Serviço Prestado (Emitida)"),
+        ("TOMADO", "Serviço Tomado (Recebida)"),
+    ]
+    ETAPAS_ESCRITURACAO = [
+        ("PENDENTE", "Falta escriturar / conferir"),
+        ("ESCRITURADA", "Escriturada no mês"),
+        ("MES_SEGUINTE", "Ficará para o mês seguinte"),
+        ("NAO_ESCRITURAR", "Cancelada / Não escriturar"),
+    ]
+    empresa = models.ForeignKey(Empresa, on_delete=models.CASCADE, related_name="notas_servico")
+    competencia = models.CharField(max_length=7, verbose_name="Competência da coleta (MMAAAA)")
+    tipo = models.CharField(max_length=15, choices=TIPOS, default="TOMADO")
+    numero = models.CharField(max_length=30, blank=True, default="")
+    chave_acesso = models.CharField(max_length=60)
+    data_emissao = models.DateField(null=True, blank=True)
+    data_emissao_texto = models.CharField(max_length=30, blank=True, default="")
+    competencia_emissao = models.CharField(max_length=10, blank=True, default="")
+    razao_terceiro = models.CharField(max_length=255, blank=True, default="", verbose_name="Tomador / Prestador")
+    codigo_tributacao_nacional = models.CharField(max_length=255, blank=True, default="")
+
+    valor_servico = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    valor_liquido = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    retencao = models.CharField(max_length=80, blank=True, default="")
+    valor_issqn = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    contrib_sociais_retidas = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    contrib_previdenciaria_retida = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+    irrf = models.DecimalField(max_digits=15, decimal_places=2, default=0.00)
+
+    status = models.CharField(max_length=30, default="Ativa")
+    data_cancelamento = models.CharField(max_length=40, blank=True, default="")
+
+    tem_xml = models.BooleanField(default=False)
+    tem_pdf = models.BooleanField(default=False)
+    caminho_xml = models.CharField(max_length=500, blank=True, default="")
+    caminho_pdf = models.CharField(max_length=500, blank=True, default="")
+
+    etapa_escrituracao = models.CharField(
+        max_length=25,
+        choices=ETAPAS_ESCRITURACAO,
+        default="PENDENTE",
+    )
+    competencia_escrituracao = models.CharField(max_length=7, blank=True, default="")
+    possui_alerta = models.BooleanField(default=False)
+    motivo_alerta = models.TextField(blank=True, default="")
+    sugestao_acao = models.CharField(max_length=255, blank=True, default="")
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["tipo", "numero", "id"]
+        verbose_name = "Nota Fiscal de Serviço (NFS-e)"
+        verbose_name_plural = "Notas Fiscais de Serviço (NFS-e)"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["empresa", "tipo", "chave_acesso"],
+                name="nfse_empresa_tipo_chave_unica",
+            )
+        ]
+        indexes = [
+            models.Index(fields=["empresa", "competencia"]),
+            models.Index(fields=["empresa", "competencia_escrituracao"]),
+        ]
+
+    def __str__(self):
+        return f"NFS-e {self.get_tipo_display()} Nº {self.numero} · {self.razao_terceiro}"
+
+
 class LogAlteracao(models.Model):
     ACOES = [
         ("CADASTRO", "Cadastro"),
         ("REGIME", "Regime"),
+        ("ESCOPO", "Escopo de trabalho"),
         ("TRIAGEM", "Triagem de XML"),
+        ("COLETOR", "Apanhador NFS-e"),
         ("AJUSTE", "Ajuste fiscal"),
         ("BACKUP", "Backup do acervo"),
         ("ENTRADA", "Entrada"),

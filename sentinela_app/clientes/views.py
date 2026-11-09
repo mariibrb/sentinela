@@ -30,14 +30,18 @@ def painel(request):
     bloqueio = ""
     resumo_icms = None
     pis = None
+    resumo_nfse = None
+    fechamento = None
     notas_divergentes = []
     if empresa and competencia:
         notas_divergentes = DocumentoXML.objects.filter(empresa=empresa, competencia=competencia, possui_divergencia=True)
+        motor_geral = MotorApuracaoSentinela(empresa, competencia)
+        resumo_nfse = motor_geral.calcular_apuracao_nfse()
+        fechamento = motor_geral.resumo_fechamento_completo(sped_ausentes=request.session.get("sped_ausentes", []))
         try:
             validar_cadastro_para_apuracao(empresa)
-            motor = MotorApuracaoSentinela(empresa, competencia)
-            resumo_icms = motor.calcular_apuracao_icms()
-            pis = motor.calcular_pis_cofins()
+            resumo_icms = motor_geral.calcular_apuracao_icms()
+            pis = motor_geral.calcular_pis_cofins()
         except CadastroIncompleto as erro:
             bloqueio = str(erro)
     return render(
@@ -48,6 +52,8 @@ def painel(request):
             "bloqueio": bloqueio,
             "resumo_icms": resumo_icms,
             "pis": pis,
+            "resumo_nfse": resumo_nfse,
+            "fechamento": fechamento,
             "notas_divergentes": notas_divergentes,
         },
     )
@@ -85,6 +91,7 @@ def definir_competencia(request):
 def lista_empresas(request):
     request.modulo = "clientes"
     termo = request.GET.get("q", "").strip()
+    filtro_escopo = request.GET.get("escopo", "").strip()
     empresas = Empresa.objects.annotate(notas=Count("documentos"))
     if termo:
         digitos = "".join(caractere for caractere in termo if caractere.isdigit())
@@ -93,12 +100,49 @@ def lista_empresas(request):
             | Q(razao_social__icontains=termo)
             | Q(nome_fantasia__icontains=termo)
             | Q(cnpj__icontains=digitos or termo)
+            | Q(busca_escopo__icontains=termo)
+            | Q(resumo_cliente__icontains=termo)
+            | Q(cnae_principal__icontains=termo)
         )
-    return render(request, "clientes/lista.html", {"empresas": empresas, "termo": termo})
+    if filtro_escopo:
+        empresas = empresas.filter(busca_escopo__icontains=filtro_escopo)
+    from clientes.escopo import ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
+
+    opcoes_filtro_escopo = [
+        ("Compliance Fiscal", ITENS_FISCAIS),
+        ("Contabilidade", ITENS_CONTABEIS),
+        ("Departamento Pessoal", ITENS_DP),
+        ("Regularização / Abertura", ITENS_REGULARIZACAO),
+    ]
+    return render(
+        request,
+        "clientes/lista.html",
+        {
+            "empresas": empresas,
+            "termo": termo,
+            "filtro_escopo": filtro_escopo,
+            "opcoes_filtro_escopo": opcoes_filtro_escopo,
+        },
+    )
 
 
 @login_required
 def editar_empresa(request, empresa_id=None):
+    import json
+    from clientes.escopo import (
+        COLUNA_1_FISCAL,
+        COLUNA_2_FISCAL,
+        COLUNA_3_FISCAL,
+        COLUNA_4_FISCAL,
+        ESTADOS_BR,
+        ITENS_CONTABEIS,
+        ITENS_DP,
+        ITENS_FISCAIS,
+        ITENS_REGULARIZACAO,
+        OPCOES_TTS,
+        SETORES_CONTATO,
+    )
+
     request.modulo = "clientes"
     codigo = "pode_editar_cliente" if empresa_id else "pode_cadastrar_cliente"
     if not pode(request.user, codigo):
@@ -120,9 +164,53 @@ def editar_empresa(request, empresa_id=None):
             empresa.texto_substituicoes(),
         )
         raiz = criar_pastas(empresa)
-        messages.success(request, f"Cadastro gravado. Pastas criadas em {raiz}.")
+        messages.success(request, f"Cadastro e escopo de trabalho gravados. Pastas criadas em {raiz}.")
         return redirect("lista_empresas")
-    return render(request, "clientes/formulario.html", {"form": form, "empresa": empresa})
+
+    instancia = form.instance
+    contatos_atuais = instancia.contatos if isinstance(getattr(instancia, "contatos", None), list) else []
+    escopo_fisc = instancia.escopo_fiscal if isinstance(getattr(instancia, "escopo_fiscal", None), dict) else {}
+    escopo_cont = instancia.escopo_contabil if isinstance(getattr(instancia, "escopo_contabil", None), dict) else {}
+    escopo_dp = instancia.escopo_dp if isinstance(getattr(instancia, "escopo_dp", None), dict) else {}
+    escopo_reg = instancia.escopo_regularizacao if isinstance(getattr(instancia, "escopo_regularizacao", None), dict) else {}
+
+    def _montar_itens(lista, mapa):
+        return [{"nome": item, "marcado": bool(mapa.get(item))} for item in lista]
+
+    aba_inicial = "escopo" if request.GET.get("aba") == "escopo" else "informacoes"
+
+    return render(
+        request,
+        "clientes/formulario.html",
+        {
+            "form": form,
+            "empresa": empresa,
+            "aba_inicial": aba_inicial,
+            "setores_contato": SETORES_CONTATO,
+            "contatos_json": json.dumps(contatos_atuais, ensure_ascii=False),
+            "colunas_fiscais": [
+                _montar_itens(COLUNA_1_FISCAL, escopo_fisc),
+                _montar_itens(COLUNA_2_FISCAL, escopo_fisc),
+                _montar_itens(COLUNA_3_FISCAL, escopo_fisc),
+                _montar_itens(COLUNA_4_FISCAL, escopo_fisc),
+            ],
+            "itens_contabeis": _montar_itens(ITENS_CONTABEIS, escopo_cont),
+            "itens_dp": _montar_itens(ITENS_DP, escopo_dp),
+            "itens_regularizacao": _montar_itens(ITENS_REGULARIZACAO, escopo_reg),
+            "opcoes_tts": [
+                {"nome": op, "marcado": op in (getattr(instancia, "tipos_icms_incentivado", None) or [])}
+                for op in OPCOES_TTS
+            ],
+            "estados_icms_st": [
+                {"uf": uf, "marcado": uf in (getattr(instancia, "estados_icms_st", None) or [])}
+                for uf in ESTADOS_BR
+            ],
+            "estados_st": [
+                {"uf": uf, "marcado": uf in (getattr(instancia, "estados_st", None) or [])}
+                for uf in ESTADOS_BR
+            ],
+        },
+    )
 
 
 @require_POST

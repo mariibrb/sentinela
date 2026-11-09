@@ -32,6 +32,7 @@ def _relatorio(empresa, competencia):
         motor = MotorApuracaoSentinela(empresa, competencia)
         icms = motor.calcular_apuracao_icms()
         pis = motor.calcular_pis_cofins()
+        nfse = motor.calcular_apuracao_nfse()
         linhas.extend([
             f"Débitos de ICMS: {icms['total_debitos']}",
             f"Créditos de ICMS: {icms['total_creditos']}",
@@ -40,6 +41,12 @@ def _relatorio(empresa, competencia):
             f"PIS: {pis['pis']}",
             f"COFINS: {pis['cofins']}",
             pis["explicacao"],
+            f"NFS-e Prestadas Ativas: {nfse['prestados']['qtd_ativas']} (R$ {nfse['prestados']['valor_servico']})",
+            f"NFS-e Tomadas Ativas: {nfse['tomados']['qtd_ativas']} (R$ {nfse['tomados']['valor_servico']})",
+            f"ISS Próprio (Prestados): {nfse['prestados']['iss_proprio']} | ISS Retido Sofrido: {nfse['prestados']['iss_retido']}",
+            f"Retenções em Serviços Tomados a Recolher: {nfse['tomados']['total_guias_recolher']}",
+            f"NFS-e Pendentes de Escriturar neste mês: {nfse['escrituracao']['qtd_pendentes']}",
+            f"NFS-e para Escriturar no Mês Seguinte ({nfse['escrituracao']['rotulo_mes_seguinte']}): {nfse['escrituracao']['qtd_mes_seguinte']}",
         ])
     except CadastroIncompleto as erro:
         linhas.append(str(erro))

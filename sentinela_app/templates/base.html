@@ -29,6 +29,7 @@
         <a href="{% url 'lista_empresas' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'clientes' %}bg-pink-50 font-semibold text-pink-700{% else %}text-stone-500{% endif %}">Clientes</a>
         {% if permissoes.pode_triar %}<a href="{% url 'triagem' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'triagem' %}bg-violet-50 font-semibold text-violet-700{% else %}text-stone-500{% endif %}">Triagem</a>{% endif %}
         {% if permissoes.pode_triar %}<a href="{% url 'garimpeiro' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'garimpeiro' %}bg-violet-50 font-semibold text-violet-700{% else %}text-stone-500{% endif %}">Garimpeiro</a>{% endif %}
+        {% if permissoes.pode_triar %}<a href="{% url 'coletor_nfse' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'coletor_nfse' %}bg-teal-50 font-semibold text-teal-800{% else %}text-stone-500{% endif %}">Apanhador NFS-e</a>{% endif %}
         {% if permissoes.pode_auditar %}<a href="{% url 'auditoria' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'auditoria' %}bg-blue-50 font-semibold text-blue-700{% else %}text-stone-500{% endif %}">Auditoria</a>{% endif %}
         <a href="{% url 'historico' %}" class="rounded-xl px-3 py-2 text-sm {% if modulo == 'historico' %}bg-stone-200 font-semibold text-stone-900{% else %}text-stone-500{% endif %}">Histórico</a>
       </nav>
@@ -50,7 +51,7 @@
           <input id="busca-empresa" class="w-full rounded-xl border border-stone-200 px-3 py-2 shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" placeholder="{% if empresa_ativa %}{{ empresa_ativa.codigo_dominio }} · {{ empresa_ativa.razao_social }}{% else %}Código, nome ou CNPJ{% endif %}" autocomplete="off">
           <ul id="lista-empresas" class="absolute right-0 z-30 mt-2 max-h-72 w-80 overflow-auto rounded-2xl border border-stone-200 bg-white p-1 shadow-sm" hidden>
             {% for empresa in empresas_busca %}
-            <li data-codigo="{{ empresa.codigo_dominio }}" data-nome="{{ empresa.razao_social }}" data-cnpj="{{ empresa.cnpj }}">
+            <li data-codigo="{{ empresa.codigo_dominio }}" data-nome="{{ empresa.razao_social }}" data-cnpj="{{ empresa.cnpj }}" data-escopo="{{ empresa.busca_escopo }}">
               <form method="post" action="{% url 'definir_empresa' empresa.pk %}">
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ request.path }}">
@@ -84,7 +85,7 @@
       const filtrar = () => {
         const termo = busca.value.trim().toLocaleLowerCase("pt-BR");
         itens.forEach((item) => {
-          const texto = `${item.dataset.codigo} ${item.dataset.nome} ${item.dataset.cnpj}`.toLocaleLowerCase("pt-BR");
+          const texto = `${item.dataset.codigo} ${item.dataset.nome} ${item.dataset.cnpj} ${item.dataset.escopo || ""}`.toLocaleLowerCase("pt-BR");
           item.hidden = termo !== "" && !texto.includes(termo);
         });
         lista.hidden = false;

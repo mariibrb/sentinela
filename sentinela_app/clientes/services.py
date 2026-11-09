@@ -60,10 +60,15 @@ class ServicoConsultaCNPJ:
         uf = data.get("uf", "") or ""
         codigo_ibge = ServicoConsultaCNPJ.buscar_codigo_ibge(municipio, uf) or str(data.get("codigo_municipio_ibge") or "")
         razao = data.get("razao_social", "") or ""
+        abertura_bruta = str(data.get("data_inicio_atividade") or "").strip()
+        data_abertura = abertura_bruta
+        if len(abertura_bruta) >= 10 and abertura_bruta[4] == "-" and abertura_bruta[7] == "-":
+            data_abertura = f"{abertura_bruta[8:10]}/{abertura_bruta[5:7]}/{abertura_bruta[:4]}"
         return {
             "cnpj": cnpj,
             "razao_social": razao,
             "nome_fantasia": data.get("nome_fantasia", "") or razao,
+            "data_abertura": data_abertura,
             "tipo_estabelecimento": "Matriz" if data.get("identificador_matriz_filial") == 1 else "Filial",
             "status": "Ativo" if data.get("descricao_situacao_cadastral") == "ATIVA" else "Inativo",
             "cep": "".join(caractere for caractere in str(data.get("cep", "")) if caractere.isdigit()),

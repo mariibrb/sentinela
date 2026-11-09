@@ -1,16 +1,30 @@
+import io
+import os
 import secrets
+from pathlib import Path
 
 from django.contrib import messages
 from django.http import HttpResponse, JsonResponse
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.acesso import exige
-from clientes.competencia import interpretar
+from clientes.competencia import deslocar, interpretar, rotulo
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
-from clientes.models import DocumentoXML, Empresa
+from clientes.models import DocumentoXML, Empresa, NotaServico
 from clientes.trilha import registrar
+from clientes.utils_sharepoint import pasta_do_mes, pasta_relatorios
 from garimpeiro_legado.consulta import ABAS, ABAS_TELA, montar, planilha, zip_xml
+from triagem_xml.coletor_nfse import (
+    GERENCIADOR_COLETOR,
+    VERSAO_COLETOR,
+    gravar_planilha_empresa,
+    importar_planilha_coletor,
+    importar_xml_nfse,
+    periodo_do_mes,
+    periodo_livre,
+)
 from triagem_xml.fatias import avancar, token_valido
 from triagem_xml.servico import importar_uploads
 
@@ -120,15 +134,15 @@ def garimpeiro(request):
     request.modulo = "garimpeiro"
     empresa = _empresa_ativa(request)
     aba = _aba(request.GET.get("aba", ""))
-    painel = None
+    painel_dados = None
     periodo = _periodo(request)
     if empresa is not None and periodo is not None:
-        painel = montar(empresa, request.session.get("competencia", ""), aba)
+        painel_dados = montar(empresa, request.session.get("competencia", ""), aba)
     return render(request, "triagem/garimpeiro.html", {
         "empresa_travada": empresa,
         "aba": aba,
         "abas": ABAS_TELA,
-        "painel": painel,
+        "painel": painel_dados,
         "periodo_ok": periodo is not None,
     })
 
@@ -162,3 +176,330 @@ def extrair_garimpeiro(request):
     resposta = HttpResponse("\ufeff" + texto, content_type="text/csv; charset=utf-8")
     resposta["Content-Disposition"] = f'attachment; filename="{nome}.csv"'
     return resposta
+
+
+# ============================================================================
+# Coletor de NFS-e v1.4.5 Integrado ao Sentinela
+# ============================================================================
+
+@exige("pode_triar")
+def coletor_nfse(request):
+    request.modulo = "coletor_nfse"
+    empresa = _empresa_ativa(request)
+    competencia = request.session.get("competencia", "")
+    partes = interpretar(competencia)
+    periodo_sugerido = None
+    if partes is not None:
+        mes, ano = partes
+        periodo_sugerido = periodo_do_mes(mes, ano)
+
+    aba_nfse = (request.GET.get("aba") or "todas").strip().lower()
+    notas_prestadas = []
+    notas_tomadas = []
+    resumo_nfse = None
+    caminho_pasta_cliente = ""
+
+    if empresa is not None and partes is not None:
+        todas_da_comp = NotaServico.objects.filter(empresa=empresa, competencia=competencia)
+        notas_prestadas = list(todas_da_comp.filter(tipo="PRESTADO"))
+        notas_tomadas = list(todas_da_comp.filter(tipo="TOMADO"))
+        resumo_nfse = MotorApuracaoSentinela(empresa, competencia).calcular_apuracao_nfse()
+        try:
+            caminho_pasta_cliente = str(
+                pasta_do_mes(empresa, competencia) / "02_XML_PROCESSADOS_SENTINELA" / "03_NFSE_PADRAO_NACIONAL"
+            )
+        except Exception:
+            caminho_pasta_cliente = ""
+
+    return render(
+        request,
+        "triagem/coletor_nfse.html",
+        {
+            "versao_coletor": VERSAO_COLETOR,
+            "empresa_travada": empresa,
+            "periodo_sugerido": periodo_sugerido,
+            "estado_coletor": GERENCIADOR_COLETOR.estado_atual(),
+            "aba_nfse": aba_nfse,
+            "notas_prestadas": notas_prestadas,
+            "notas_tomadas": notas_tomadas,
+            "resumo_nfse": resumo_nfse,
+            "caminho_pasta_cliente": caminho_pasta_cliente,
+            "proxima_competencia_rotulo": rotulo(deslocar(competencia, 1)) if partes else "Mês seguinte",
+        },
+    )
+
+
+@require_POST
+@exige("pode_triar")
+def iniciar_coletor_nfse(request):
+    empresa = _empresa_ativa(request)
+    if empresa is None:
+        messages.error(request, "Escolha a empresa ativa no topo do Sentinela antes de iniciar o Apanhador 1.4.5.")
+        return redirect("coletor_nfse")
+    if empresa.status != "Ativo":
+        messages.error(request, "Este cliente está inativo.")
+        return redirect("coletor_nfse")
+
+    competencia = request.session.get("competencia", "")
+    partes = interpretar(competencia)
+    if partes is None:
+        messages.error(request, "Defina uma competência válida no topo antes de iniciar o Apanhador.")
+        return redirect("coletor_nfse")
+
+    modo = (request.POST.get("modo_periodo") or "mes").strip()
+    try:
+        if modo == "livre":
+            data_ini = (request.POST.get("data_inicial") or "").strip()
+            data_fim = (request.POST.get("data_final") or "").strip()
+            periodo = periodo_livre(data_ini, data_fim)
+        else:
+            mes, ano = partes
+            periodo = periodo_do_mes(mes, ano)
+    except ValueError as erro:
+        messages.error(request, str(erro))
+        return redirect("coletor_nfse")
+
+    ok, msg = GERENCIADOR_COLETOR.iniciar_coleta(
+        empresa=empresa,
+        competencia=competencia,
+        periodo=periodo,
+        usuario=request.user,
+    )
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("resposta") == "json":
+        return JsonResponse({"ok": ok, "mensagem": msg, "estado": GERENCIADOR_COLETOR.estado_atual()})
+    if ok:
+        messages.success(request, msg)
+    else:
+        messages.warning(request, msg)
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def parar_coletor_nfse(request):
+    GERENCIADOR_COLETOR.pedir_parar()
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("resposta") == "json":
+        return JsonResponse({"ok": True, "estado": GERENCIADOR_COLETOR.estado_atual()})
+    messages.info(request, "Solicitação de parada enviada ao Apanhador 1.4.5.")
+    return redirect("coletor_nfse")
+
+
+@exige("pode_triar")
+def status_coletor_nfse(request):
+    return JsonResponse(GERENCIADOR_COLETOR.estado_atual())
+
+
+@require_POST
+@exige("pode_triar")
+def importar_relatorio_nfse(request):
+    empresa = _empresa_ativa(request)
+    if empresa is None:
+        messages.error(request, "Escolha a empresa ativa antes de importar relatórios do Apanhador.")
+        return redirect("coletor_nfse")
+    competencia = request.session.get("competencia", "")
+    if interpretar(competencia) is None:
+        messages.error(request, "Escolha a competência antes de importar.")
+        return redirect("coletor_nfse")
+
+    arquivos = request.FILES.getlist("arquivos_nfse")
+    if not arquivos:
+        messages.error(request, "Selecione ao menos uma planilha Excel (.xlsx) ou arquivo XML de NFS-e.")
+        return redirect("coletor_nfse")
+
+    tipo_forcado = (request.POST.get("tipo_relatorio") or "").strip().lower()
+    total_gravadas = 0
+    erros = []
+
+    for arq in arquivos:
+        nome = Path(arq.name).name
+        baixo = nome.lower()
+        conteudo = arq.read()
+        if baixo.endswith(".xlsx"):
+            res = importar_planilha_coletor(
+                empresa=empresa,
+                competencia=competencia,
+                arquivo_bytes=conteudo,
+                nome_arquivo=nome,
+                tipo_forcado=tipo_forcado,
+            )
+            if res.get("ok"):
+                total_gravadas += res.get("gravadas", 0)
+            else:
+                erros.append(f"{nome}: {res.get('erro')}")
+        elif baixo.endswith(".xml"):
+            import tempfile
+
+            with tempfile.NamedTemporaryFile(suffix=".xml", delete=False) as tmp:
+                tmp.write(conteudo)
+                tmp_path = Path(tmp.name)
+            try:
+                lida = importar_xml_nfse(empresa, competencia, tmp_path)
+                if lida is not None:
+                    total_gravadas += 1
+                else:
+                    erros.append(f"{nome}: XML não pertence ao CNPJ de {empresa.razao_social} ou não é uma NFS-e.")
+            finally:
+                try:
+                    tmp_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        else:
+            erros.append(f"{nome}: formato não suportado (use .xlsx ou .xml).")
+
+    if total_gravadas:
+        registrar(
+            request.user,
+            empresa,
+            "COLETOR",
+            "Importação de Relatório NFS-e",
+            "",
+            f"{total_gravadas} NFS-e vinculadas na competência {competencia}",
+        )
+        messages.success(
+            request,
+            f"{total_gravadas} NFS-e importada(s) e armazenada(s) no cliente {empresa.codigo_dominio} · {empresa.razao_social}!",
+        )
+    for err in erros:
+        messages.error(request, err)
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def exportar_relatorio_nfse(request):
+    empresa = _empresa_ativa(request)
+    competencia = request.session.get("competencia", "")
+    if empresa is None or interpretar(competencia) is None:
+        messages.error(request, "Escolha a empresa e a competência antes de baixar o relatório.")
+        return redirect("coletor_nfse")
+
+    tipo = (request.POST.get("tipo") or "prestados").strip().lower()
+    tipo_db = "PRESTADO" if tipo == "prestados" else "TOMADO"
+    qs = NotaServico.objects.filter(empresa=empresa, competencia=competencia, tipo=tipo_db)
+    if not qs.exists():
+        messages.warning(request, "Não há notas desse tipo armazenadas nesta competência para gerar a planilha.")
+        return redirect("coletor_nfse")
+
+    notas_dicts = [
+        {
+            "numero": n.numero,
+            "chave_acesso": n.chave_acesso,
+            "data_emissao": n.data_emissao.strftime("%d/%m/%Y") if n.data_emissao else n.data_emissao_texto,
+            "competencia_emissao": n.competencia_emissao,
+            "razao_emitente": n.razao_terceiro,
+            "codigo_tributacao_nacional": n.codigo_tributacao_nacional,
+            "valor_servico": float(n.valor_servico),
+            "valor_liquido": float(n.valor_liquido),
+            "retencao": n.retencao,
+            "valor_issqn": float(n.valor_issqn),
+            "contrib_sociais_retidas": float(n.contrib_sociais_retidas),
+            "contrib_previdenciaria_retida": float(n.contrib_previdenciaria_retida),
+            "irrf": float(n.irrf),
+            "status": n.status,
+            "data_cancelamento": n.data_cancelamento,
+        }
+        for n in qs
+    ]
+    pasta_rel = pasta_relatorios(empresa, competencia)
+    rotulo_tipo = "Prestadas" if tipo == "prestados" else "Tomadas"
+    nome_arq = f"Relatório NFS-e {rotulo_tipo} - {str(empresa.codigo_dominio).zfill(4)}_{empresa.cnpj}_{competencia}.xlsx"
+    destino = pasta_rel / nome_arq
+    gravar_planilha_empresa(
+        notas_dicts,
+        destino,
+        rotulo_periodo=rotulo(competencia),
+        tipo=tipo,
+        empresa=empresa,
+    )
+    resposta = HttpResponse(
+        destino.read_bytes(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    resposta["Content-Disposition"] = f'attachment; filename="{nome_arq}"'
+    return resposta
+
+
+@require_POST
+@exige("pode_triar")
+def abrir_pasta_nfse(request):
+    empresa = _empresa_ativa(request)
+    competencia = request.session.get("competencia", "")
+    if empresa is None or interpretar(competencia) is None:
+        messages.error(request, "Escolha a empresa e a competência.")
+        return redirect("coletor_nfse")
+    pasta = pasta_do_mes(empresa, competencia) / "02_XML_PROCESSADOS_SENTINELA" / "03_NFSE_PADRAO_NACIONAL"
+    pasta.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        try:
+            os.startfile(str(pasta))
+            messages.success(request, f"Pasta aberta no Windows Explorer: {pasta}")
+        except Exception as e:
+            messages.warning(request, f"Caminho da pasta: {pasta} ({e})")
+    else:
+        messages.info(request, f"Caminho da pasta do cliente: {pasta}")
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def alterar_etapa_nfse(request, nota_id: int):
+    empresa = _empresa_ativa(request)
+    if empresa is None:
+        return redirect("coletor_nfse")
+    nota = get_object_or_404(NotaServico, pk=nota_id, empresa=empresa)
+    nova_etapa = (request.POST.get("etapa") or "").strip()
+    destino_redirect = request.POST.get("next") or "coletor_nfse"
+    if nova_etapa in {"PENDENTE", "ESCRITURADA", "MES_SEGUINTE", "NAO_ESCRITURAR"}:
+        anterior = nota.get_etapa_escrituracao_display()
+        nota.etapa_escrituracao = nova_etapa
+        if nova_etapa == "MES_SEGUINTE":
+            nota.competencia_escrituracao = deslocar(nota.competencia, 1)
+        else:
+            nota.competencia_escrituracao = nota.competencia
+        nota.save(update_fields=["etapa_escrituracao", "competencia_escrituracao", "atualizado_em"])
+        registrar(
+            request.user,
+            empresa,
+            "AJUSTE",
+            f"NFS-e Nº {nota.numero}",
+            anterior,
+            nota.get_etapa_escrituracao_display(),
+        )
+        messages.success(
+            request,
+            f"NFS-e Nº {nota.numero} atualizada para: {nota.get_etapa_escrituracao_display()}.",
+        )
+    return redirect(destino_redirect)
+
+
+@require_POST
+@exige("pode_triar")
+def marcar_lote_nfse(request):
+    empresa = _empresa_ativa(request)
+    competencia = request.session.get("competencia", "")
+    if empresa is None or not competencia:
+        return redirect("coletor_nfse")
+    acao = (request.POST.get("acao") or "escriturar_todas").strip()
+    destino_redirect = request.POST.get("next") or "coletor_nfse"
+    if acao == "escriturar_todas":
+        qtd = (
+            NotaServico.objects.filter(
+                empresa=empresa,
+                competencia=competencia,
+                etapa_escrituracao="PENDENTE",
+            )
+            .exclude(status__iexact="Cancelada")
+            .update(etapa_escrituracao="ESCRITURADA", competencia_escrituracao=competencia)
+        )
+        messages.success(request, f"{qtd} NFS-e ativa(s) marcada(s) como Escriturada(s) neste mês!")
+    elif acao == "reabrir_todas":
+        qtd = (
+            NotaServico.objects.filter(
+                empresa=empresa,
+                competencia=competencia,
+                etapa_escrituracao="ESCRITURADA",
+            )
+            .update(etapa_escrituracao="PENDENTE")
+        )
+        messages.info(request, f"{qtd} NFS-e voltou/voltaram para 'Falta escriturar / conferir'.")
+    return redirect(destino_redirect)

@@ -4,7 +4,7 @@
 {% block corpo %}
 <section class="mb-4 rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
   <h1 class="text-3xl font-extrabold">{% if empresa_ativa %}{{ empresa_ativa.codigo_dominio }} · {{ empresa_ativa.razao_social }}{% else %}Escolha a empresa ativa{% endif %}</h1>
-  <p class="mb-3 text-stone-500">A competência {{ competencia_rotulo }} vale para a triagem e para a auditoria.</p>
+  <p class="mb-3 text-stone-500">A competência {{ competencia_rotulo }} vale para a triagem, o Apanhador NFS-e 1.4.5 e a auditoria.</p>
   <div class="mb-3 flex flex-wrap items-center gap-2">
     <form method="post" action="{% url 'definir_competencia' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="ano" value="{{ ano_ativo|add:'-1' }}"><input type="hidden" name="mes" value="{{ mes_ativo }}"><button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{{ ano_ativo|add:"-1" }}</button></form>
     <strong>{{ ano_ativo }}</strong>
@@ -49,6 +49,23 @@
   {% endfor %}
 </section>
 {% endif %}
+{% endif %}
+{% if resumo_nfse %}
+<section class="mb-4 rounded-2xl border border-teal-200 bg-teal-50 p-5 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h2 class="text-lg font-bold text-teal-950">Apanhador NFS-e 1.4.5 — Resumo de Serviços da Competência</h2>
+      <p class="text-sm text-teal-900">Prestadas, Tomadas, conferência de escrituração e o que ficará para {{ resumo_nfse.escrituracao.rotulo_mes_seguinte }}.</p>
+    </div>
+    <a class="rounded-xl bg-teal-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm" href="{% url 'coletor_nfse' %}">Abrir Apanhador NFS-e 1.4.5</a>
+  </div>
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-xs text-stone-500">Serviços Prestados ({{ resumo_nfse.prestados.qtd_ativas }})</span><strong class="block text-lg">R$ {{ resumo_nfse.prestados.valor_servico|brl }}</strong></div>
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-xs text-stone-500">Serviços Tomados ({{ resumo_nfse.tomados.qtd_ativas }})</span><strong class="block text-lg">R$ {{ resumo_nfse.tomados.valor_servico|brl }}</strong></div>
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-xs text-amber-800">Falta Escriturar / Conferir</span><strong class="block text-lg text-amber-900">{{ resumo_nfse.escrituracao.qtd_pendentes }} nota(s)</strong></div>
+    <div class="rounded-xl bg-white p-3 shadow-sm"><span class="text-xs text-violet-800">Ficará p/ {{ resumo_nfse.escrituracao.rotulo_mes_seguinte }}</span><strong class="block text-lg text-violet-900">{{ resumo_nfse.escrituracao.qtd_mes_seguinte }} nota(s)</strong></div>
+  </div>
+</section>
 {% endif %}
 <section class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
   <h2 class="text-lg font-bold text-red-700">Notas com incorreções ou ausentes no SPED</h2>
@@ -102,10 +119,10 @@
   <a class="inline-block rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm" href="{% url 'area_restrita' %}">Abrir área restrita</a>
 </section>
 {% endif %}
-<section class="grid gap-4 md:grid-cols-3">
+<section class="grid gap-4 md:grid-cols-4">
   <a class="rounded-2xl border border-pink-100 bg-pink-50 p-5 shadow-sm" href="{% url 'lista_empresas' %}"><p class="text-sm text-pink-700">Módulo 1</p><strong class="mt-1 block text-xl">Clientes</strong><p class="mt-2 text-stone-600">Cadastro, consulta de CNPJ e pastas da empresa.</p></a>
   {% if permissoes.pode_triar %}<a class="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm" href="{% url 'triagem' %}"><p class="text-sm text-violet-700">Módulo 2</p><strong class="mt-1 block text-xl">Triagem de XML</strong><p class="mt-2 text-stone-600">Lê NF-e e NFC-e e separa a pasta da empresa ativa.</p></a>{% endif %}
-  {% if permissoes.pode_triar %}<a class="rounded-2xl border border-violet-100 bg-violet-50 p-5 shadow-sm" href="{% url 'garimpeiro' %}"><p class="text-sm text-violet-700">Módulo 2</p><strong class="mt-1 block text-xl">Garimpeiro</strong><p class="mt-2 text-stone-600">O que foi lido, canceladas, buracos e extração da competência.</p></a>{% endif %}
-  {% if permissoes.pode_auditar %}<a class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm" href="{% url 'auditoria' %}"><p class="text-sm text-blue-700">Módulo 3</p><strong class="mt-1 block text-xl">Auditoria</strong><p class="mt-2 text-stone-600">Soma o XML da competência e cruza com o C100 do SPED.</p></a>{% endif %}
+  {% if permissoes.pode_triar %}<a class="rounded-2xl border border-teal-200 bg-teal-50 p-5 shadow-sm" href="{% url 'coletor_nfse' %}"><p class="text-sm text-teal-800">Módulo 2 · v1.4.5</p><strong class="mt-1 block text-xl">Apanhador NFS-e</strong><p class="mt-2 text-stone-600">Coleta Prestados e Tomados no Portal Nacional e separa o mês seguinte.</p></a>{% endif %}
+  {% if permissoes.pode_auditar %}<a class="rounded-2xl border border-blue-100 bg-blue-50 p-5 shadow-sm" href="{% url 'auditoria' %}"><p class="text-sm text-blue-700">Módulo 3</p><strong class="mt-1 block text-xl">Auditoria</strong><p class="mt-2 text-stone-600">Reúne todas as etapas, cruza SPED C100 e fecha o mês.</p></a>{% endif %}
 </section>
 {% endblock %}

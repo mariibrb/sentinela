@@ -1,0 +1,414 @@
+{% extends "base.html" %}
+{% load sentinela_tags %}
+{% block titulo %}Apanhador NFS-e v{{ versao_coletor }} · Sentinela{% endblock %}
+{% block corpo %}
+<section class="mb-4 rounded-2xl border border-teal-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <span class="inline-block rounded-xl bg-teal-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-teal-800">Apanhador de NFS-e · v{{ versao_coletor }} Integrado</span>
+      <h1 class="mt-1 text-3xl font-extrabold text-stone-900">Apanhador de NFS-e (Prestados e Tomados)</h1>
+    </div>
+    {% if empresa_travada %}
+    <div class="rounded-2xl border border-teal-200 bg-teal-50 px-4 py-3 text-right">
+      <span class="block text-xs font-semibold uppercase text-teal-700">Cliente vinculado nesta coleta</span>
+      <strong class="block text-base text-teal-950">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }}</strong>
+      <span class="font-mono text-xs text-teal-800">CNPJ {{ empresa_travada.cnpj|cnpj }} · Competência {{ competencia_rotulo }}</span>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if empresa_travada %}
+  <p class="mt-3 text-sm text-stone-600">
+    Ao clicar em <strong>Iniciar Robô Apanhador {{ versao_coletor }}</strong>, o Google Chrome abrirá na tela de login do Emissor Nacional. Entre com o <strong>Certificado Digital</strong> ou <strong>usuário e senha</strong>: o robô confere se o CNPJ logado no Portal bate com <strong>{{ empresa_travada.razao_social }}</strong>, coleta primeiro os <strong>Serviços Prestados</strong> e depois os <strong>Serviços Tomados</strong>, baixa XML e PDF e grava os relatórios Excel identificados direto na pasta deste cliente.
+  </p>
+
+  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+    <form id="form-iniciar-coletor" method="post" action="{% url 'iniciar_coletor_nfse' %}" class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+      {% csrf_token %}
+      <h2 class="mb-2 text-base font-bold text-stone-800">1. Disparar Robô no Portal Nacional</h2>
+      <div class="space-y-2 text-sm">
+        <label class="flex items-center gap-2 font-medium text-stone-800">
+          <input type="radio" name="modo_periodo" value="mes" checked onchange="alternarModoPeriodo(this.value)">
+          Competência ativa no topo: <strong>{{ competencia_rotulo }}</strong>
+          {% if periodo_sugerido %}
+          <span class="text-xs text-stone-500">({{ periodo_sugerido.inicio|date:"d/m/Y" }} a {{ periodo_sugerido.fim|date:"d/m/Y" }})</span>
+          {% endif %}
+        </label>
+        <label class="flex items-center gap-2 font-medium text-stone-800">
+          <input type="radio" name="modo_periodo" value="livre" onchange="alternarModoPeriodo(this.value)">
+          Período livre (data inicial e data final)
+        </label>
+        <div id="caixa-periodo-livre" class="hidden flex-wrap items-center gap-2 pl-6 pt-1">
+          <input type="text" name="data_inicial" value="{% if periodo_sugerido %}{{ periodo_sugerido.inicio|date:'d/m/Y' }}{% endif %}" placeholder="dd/mm/aaaa" class="w-32 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm">
+          <span class="text-stone-500">até</span>
+          <input type="text" name="data_final" value="{% if periodo_sugerido %}{{ periodo_sugerido.fim|date:'d/m/Y' }}{% endif %}" placeholder="dd/mm/aaaa" class="w-32 rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm">
+        </div>
+      </div>
+
+      <div class="mt-4 flex flex-wrap items-center gap-2">
+        <button id="btn-iniciar-robo" type="submit" {% if estado_coletor.rodando %}disabled{% endif %} class="rounded-xl bg-teal-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-teal-800 disabled:bg-stone-300">
+          {% if estado_coletor.rodando %}Robô em execução…{% else %}Iniciar Robô Apanhador {{ versao_coletor }}{% endif %}
+        </button>
+        <button id="btn-parar-robo" type="button" onclick="pararColetor()" {% if not estado_coletor.rodando %}disabled{% endif %} class="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-semibold text-red-700 shadow-sm disabled:opacity-40">
+          Parar
+        </button>
+      </div>
+    </form>
+
+    <form method="post" action="{% url 'importar_relatorio_nfse' %}" enctype="multipart/form-data" class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+      {% csrf_token %}
+      <h2 class="mb-1 text-base font-bold text-stone-800">2. Ou importar Planilha (.xlsx) / XMLs já baixados</h2>
+      <p class="mb-3 text-xs text-stone-500">Se você já tiver rodado o Apanhador antes, envie aqui as planilhas Excel ou XMLs de NFS-e para vincular a <strong>{{ empresa_travada.razao_social }}</strong> em <strong>{{ competencia_rotulo }}</strong>.</p>
+      <div class="flex flex-wrap items-center gap-2">
+        <select name="tipo_relatorio" class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm">
+          <option value="">Detectar automaticamente (Prestados / Tomados)</option>
+          <option value="prestados">Forçar como Serviços Prestados</option>
+          <option value="tomados">Forçar como Serviços Tomados</option>
+        </select>
+        <input type="file" name="arquivos_nfse" accept=".xlsx,.xml" multiple required class="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-sm">
+        <button type="submit" class="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white shadow-sm">Importar para o Cliente</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="mt-4 rounded-2xl border border-stone-200 bg-stone-900 p-4 text-stone-100 shadow-sm">
+    <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+      <div class="flex items-center gap-2">
+        <span id="bolinha-status" class="inline-block h-2.5 w-2.5 rounded-full {% if estado_coletor.rodando %}animate-ping bg-amber-400{% elif estado_coletor.erro %}bg-red-500{% else %}bg-emerald-400{% endif %}"></span>
+        <strong class="text-xs uppercase tracking-wider text-teal-300">Console do Apanhador {{ versao_coletor }}</strong>
+      </div>
+      <span id="status-curto" class="text-xs text-stone-300">{{ estado_coletor.ultimo_status }}</span>
+    </div>
+    <pre id="console-coletor" class="max-h-48 overflow-y-auto whitespace-pre-wrap font-mono text-xs leading-relaxed text-stone-200">{% if estado_coletor.logs %}{% for linha in estado_coletor.logs %}{{ linha }}
+{% endfor %}{% else %}Pronto para iniciar. Selecione o período acima e clique em "Iniciar Robô Apanhador {{ versao_coletor }}".{% endif %}</pre>
+  </div>
+
+  {% if caminho_pasta_cliente %}
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-xs text-teal-900">
+    <span class="truncate"><strong>Pasta oficial da empresa na competência:</strong> <code class="font-mono">{{ caminho_pasta_cliente }}</code></span>
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="post" action="{% url 'abrir_pasta_nfse' %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-xl border border-teal-300 bg-white px-3 py-1.5 font-semibold text-teal-800 shadow-sm">Abrir pasta no Windows</button>
+      </form>
+      <form method="post" action="{% url 'exportar_relatorio_nfse' %}">
+        {% csrf_token %}
+        <input type="hidden" name="tipo" value="prestados">
+        <button type="submit" class="rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm">Baixar Excel Prestados</button>
+      </form>
+      <form method="post" action="{% url 'exportar_relatorio_nfse' %}">
+        {% csrf_token %}
+        <input type="hidden" name="tipo" value="tomados">
+        <button type="submit" class="rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm">Baixar Excel Tomados</button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">
+    Escolha primeiro a <strong>empresa ativa</strong> na barra superior do Sentinela. Assim o Apanhador {{ versao_coletor }} já saberá exatamente de qual empresa são os relatórios e onde salvar tudo para a apuração do mês!
+  </p>
+  {% endif %}
+</section>
+
+{% if empresa_travada and resumo_nfse %}
+<section class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+  <article class="rounded-2xl border border-teal-200 bg-white p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-teal-700">Serviços Prestados (Mês)</p>
+    <p class="mt-1 text-2xl font-extrabold">R$ {{ resumo_nfse.prestados.valor_servico|brl }}</p>
+    <p class="mt-1 text-xs text-stone-500">{{ resumo_nfse.prestados.qtd_ativas }} ativa(s) · {{ resumo_nfse.prestados.qtd_canceladas }} cancelada(s)</p>
+    <p class="mt-1 text-xs text-stone-600">ISS Próprio: R$ {{ resumo_nfse.prestados.iss_proprio|brl }} · ISS Retido: R$ {{ resumo_nfse.prestados.iss_retido|brl }}</p>
+  </article>
+  <article class="rounded-2xl border border-blue-200 bg-white p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-blue-700">Serviços Tomados (Mês)</p>
+    <p class="mt-1 text-2xl font-extrabold">R$ {{ resumo_nfse.tomados.valor_servico|brl }}</p>
+    <p class="mt-1 text-xs text-stone-500">{{ resumo_nfse.tomados.qtd_ativas }} ativa(s) · {{ resumo_nfse.tomados.qtd_canceladas }} cancelada(s)</p>
+    <p class="mt-1 text-xs text-stone-600">Guias de retenção: R$ {{ resumo_nfse.tomados.total_guias_recolher|brl }}</p>
+  </article>
+  <article class="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-amber-800">Falta Escriturar / Conferir</p>
+    <p class="mt-1 text-2xl font-extrabold text-amber-950">{{ resumo_nfse.escrituracao.qtd_pendentes }} nota(s)</p>
+    <p class="mt-1 text-xs text-amber-900">Total: R$ {{ resumo_nfse.escrituracao.valor_pendentes|brl }}</p>
+    <p class="mt-1 text-xs text-emerald-800">Já escrituradas no mês: {{ resumo_nfse.escrituracao.qtd_escrituradas }}</p>
+  </article>
+  <article class="rounded-2xl border border-violet-200 bg-violet-50 p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-violet-800">Ficará p/ {{ resumo_nfse.escrituracao.rotulo_mes_seguinte }}</p>
+    <p class="mt-1 text-2xl font-extrabold text-violet-950">{{ resumo_nfse.escrituracao.qtd_mes_seguinte }} nota(s)</p>
+    <p class="mt-1 text-xs text-violet-900">Total p/ mês seguinte: R$ {{ resumo_nfse.escrituracao.valor_mes_seguinte|brl }}</p>
+    {% if resumo_nfse.escrituracao.qtd_vindas_anterior %}
+    <p class="mt-1 text-xs font-semibold text-violet-800">+ {{ resumo_nfse.escrituracao.qtd_vindas_anterior }} vinda(s) de {{ resumo_nfse.escrituracao.rotulo_mes_anterior }}</p>
+    {% endif %}
+  </article>
+</section>
+
+{% if resumo_nfse.buracos_prestados or resumo_nfse.alertas %}
+<section class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+  <h2 class="mb-2 text-lg font-bold text-red-800">Verificações Automáticas de Auditoria (O que pode estar errado ou pendente)</h2>
+  {% if resumo_nfse.buracos_prestados %}
+  <div class="mb-3 rounded-xl border border-red-200 bg-white p-3 text-sm text-red-900">
+    <strong>Atenção — Salto na numeração de NFS-e Prestadas:</strong>
+    Faltam os números:
+    {% for b in resumo_nfse.buracos_prestados %}
+      <span class="inline-block rounded-lg bg-red-100 px-2 py-0.5 font-mono text-xs font-bold">{{ b.faixa }} ({{ b.quantidade }} nota)</span>
+    {% endfor %}
+    — Verifique se alguma nota foi emitida em outra data ou se faltou escriturar na Domínio.
+  </div>
+  {% endif %}
+  {% if resumo_nfse.alertas %}
+  <div class="space-y-1.5 text-sm">
+    {% for n in resumo_nfse.alertas %}
+    <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-red-100 bg-white px-3 py-2">
+      <div>
+        <span class="rounded-lg px-2 py-0.5 text-xs font-bold {% if n.tipo == 'PRESTADO' %}bg-teal-100 text-teal-900{% else %}bg-blue-100 text-blue-900{% endif %}">{{ n.get_tipo_display }}</span>
+        <strong class="ml-1">Nº {{ n.numero }}</strong> · {{ n.razao_terceiro }} · <strong>R$ {{ n.valor_servico|brl }}</strong>
+        <p class="mt-0.5 text-xs text-red-700">{{ n.motivo_alerta }} <span class="text-stone-600">{{ n.sugestao_acao }}</span></p>
+      </div>
+      <div class="flex items-center gap-1">
+        <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="etapa" value="ESCRITURADA">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="rounded-lg bg-emerald-600 px-2.5 py-1 text-xs font-semibold text-white">Escriturada neste mês</button>
+        </form>
+        <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">
+          {% csrf_token %}
+          <input type="hidden" name="etapa" value="MES_SEGUINTE">
+          <input type="hidden" name="next" value="{{ request.get_full_path }}">
+          <button type="submit" class="rounded-lg bg-violet-700 px-2.5 py-1 text-xs font-semibold text-white">Fica p/ {{ proxima_competencia_rotulo }}</button>
+        </form>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if resumo_nfse.escrituracao.vindas_mes_anterior %}
+<section class="mb-4 rounded-2xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+  <h2 class="mb-1 text-lg font-bold text-violet-900">Notas que vieram do mês anterior para escriturar em {{ competencia_rotulo }}</h2>
+  <p class="mb-3 text-xs text-violet-800">Estas notas foram separadas na apuração anterior como "Ficará para o mês seguinte" e entraram automaticamente na fila deste mês.</p>
+  <div class="overflow-auto rounded-2xl border border-violet-100 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-violet-100 text-xs uppercase text-violet-900">
+        <tr><th class="px-3 py-2.5">Tipo</th><th class="px-3 py-2.5">Nº</th><th class="px-3 py-2.5">Emissão / Comp.</th><th class="px-3 py-2.5">Tomador / Prestador</th><th class="px-3 py-2.5">Valor Serviço</th><th class="px-3 py-2.5">Retenções</th></tr>
+      </thead>
+      <tbody>
+        {% for n in resumo_nfse.escrituracao.vindas_mes_anterior %}
+        <tr class="border-t border-violet-50">
+          <td class="px-3 py-2.5">{{ n.get_tipo_display }}</td>
+          <td class="px-3 py-2.5 font-bold">{{ n.numero }}</td>
+          <td class="px-3 py-2.5">{{ n.data_emissao|date:"d/m/Y"|default:n.data_emissao_texto }} · {{ n.competencia_emissao }}</td>
+          <td class="px-3 py-2.5">{{ n.razao_terceiro }}</td>
+          <td class="px-3 py-2.5 font-semibold">R$ {{ n.valor_servico|brl }}</td>
+          <td class="px-3 py-2.5 text-xs">ISS: R$ {{ n.valor_issqn|brl }} · CSRF: R$ {{ n.contrib_sociais_retidas|brl }} · IRRF: R$ {{ n.irrf|brl }} · INSS: R$ {{ n.contrib_previdenciaria_retida|brl }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<section class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h2 class="text-xl font-extrabold">Relatório de Notas Fiscais de Serviço de {{ empresa_travada.razao_social }} ({{ competencia_rotulo }})</h2>
+      <p class="text-xs text-stone-500">Marque o que já foi escriturado na Domínio e separe com 1 clique o que ficará para escriturar em {{ proxima_competencia_rotulo }}.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="post" action="{% url 'marcar_lote_nfse' %}">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="escriturar_todas">
+        <button type="submit" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm">Marcar todas pendentes como Escrituradas</button>
+      </form>
+      <form method="post" action="{% url 'marcar_lote_nfse' %}">
+        {% csrf_token %}
+        <input type="hidden" name="acao" value="reabrir_todas">
+        <button type="submit" class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 shadow-sm">Reabrir conferência</button>
+      </form>
+      <a href="{% url 'auditoria' %}" class="rounded-xl bg-blue-700 px-3 py-2 text-xs font-bold text-white shadow-sm">Ir para Apuração Final do Mês →</a>
+    </div>
+  </div>
+
+  <h3 class="mb-2 mt-4 text-base font-bold text-teal-800">Serviços Prestados — NFS-e Emitidas ({{ notas_prestadas|length }})</h3>
+  <div class="mb-6 overflow-auto rounded-2xl border border-stone-200">
+    <table class="w-full text-left text-xs">
+      <thead class="bg-teal-50 uppercase tracking-wide text-teal-900">
+        <tr>
+          <th class="px-3 py-2.5">Nº</th>
+          <th class="px-3 py-2.5">Emissão</th>
+          <th class="px-3 py-2.5">Comp.</th>
+          <th class="px-3 py-2.5">Tomador</th>
+          <th class="px-3 py-2.5">Valor Serviço</th>
+          <th class="px-3 py-2.5">Valor Líquido</th>
+          <th class="px-3 py-2.5">ISS / Retenção</th>
+          <th class="px-3 py-2.5">CSRF / INSS / IRRF</th>
+          <th class="px-3 py-2.5">Status</th>
+          <th class="px-3 py-2.5">Etapa na Apuração</th>
+          <th class="px-3 py-2.5">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in notas_prestadas %}
+        <tr class="border-t border-stone-100 {% if n.status == 'Cancelada' %}bg-red-50 text-red-900{% elif n.etapa_escrituracao == 'MES_SEGUINTE' %}bg-violet-50{% elif n.etapa_escrituracao == 'ESCRITURADA' %}bg-emerald-50/40{% endif %}">
+          <td class="px-3 py-2.5 font-bold">{{ n.numero }}</td>
+          <td class="px-3 py-2.5">{{ n.data_emissao|date:"d/m/Y"|default:n.data_emissao_texto }}</td>
+          <td class="px-3 py-2.5">{{ n.competencia_emissao }}</td>
+          <td class="px-3 py-2.5">{{ n.razao_terceiro }}</td>
+          <td class="px-3 py-2.5 font-semibold">R$ {{ n.valor_servico|brl }}</td>
+          <td class="px-3 py-2.5">R$ {{ n.valor_liquido|brl }}</td>
+          <td class="px-3 py-2.5">R$ {{ n.valor_issqn|brl }} {% if n.retencao %}<span class="block text-[11px] text-stone-500">{{ n.retencao }}</span>{% endif %}</td>
+          <td class="px-3 py-2.5">CS: {{ n.contrib_sociais_retidas|brl }}<br>INSS: {{ n.contrib_previdenciaria_retida|brl }} · IR: {{ n.irrf|brl }}</td>
+          <td class="px-3 py-2.5">{{ n.status }}{% if n.data_cancelamento %}<span class="block text-[10px]">{{ n.data_cancelamento }}</span>{% endif %}</td>
+          <td class="px-3 py-2.5">
+            {% if n.etapa_escrituracao == 'ESCRITURADA' %}
+              <span class="rounded-lg bg-emerald-100 px-2 py-1 font-bold text-emerald-800">Escriturada no mês</span>
+            {% elif n.etapa_escrituracao == 'MES_SEGUINTE' %}
+              <span class="rounded-lg bg-violet-100 px-2 py-1 font-bold text-violet-800">Fica p/ {{ proxima_competencia_rotulo }}</span>
+            {% elif n.etapa_escrituracao == 'NAO_ESCRITURAR' %}
+              <span class="rounded-lg bg-red-100 px-2 py-1 font-bold text-red-800">Cancelada</span>
+            {% else %}
+              <span class="rounded-lg bg-amber-100 px-2 py-1 font-bold text-amber-900">Falta escriturar</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2.5">
+            <div class="flex flex-wrap gap-1">
+              {% if n.etapa_escrituracao != 'ESCRITURADA' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="rounded-lg bg-emerald-600 px-2 py-1 text-white" type="submit">Escriturada</button></form>
+              {% endif %}
+              {% if n.etapa_escrituracao != 'MES_SEGUINTE' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="rounded-lg bg-violet-700 px-2 py-1 text-white" type="submit">Mês Seguinte</button></form>
+              {% endif %}
+              {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="rounded-lg border border-stone-300 bg-white px-2 py-1 text-stone-700" type="submit">Pendente</button></form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="px-3 py-4 text-stone-500">Nenhuma NFS-e Prestada registrada nesta competência.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <h3 class="mb-2 text-base font-bold text-blue-800">Serviços Tomados — NFS-e Recebidas ({{ notas_tomadas|length }})</h3>
+  <div class="overflow-auto rounded-2xl border border-stone-200">
+    <table class="w-full text-left text-xs">
+      <thead class="bg-blue-50 uppercase tracking-wide text-blue-900">
+        <tr>
+          <th class="px-3 py-2.5">Nº</th>
+          <th class="px-3 py-2.5">Emissão</th>
+          <th class="px-3 py-2.5">Comp.</th>
+          <th class="px-3 py-2.5">Prestador (Emitente)</th>
+          <th class="px-3 py-2.5">Valor Serviço</th>
+          <th class="px-3 py-2.5">Valor Líquido</th>
+          <th class="px-3 py-2.5">ISS / Retenção</th>
+          <th class="px-3 py-2.5">CSRF / INSS / IRRF</th>
+          <th class="px-3 py-2.5">Status</th>
+          <th class="px-3 py-2.5">Etapa na Apuração</th>
+          <th class="px-3 py-2.5">Ação</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for n in notas_tomadas %}
+        <tr class="border-t border-stone-100 {% if n.status == 'Cancelada' %}bg-red-50 text-red-900{% elif n.etapa_escrituracao == 'MES_SEGUINTE' %}bg-violet-50{% elif n.etapa_escrituracao == 'ESCRITURADA' %}bg-emerald-50/40{% endif %}">
+          <td class="px-3 py-2.5 font-bold">{{ n.numero }}</td>
+          <td class="px-3 py-2.5">{{ n.data_emissao|date:"d/m/Y"|default:n.data_emissao_texto }}</td>
+          <td class="px-3 py-2.5">{{ n.competencia_emissao }}</td>
+          <td class="px-3 py-2.5">{{ n.razao_terceiro }}</td>
+          <td class="px-3 py-2.5 font-semibold">R$ {{ n.valor_servico|brl }}</td>
+          <td class="px-3 py-2.5">R$ {{ n.valor_liquido|brl }}</td>
+          <td class="px-3 py-2.5">R$ {{ n.valor_issqn|brl }} {% if n.retencao %}<span class="block text-[11px] text-stone-500">{{ n.retencao }}</span>{% endif %}</td>
+          <td class="px-3 py-2.5">CS: {{ n.contrib_sociais_retidas|brl }}<br>INSS: {{ n.contrib_previdenciaria_retida|brl }} · IR: {{ n.irrf|brl }}</td>
+          <td class="px-3 py-2.5">{{ n.status }}{% if n.data_cancelamento %}<span class="block text-[10px]">{{ n.data_cancelamento }}</span>{% endif %}</td>
+          <td class="px-3 py-2.5">
+            {% if n.etapa_escrituracao == 'ESCRITURADA' %}
+              <span class="rounded-lg bg-emerald-100 px-2 py-1 font-bold text-emerald-800">Escriturada no mês</span>
+            {% elif n.etapa_escrituracao == 'MES_SEGUINTE' %}
+              <span class="rounded-lg bg-violet-100 px-2 py-1 font-bold text-violet-800">Fica p/ {{ proxima_competencia_rotulo }}</span>
+            {% elif n.etapa_escrituracao == 'NAO_ESCRITURAR' %}
+              <span class="rounded-lg bg-red-100 px-2 py-1 font-bold text-red-800">Cancelada</span>
+            {% else %}
+              <span class="rounded-lg bg-amber-100 px-2 py-1 font-bold text-amber-900">Falta escriturar</span>
+            {% endif %}
+          </td>
+          <td class="px-3 py-2.5">
+            <div class="flex flex-wrap gap-1">
+              {% if n.etapa_escrituracao != 'ESCRITURADA' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="rounded-lg bg-emerald-600 px-2 py-1 text-white" type="submit">Escriturada</button></form>
+              {% endif %}
+              {% if n.etapa_escrituracao != 'MES_SEGUINTE' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="rounded-lg bg-violet-700 px-2 py-1 text-white" type="submit">Mês Seguinte</button></form>
+              {% endif %}
+              {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="rounded-lg border border-stone-300 bg-white px-2 py-1 text-stone-700" type="submit">Pendente</button></form>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr><td colspan="11" class="px-3 py-4 text-stone-500">Nenhuma NFS-e Tomada registrada nesta competência.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endif %}
+
+<script>
+  function alternarModoPeriodo(modo) {
+    const caixa = document.getElementById("caixa-periodo-livre");
+    if (!caixa) return;
+    if (modo === "livre") {
+      caixa.classList.remove("hidden");
+      caixa.classList.add("flex");
+    } else {
+      caixa.classList.add("hidden");
+      caixa.classList.remove("flex");
+    }
+  }
+
+  let estavaRodando = {{ estado_coletor.rodando|yesno:"true,false" }};
+  const consoleEl = document.getElementById("console-coletor");
+  const statusCurto = document.getElementById("status-curto");
+  const btnIniciar = document.getElementById("btn-iniciar-robo");
+  const btnParar = document.getElementById("btn-parar-robo");
+
+  async function atualizarStatusColetor() {
+    try {
+      const resp = await fetch("{% url 'status_coletor_nfse' %}", { credentials: "same-origin" });
+      if (!resp.ok) return;
+      const dados = await resp.json();
+      if (consoleEl && dados.logs && dados.logs.length) {
+        consoleEl.textContent = dados.logs.join("\n");
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+      }
+      if (statusCurto && dados.ultimo_status) {
+        statusCurto.textContent = dados.ultimo_status;
+      }
+      if (btnIniciar) btnIniciar.disabled = !!dados.rodando;
+      if (btnParar) btnParar.disabled = !dados.rodando;
+      if (estavaRodando && !dados.rodando) {
+        estavaRodando = false;
+        window.location.reload();
+        return;
+      }
+      estavaRodando = !!dados.rodando;
+    } catch (_e) {}
+  }
+
+  async function pararColetor() {
+    const csrf = document.querySelector("[name=csrfmiddlewaretoken]");
+    const fd = new FormData();
+    if (csrf) fd.append("csrfmiddlewaretoken", csrf.value);
+    fd.append("resposta", "json");
+    await fetch("{% url 'parar_coletor_nfse' %}", { method: "POST", body: fd, credentials: "same-origin" });
+    atualizarStatusColetor();
+  }
+
+  setInterval(atualizarStatusColetor, 1800);
+</script>
+{% endblock %}

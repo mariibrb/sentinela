@@ -1,80 +1,446 @@
 {% extends "base.html" %}
-{% block titulo %}Cadastro · Sentinela{% endblock %}
+{% block titulo %}Cadastro e Escopo · Sentinela{% endblock %}
 {% block corpo %}
-<form method="post" enctype="multipart/form-data" class="rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
+<form id="form-cliente" method="post" enctype="multipart/form-data" class="rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
   {% csrf_token %}
+  <input type="hidden" name="contatos_json" id="id_contatos_json" value="{{ contatos_json }}">
+
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
-      <p class="text-sm font-semibold text-pink-700">Cadastro do estabelecimento</p>
+      <p class="text-sm font-semibold text-pink-700">Ficha do Cliente · Cadastro e Escopo de Trabalho</p>
       <h1 class="text-3xl font-extrabold">{% if empresa %}{{ empresa.razao_social }}{% else %}Novo cliente{% endif %}</h1>
     </div>
-    <button type="button" class="rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 font-semibold text-pink-700 shadow-sm" id="buscar-cnpj">Buscar CNPJ</button>
+    <div class="flex flex-wrap items-center gap-2">
+      <button type="button" class="rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 font-semibold text-pink-700 shadow-sm hover:bg-pink-100" id="buscar-cnpj">Buscar CNPJ</button>
+      <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Gravar cadastro e escopo</button>
+    </div>
   </div>
+
   <p id="aviso-cnpj" class="mb-4 hidden rounded-xl border px-4 py-3 shadow-sm"></p>
   {% if form.non_field_errors %}<p class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm">{{ form.non_field_errors }}</p>{% endif %}
 
-  <h2 class="mb-3 text-lg font-bold">Identificação</h2>
-  <div class="mb-6 grid gap-4 sm:grid-cols-2">
-    {% include "clientes/_campo.html" with campo=form.codigo_dominio %}
-    {% include "clientes/_campo.html" with campo=form.cnpj %}
-    {% include "clientes/_campo.html" with campo=form.tipo_estabelecimento %}
-    {% include "clientes/_campo.html" with campo=form.status %}
-    {% include "clientes/_campo.html" with campo=form.razao_social largo=1 %}
-    {% include "clientes/_campo.html" with campo=form.nome_fantasia %}
-    {% include "clientes/_campo.html" with campo=form.responsavel_apuracao %}
-    {% include "clientes/_campo.html" with campo=form.responsavel_revisao %}
+  <!-- Navegação por Abas -->
+  <div class="mb-6 flex flex-wrap gap-2 border-b border-stone-200 pb-3" role="tablist">
+    <button type="button" id="btn-aba-informacoes" onclick="alternarAbaCliente('informacoes')" class="rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm transition">
+      1. Informações Cadastrais e Contatos
+    </button>
+    <button type="button" id="btn-aba-escopo" onclick="alternarAbaCliente('escopo')" class="rounded-xl px-4 py-2.5 text-sm font-bold shadow-sm transition">
+      2. Escopo de Trabalho (Checklist)
+    </button>
   </div>
 
-  <h2 class="mb-3 text-lg font-bold">Inscrições</h2>
-  <div class="mb-6 grid gap-4 sm:grid-cols-2">
-    {% include "clientes/_campo.html" with campo=form.inscricao_estadual %}
-    {% include "clientes/_campo.html" with campo=form.inscricao_municipal %}
-    {% include "clientes/_campo.html" with campo=form.suframa %}
-    {% include "clientes/_campo.html" with campo=form.cnae_principal %}
-  </div>
-
-  <h2 class="mb-1 text-lg font-bold">Inscrição de substituto tributário</h2>
-  <p class="mb-3 text-sm text-stone-500">Uma inscrição por UF, como no registro 0015 do SPED. A IE da UF do estabelecimento fica no campo principal.</p>
-  <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-    {% for campo in form %}
-      {% if "ie_st_" in campo.name %}
-        {% include "clientes/_campo.html" with campo=campo %}
-      {% endif %}
-    {% endfor %}
-  </div>
-
-  <h2 class="mb-3 text-lg font-bold">Localização</h2>
-  <div class="mb-6 grid gap-4 sm:grid-cols-2">
-    {% include "clientes/_campo.html" with campo=form.cep %}
-    {% include "clientes/_campo.html" with campo=form.uf %}
-    {% include "clientes/_campo.html" with campo=form.logradouro largo=1 %}
-    {% include "clientes/_campo.html" with campo=form.numero %}
-    {% include "clientes/_campo.html" with campo=form.complemento %}
-    {% include "clientes/_campo.html" with campo=form.bairro %}
-    {% include "clientes/_campo.html" with campo=form.municipio %}
-    {% include "clientes/_campo.html" with campo=form.codigo_ibge %}
-  </div>
-
-  <h2 class="mb-3 text-lg font-bold">Parâmetros tributários</h2>
-  <div class="mb-6 grid gap-4 sm:grid-cols-2">
-    {% include "clientes/_campo.html" with campo=form.regime_tributario %}
-    {% include "clientes/_campo.html" with campo=form.anexo_simples %}
-    {% include "clientes/_campo.html" with campo=form.regime_pis_cofins %}
-    <p id="ajuda-pis" class="text-sm text-pink-800 sm:col-span-2">O regime de PIS/COFINS acompanha o regime tributário.</p>
-    {% include "clientes/_campo.html" with campo=form.perfil_estabelecimento largo=1 %}
-    <div class="flex flex-wrap gap-4 sm:col-span-2">
-      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_icms }} Contribuinte de ICMS</label>
-      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_ipi }} Contribuinte de IPI</label>
-      <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.possui_regime_especial }} Regime especial</label>
+  <!-- ABA 1: INFORMAÇÕES CADASTRAIS, TRIBUTÁRIAS E CONTATOS -->
+  <div id="painel-aba-informacoes" class="space-y-6">
+    <div>
+      <h2 class="mb-3 text-lg font-bold text-stone-900">Identificação e Contrato</h2>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {% include "clientes/_campo.html" with campo=form.codigo_dominio %}
+        {% include "clientes/_campo.html" with campo=form.cnpj %}
+        {% include "clientes/_campo.html" with campo=form.tipo_estabelecimento %}
+        {% include "clientes/_campo.html" with campo=form.status %}
+        {% include "clientes/_campo.html" with campo=form.data_abertura %}
+        {% include "clientes/_campo.html" with campo=form.data_inicio_cliente %}
+        <div class="sm:col-span-2 lg:col-span-2">{% include "clientes/_campo.html" with campo=form.razao_social %}</div>
+        {% include "clientes/_campo.html" with campo=form.nome_fantasia %}
+        {% include "clientes/_campo.html" with campo=form.responsavel_apuracao %}
+        {% include "clientes/_campo.html" with campo=form.responsavel_revisao %}
+      </div>
     </div>
-    <div id="caixa-pta" class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:col-span-2">
-      <p id="chamada-pta" class="mb-3 text-sm text-stone-500">O PDF do PTA entra em evidência quando o perfil for regime especial de MG ou de SP.</p>
-      {% include "clientes/_campo.html" with campo=form.documento_regime_especial %}
+
+    <div>
+      <h2 class="mb-3 text-lg font-bold text-stone-900">Inscrições e Atividade</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% include "clientes/_campo.html" with campo=form.inscricao_estadual %}
+        {% include "clientes/_campo.html" with campo=form.inscricao_municipal %}
+        {% include "clientes/_campo.html" with campo=form.suframa %}
+        {% include "clientes/_campo.html" with campo=form.cnae_principal %}
+      </div>
+    </div>
+
+    <div>
+      <h2 class="mb-1 text-lg font-bold text-stone-900">Inscrição de substituto tributário</h2>
+      <p class="mb-3 text-sm text-stone-500">Uma inscrição por UF, como no registro 0015 do SPED. A IE da UF do estabelecimento fica no campo principal.</p>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {% for campo in form %}
+          {% if "ie_st_" in campo.name %}
+            {% include "clientes/_campo.html" with campo=campo %}
+          {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+
+    <div>
+      <h2 class="mb-3 text-lg font-bold text-stone-900">Localização</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% include "clientes/_campo.html" with campo=form.cep %}
+        {% include "clientes/_campo.html" with campo=form.uf %}
+        {% include "clientes/_campo.html" with campo=form.logradouro largo=1 %}
+        {% include "clientes/_campo.html" with campo=form.numero %}
+        {% include "clientes/_campo.html" with campo=form.complemento %}
+        {% include "clientes/_campo.html" with campo=form.bairro %}
+        {% include "clientes/_campo.html" with campo=form.municipio %}
+        {% include "clientes/_campo.html" with campo=form.codigo_ibge %}
+      </div>
+    </div>
+
+    <div>
+      <h2 class="mb-3 text-lg font-bold text-stone-900">Parâmetros tributários</h2>
+      <div class="grid gap-4 sm:grid-cols-2">
+        {% include "clientes/_campo.html" with campo=form.regime_tributario %}
+        {% include "clientes/_campo.html" with campo=form.anexo_simples %}
+        {% include "clientes/_campo.html" with campo=form.regime_pis_cofins %}
+        <p id="ajuda-pis" class="text-sm text-pink-800 sm:col-span-2">O regime de PIS/COFINS acompanha o regime tributário.</p>
+        {% include "clientes/_campo.html" with campo=form.perfil_estabelecimento largo=1 %}
+        <div class="flex flex-wrap gap-4 sm:col-span-2">
+          <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_icms }} Contribuinte de ICMS</label>
+          <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.contribuinte_ipi }} Contribuinte de IPI</label>
+          <label class="flex items-center gap-2 text-sm font-semibold text-stone-600">{{ form.possui_regime_especial }} Regime especial</label>
+        </div>
+        <div id="caixa-pta" class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm sm:col-span-2">
+          <p id="chamada-pta" class="mb-3 text-sm text-stone-500">O PDF do PTA entra em evidência quando o perfil for regime especial de MG ou de SP.</p>
+          {% include "clientes/_campo.html" with campo=form.documento_regime_especial %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Contatos dos Responsáveis (do Onboarding) -->
+    <div class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+      <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 class="text-lg font-bold text-stone-900">Contatos dos Responsáveis</h2>
+          <p class="text-xs text-stone-500">Cadastre os responsáveis por setor (Sócio/Diretor, Financeiro, Fiscal, Contábil, DP/RH). Tudo fica pesquisável pela equipe.</p>
+        </div>
+      </div>
+
+      <div class="mb-4 grid gap-3 rounded-xl border border-stone-200 bg-white p-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-stone-600">Nome completo</label>
+          <input type="text" id="novo-contato-nome" placeholder="Ex.: Maria Silva" class="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-stone-600">Setor</label>
+          <select id="novo-contato-setor" class="w-full rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm">
+            {% for s in setores_contato %}<option value="{{ s }}">{{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-stone-600">E-mail</label>
+          <input type="email" id="novo-contato-email" placeholder="nome@empresa.com.br" class="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="mb-1 block text-xs font-semibold text-stone-600">Telefone</label>
+          <input type="text" id="novo-contato-telefone" placeholder="(31) 99999-9999" class="w-full rounded-xl border border-stone-200 px-3 py-2 text-sm">
+        </div>
+        <div class="flex flex-col justify-end gap-2">
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-stone-700">
+            <input type="checkbox" id="novo-contato-whatsapp" checked> Possui WhatsApp
+          </label>
+          <button type="button" onclick="adicionarContato()" class="rounded-xl bg-pink-600 px-3 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">+ Adicionar contato</button>
+        </div>
+      </div>
+
+      <div id="lista-contatos" class="space-y-2"></div>
+    </div>
+
+    <!-- Resumo / Histórico do Cliente -->
+    <div>
+      <h2 class="mb-2 text-lg font-bold text-stone-900">Resumo / Histórico do Cliente</h2>
+      {% include "clientes/_campo.html" with campo=form.resumo_cliente largo=1 %}
     </div>
   </div>
-  <button class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Gravar cadastro e criar pastas</button>
+
+  <!-- ABA 2: ESCOPO DE TRABALHO (CHECKLIST ONBOARDING) -->
+  <div id="painel-aba-escopo" class="hidden space-y-6">
+    <div class="rounded-2xl border border-pink-100 bg-pink-50/60 p-4">
+      <p class="text-sm font-semibold text-pink-900">
+        Marque abaixo tudo o que está dentro do escopo contratado pelo cliente. Qualquer pessoa da equipe poderá pesquisar na tela de Clientes por qualquer item marcado aqui (ex.: "DCTFWeb", "SPED Contribuições", "Folha", "ICMS Incentivado", "Conciliação Bancária").
+      </p>
+    </div>
+
+    <!-- 1. Escopo: Compliance Fiscal -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Escopo: Compliance Fiscal</h2>
+          <p class="text-xs text-stone-500">Escrituração, apuração de impostos, obrigações acessórias e acompanhamento fiscal.</p>
+        </div>
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-800">
+          <input type="checkbox" onchange="marcarTodosGrupo('escopo_fiscal', this.checked)"> Selecionar Todos (Compliance Fiscal)
+        </label>
+      </div>
+
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {% for coluna in colunas_fiscais %}
+        <div class="space-y-2.5">
+          {% for item in coluna %}
+          <div class="rounded-xl border border-stone-100 bg-stone-50/70 p-2.5">
+            <label class="flex cursor-pointer items-start gap-2 text-sm font-medium text-stone-800">
+              <input type="checkbox" name="escopo_fiscal" value="{{ item.nome }}" {% if item.marcado %}checked{% endif %} onchange="atualizarDependentesEscopo()" class="mt-0.5 h-4 w-4 rounded text-pink-600">
+              <span>{{ item.nome }}</span>
+            </label>
+
+            {% if item.nome == "Escrituração de Notas Fiscais de Entrada" %}
+            <div data-dep-fiscal="Escrituração de Notas Fiscais de Entrada" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="block text-xs font-semibold text-stone-600">Qtd média Entradas / mês</span>
+              {{ form.qtd_notas_entrada }}
+            </div>
+            {% elif item.nome == "Escrituração de Notas Fiscais de Saída" %}
+            <div data-dep-fiscal="Escrituração de Notas Fiscais de Saída" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="block text-xs font-semibold text-stone-600">Qtd média Saídas / mês</span>
+              {{ form.qtd_notas_saida }}
+            </div>
+            {% elif item.nome == "Emissão de notas fiscais de serviços" %}
+            <div data-dep-fiscal="Emissão de notas fiscais de serviços" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="block text-xs font-semibold text-stone-600">Qtd Emissão Serviços / mês</span>
+              {{ form.qtd_emissao_notas_servico }}
+            </div>
+            {% elif item.nome == "Emissão de notas fiscais eletrônicas de produtos" %}
+            <div data-dep-fiscal="Emissão de notas fiscais eletrônicas de produtos" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="block text-xs font-semibold text-stone-600">Qtd Emissão Produtos / mês</span>
+              {{ form.qtd_emissao_notas_produto }}
+            </div>
+            {% elif item.nome == "ICMS Incentivado" %}
+            <div data-dep-fiscal="ICMS Incentivado" class="mt-2 space-y-1 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="block text-xs font-semibold text-pink-800">Incentivos (TTS):</span>
+              {% for op in opcoes_tts %}
+              <label class="flex items-center gap-1.5 text-xs text-stone-700">
+                <input type="checkbox" name="tipos_icms_incentivado" value="{{ op.nome }}" {% if op.marcado %}checked{% endif %}>
+                <span>{{ op.nome }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% elif item.nome == "Apuração: ICMS-ST" %}
+            <div data-dep-fiscal="Apuração: ICMS-ST" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+              <span class="mb-1 block text-xs font-semibold text-pink-800">Estados ICMS-ST:</span>
+              <div class="grid grid-cols-4 gap-1">
+                {% for est in estados_icms_st %}
+                <label class="flex items-center gap-1 text-xs text-stone-700">
+                  <input type="checkbox" name="estados_icms_st" value="{{ est.uf }}" {% if est.marcado %}checked{% endif %}>
+                  <span>{{ est.uf }}</span>
+                </label>
+                {% endfor %}
+              </div>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 2. Escopo: Contabilidade -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Escopo: Contabilidade</h2>
+          <p class="text-xs text-stone-500">Conciliação bancária, balancetes, demonstrações contábeis, ECD, ECF e Lucro Real.</p>
+        </div>
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-800">
+          <input type="checkbox" onchange="marcarTodosGrupo('escopo_contabil', this.checked)"> Selecionar Todos (Contabilidade)
+        </label>
+      </div>
+      <div class="grid gap-2.5 sm:grid-cols-2">
+        {% for item in itens_contabeis %}
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-100 bg-stone-50/70 p-2.5 text-sm font-medium text-stone-800">
+          <input type="checkbox" name="escopo_contabil" value="{{ item.nome }}" {% if item.marcado %}checked{% endif %} class="h-4 w-4 rounded text-pink-600">
+          <span>{{ item.nome }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 3. Escopo: Departamento Pessoal -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Escopo: Departamento Pessoal (DP)</h2>
+          <p class="text-xs text-stone-500">Folha de pagamento, pró-labore, férias, rescisões, eSocial, EFD-Reinf e encargos.</p>
+        </div>
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-800">
+          <input type="checkbox" onchange="marcarTodosGrupo('escopo_dp', this.checked)"> Selecionar Todos (Departamento Pessoal)
+        </label>
+      </div>
+      <div class="grid gap-2.5 sm:grid-cols-2">
+        {% for item in itens_dp %}
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl border border-stone-100 bg-stone-50/70 p-2.5 text-sm font-medium text-stone-800">
+          <input type="checkbox" name="escopo_dp" value="{{ item.nome }}" {% if item.marcado %}checked{% endif %} class="h-4 w-4 rounded text-pink-600">
+          <span>{{ item.nome }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- 4. Escopo: Regularização / Abertura -->
+    <div class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 pb-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-stone-900">Escopo: Regularização / Abertura</h2>
+          <p class="text-xs text-stone-500">Contrato social, alterações, inscrições, alvarás, AVCB/CLCB, Vigilância, IBAMA e Inscrições ST.</p>
+        </div>
+        <label class="flex cursor-pointer items-center gap-2 rounded-xl bg-pink-50 px-3 py-1.5 text-xs font-bold text-pink-800">
+          <input type="checkbox" onchange="marcarTodosGrupo('escopo_regularizacao', this.checked)"> Selecionar Todos (Regularização)
+        </label>
+      </div>
+      <div class="grid gap-2.5 sm:grid-cols-2">
+        {% for item in itens_regularizacao %}
+        <div class="rounded-xl border border-stone-100 bg-stone-50/70 p-2.5">
+          <label class="flex cursor-pointer items-center gap-2 text-sm font-medium text-stone-800">
+            <input type="checkbox" name="escopo_regularizacao" value="{{ item.nome }}" {% if item.marcado %}checked{% endif %} onchange="atualizarDependentesEscopo()" class="h-4 w-4 rounded text-pink-600">
+            <span>{{ item.nome }}</span>
+          </label>
+          {% if item.nome == "Inscrições de Substituto Tributário (ST)" %}
+          <div data-dep-reg="Inscrições de Substituto Tributário (ST)" class="mt-2 pl-6 {% if not item.marcado %}hidden{% endif %}">
+            <span class="mb-1 block text-xs font-semibold text-pink-800">Selecione os Estados para Inscrição ST:</span>
+            <div class="grid grid-cols-6 gap-1">
+              {% for est in estados_st %}
+              <label class="flex items-center gap-1 text-xs text-stone-700">
+                <input type="checkbox" name="estados_st" value="{{ est.uf }}" {% if est.marcado %}checked{% endif %}>
+                <span>{{ est.uf }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-stone-200 pt-4">
+    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold text-stone-700 shadow-sm">Voltar para Clientes</a>
+    <button class="rounded-xl bg-pink-600 px-5 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Gravar cadastro, escopo e criar pastas</button>
+  </div>
 </form>
+
 <script>
+  // Controle de Abas (1. Informações / 2. Escopo de Trabalho)
+  function alternarAbaCliente(qual) {
+    const pInfo = document.getElementById("painel-aba-informacoes");
+    const pEscopo = document.getElementById("painel-aba-escopo");
+    const bInfo = document.getElementById("btn-aba-informacoes");
+    const bEscopo = document.getElementById("btn-aba-escopo");
+    const ativa = "rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm";
+    const inativa = "rounded-xl border border-stone-200 bg-stone-50 px-4 py-2.5 text-sm font-bold text-stone-600 hover:bg-pink-50 hover:text-pink-700";
+    if (qual === "escopo") {
+      pInfo.classList.add("hidden");
+      pEscopo.classList.remove("hidden");
+      bEscopo.className = ativa;
+      bInfo.className = inativa;
+    } else {
+      pEscopo.classList.add("hidden");
+      pInfo.classList.remove("hidden");
+      bInfo.className = ativa;
+      bEscopo.className = inativa;
+    }
+  }
+  alternarAbaCliente("{{ aba_inicial|default:'informacoes' }}");
+
+  // Mostrar/ocultar campos dependentes do checklist de Escopo
+  function atualizarDependentesEscopo() {
+    document.querySelectorAll("[data-dep-fiscal]").forEach((caixa) => {
+      const nome = caixa.getAttribute("data-dep-fiscal");
+      const chk = [...document.querySelectorAll("input[name='escopo_fiscal']")].find((i) => i.value === nome);
+      caixa.classList.toggle("hidden", !(chk && chk.checked));
+    });
+    document.querySelectorAll("[data-dep-reg]").forEach((caixa) => {
+      const nome = caixa.getAttribute("data-dep-reg");
+      const chk = [...document.querySelectorAll("input[name='escopo_regularizacao']")].find((i) => i.value === nome);
+      caixa.classList.toggle("hidden", !(chk && chk.checked));
+    });
+  }
+
+  function marcarTodosGrupo(nomeInput, marcado) {
+    document.querySelectorAll(`input[name='${nomeInput}']`).forEach((chk) => {
+      chk.checked = marcado;
+    });
+    atualizarDependentesEscopo();
+  }
+
+  // Gerenciamento dinâmico de Contatos dos Responsáveis
+  const campoContatosJson = document.getElementById("id_contatos_json");
+  const containerContatos = document.getElementById("lista-contatos");
+  let listaContatos = [];
+  try {
+    listaContatos = JSON.parse(campoContatosJson.value || "[]");
+    if (!Array.isArray(listaContatos)) listaContatos = [];
+  } catch (_e) {
+    listaContatos = [];
+  }
+
+  function formatarTelefoneBr(valor) {
+    let d = String(valor || "").replace(/\D/g, "");
+    if ((d.length === 12 || d.length === 13) && d.startsWith("55")) d = d.slice(2);
+    d = d.slice(0, 11);
+    if (d.length === 11) return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`;
+    if (d.length === 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`;
+    return valor;
+  }
+
+  function sincronizarContatos() {
+    campoContatosJson.value = JSON.stringify(listaContatos);
+    containerContatos.replaceChildren();
+    if (!listaContatos.length) {
+      const vazio = document.createElement("p");
+      vazio.className = "text-xs text-stone-500";
+      vazio.textContent = "Nenhum contato cadastrado ainda.";
+      containerContatos.appendChild(vazio);
+      return;
+    }
+    listaContatos.forEach((c, idx) => {
+      const linha = document.createElement("div");
+      linha.className = "flex flex-wrap items-center justify-between gap-2 rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs";
+      const info = document.createElement("div");
+      const wpp = c.WhatsApp ? " · WhatsApp: Sim" : "";
+      info.innerHTML = `<strong class="text-stone-900">${c.Nome || "Sem nome"}</strong> <span class="rounded-lg bg-pink-50 px-2 py-0.5 font-semibold text-pink-800">${c.Setor || "Outro"}</span> · ${c["E-mail"] || "Sem e-mail"} · ${c.Telefone || "Sem telefone"}${wpp}`;
+      const btnRemover = document.createElement("button");
+      btnRemover.type = "button";
+      btnRemover.className = "rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 font-semibold text-red-700 hover:bg-red-100";
+      btnRemover.textContent = "Excluir";
+      btnRemover.addEventListener("click", () => {
+        listaContatos.splice(idx, 1);
+        sincronizarContatos();
+      });
+      linha.append(info, btnRemover);
+      containerContatos.appendChild(linha);
+    });
+  }
+
+  function adicionarContato() {
+    const nomeEl = document.getElementById("novo-contato-nome");
+    const setorEl = document.getElementById("novo-contato-setor");
+    const emailEl = document.getElementById("novo-contato-email");
+    const telEl = document.getElementById("novo-contato-telefone");
+    const wppEl = document.getElementById("novo-contato-whatsapp");
+    const nome = (nomeEl.value || "").trim();
+    const email = (emailEl.value || "").trim();
+    const tel = formatarTelefoneBr((telEl.value || "").trim());
+    if (!nome && !email && !tel) return;
+    listaContatos.push({
+      Nome: nome,
+      Setor: setorEl.value || "Outro",
+      "E-mail": email,
+      Telefone: tel,
+      WhatsApp: Boolean(wppEl.checked),
+    });
+    nomeEl.value = "";
+    emailEl.value = "";
+    telEl.value = "";
+    wppEl.checked = true;
+    sincronizarContatos();
+  }
+  sincronizarContatos();
+
+  // Máscara MM/AAAA para Cliente a partir de
+  const campoInicioCliente = document.getElementById("id_data_inicio_cliente");
+  if (campoInicioCliente) {
+    campoInicioCliente.addEventListener("input", () => {
+      const d = campoInicioCliente.value.replace(/\D/g, "").slice(0, 6);
+      campoInicioCliente.value = d.length <= 2 ? d : `${d.slice(0, 2)}/${d.slice(2)}`;
+    });
+  }
+
   document.getElementById("buscar-cnpj").addEventListener("click", async () => {
     const aviso = document.getElementById("aviso-cnpj");
     const cnpj = document.getElementById("id_cnpj").value.replace(/\D/g, "");
@@ -113,7 +479,7 @@
         const campo = document.getElementById(`id_ie_st_${uf}`);
         if (campo && valor) campo.value = valor;
       });
-      mostrar("Dados públicos do CNPJ preenchidos. Selecione o regime na lista. Confira a inscrição estadual e o código Domínio.", true);
+      mostrar("Dados públicos do CNPJ preenchidos. Selecione o regime na lista e preencha a aba Escopo de Trabalho.", true);
     } catch (_erro) {
       mostrar("Consulta automática indisponível no momento. Preencha razão social, endereço, município e código IBGE neste formulário.", true);
     }
@@ -130,11 +496,15 @@
     "Lucro Real": "Não-Cumulativo",
     "Lucro Presumido": "Cumulativo",
     "Simples Nacional": "Simples Nacional",
+    "MEI": "Simples Nacional",
+    "Imune/Isenta": "Isento / Imune",
   };
   const textosPis = {
     "Lucro Real": "Lucro Real define o PIS/COFINS como Não-Cumulativo.",
     "Lucro Presumido": "Lucro Presumido define o PIS/COFINS como Cumulativo.",
     "Simples Nacional": "No Simples Nacional, o PIS/COFINS segue o anexo escolhido.",
+    "MEI": "No MEI, a tributação é unificada no SIMEI.",
+    "Imune/Isenta": "Entidade Imune ou Isenta.",
   };
   const ajustarPis = () => {
     const valor = vinculoPis[regime.value] || "";

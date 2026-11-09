@@ -6,6 +6,7 @@ from django.db.models import Sum
 from django.shortcuts import redirect, render
 from django.views.decorators.http import require_POST
 
+from auditoria.apuracao_motor import MotorApuracaoSentinela
 from auditoria.sped_motor import MotorSpedCruzamento
 from clientes.acesso import exige
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
@@ -33,11 +34,15 @@ def _totais(documentos):
 def painel(request):
     request.modulo = "auditoria"
     empresa = _empresa_ativa(request)
+    competencia = request.session.get("competencia", "")
     documentos = DocumentoXML.objects.none()
     divergencias = []
-    if empresa is not None:
-        documentos = DocumentoXML.objects.filter(empresa=empresa, competencia=request.session.get("competencia", ""))
+    fechamento = None
+    ausentes = request.session.get("sped_ausentes", [])
+    if empresa is not None and competencia:
+        documentos = DocumentoXML.objects.filter(empresa=empresa, competencia=competencia)
         divergencias = documentos.filter(possui_divergencia=True)
+        fechamento = MotorApuracaoSentinela(empresa, competencia).resumo_fechamento_completo(sped_ausentes=ausentes)
     return render(
         request,
         "auditoria/painel.html",
@@ -45,7 +50,8 @@ def painel(request):
             "empresa_travada": empresa,
             "totais": _totais(documentos),
             "divergencias": divergencias,
-            "ausentes": request.session.get("sped_ausentes", []),
+            "ausentes": ausentes,
+            "fechamento": fechamento,
         },
     )
 

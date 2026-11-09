@@ -110,7 +110,9 @@ class MotorGarimpeiroSentinela:
 
         modelo, direcao, status, chave, numero = self._leitor.identificar_tipo_e_status_nfe(root)
         if direcao == "INVALIDO":
-            return False
+            from triagem_xml.coletor_nfse import importar_xml_nfse
+
+            return importar_xml_nfse(self.empresa, self.competencia, caminho) is not None
         if direcao == "NAO_PERTENCE_AO_CLIENTE":
             subpasta = self.pasta_base_mes / "99_XML_NAO_PERTENCENTES_AO_CLIENTE"
             subpasta.mkdir(parents=True, exist_ok=True)

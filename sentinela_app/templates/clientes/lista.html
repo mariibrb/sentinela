@@ -5,43 +5,85 @@
 <section class="mb-4 rounded-2xl border border-pink-100 bg-white p-5 shadow-sm">
   <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
     <div>
-      <p class="text-sm font-semibold text-pink-700">Módulo de clientes</p>
+      <p class="text-sm font-semibold text-pink-700">Módulo de clientes e escopo contratado</p>
       <h1 class="text-3xl font-extrabold">Clientes</h1>
-      <p class="text-stone-500">Cada código Domínio é um estabelecimento. Matriz e filial são cadastros separados.</p>
+      <p class="text-stone-500">Pesquise por código Domínio, razão social, CNPJ, contato ou qualquer item do checklist de escopo (ex.: DCTFWeb, Folha, SPED, ICMS-ST, TTS).</p>
     </div>
     {% if permissoes.pode_cadastrar_cliente %}<a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
   </div>
-  <form method="get" class="flex flex-wrap gap-2">
-    <input class="w-full max-w-sm rounded-xl border border-stone-200 px-3 py-2.5 shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome ou CNPJ">
-    <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 shadow-sm" type="submit">Filtrar</button>
+  <form method="get" class="flex flex-wrap items-center gap-2">
+    <input class="w-full max-w-md rounded-xl border border-stone-200 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome, CNPJ, contato ou item do escopo…">
+    <select name="escopo" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500">
+      <option value="">Filtrar por item do escopo (Todos)</option>
+      {% for grupo, itens in opcoes_filtro_escopo %}
+      <optgroup label="{{ grupo }}">
+        {% for item in itens %}
+        <option value="{{ item }}" {% if filtro_escopo == item %}selected{% endif %}>{{ item }}</option>
+        {% endfor %}
+      </optgroup>
+      {% endfor %}
+    </select>
+    <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
+    {% if termo or filtro_escopo %}
+    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-600 shadow-sm">Limpar</a>
+    {% endif %}
   </form>
 </section>
 <section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
   <table class="w-full text-left text-sm">
     <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
-      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Situação</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3">Ações</th></tr>
+      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social / Contatos</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Escopo de Trabalho</th><th class="px-3 py-3">Situação</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3">Ações</th></tr>
     </thead>
     <tbody>
       {% for empresa in empresas %}
       <tr class="border-t border-stone-100">
-        <td class="px-3 py-3">{{ empresa.codigo_dominio }}</td>
-        <td class="px-3 py-3">{% if permissoes.pode_editar_cliente %}<a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a>{% else %}{{ empresa.razao_social }}{% endif %}</td>
+        <td class="px-3 py-3 font-semibold">{{ empresa.codigo_dominio }}</td>
+        <td class="px-3 py-3">
+          {% if permissoes.pode_editar_cliente %}<a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a>{% else %}<span class="font-semibold">{{ empresa.razao_social }}</span>{% endif %}
+          {% if empresa.data_inicio_cliente %}<span class="block text-xs text-stone-500">Cliente desde {{ empresa.data_inicio_cliente }}</span>{% endif %}
+          {% if empresa.contatos %}
+          <span class="block text-xs text-stone-500">{{ empresa.contatos|length }} contato(s) cadastrado(s)</span>
+          {% endif %}
+        </td>
         <td class="px-3 py-3">{{ empresa.cnpj|cnpj }}</td>
         <td class="px-3 py-3">{{ empresa.uf }}</td>
         <td class="px-3 py-3">{{ empresa.regime_tributario }}</td>
+        <td class="px-3 py-3">
+          {% with esc=empresa.resumo_escopo %}
+            {% if esc.macros %}
+              <div class="flex flex-wrap gap-1">
+                {% for m in esc.macros %}
+                <span class="rounded-lg bg-pink-50 px-2 py-0.5 text-xs font-semibold text-pink-800">{{ m }}</span>
+                {% endfor %}
+              </div>
+              {% if permissoes.pode_editar_cliente %}
+              <a href="{% url 'editar_empresa' empresa.pk %}?aba=escopo" class="mt-1 inline-block text-xs font-semibold text-pink-700 underline">Ver checklist ({{ esc.total_itens }} itens)</a>
+              {% endif %}
+            {% else %}
+              {% if permissoes.pode_editar_cliente %}
+              <a href="{% url 'editar_empresa' empresa.pk %}?aba=escopo" class="text-xs font-semibold text-stone-400 hover:text-pink-700">+ Preencher escopo</a>
+              {% else %}
+              <span class="text-xs text-stone-400">Não definido</span>
+              {% endif %}
+            {% endif %}
+          {% endwith %}
+        </td>
         <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
         <td class="px-3 py-3">{{ empresa.notas }}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
             <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Selecionar</button></form>
-            {% if permissoes.pode_editar_cliente %}<a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}">Editar</a>{% endif %}
+            {% if permissoes.pode_editar_cliente %}
+              <a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}">Cadastro</a>
+              <a class="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 font-semibold text-pink-800 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}?aba=escopo">Escopo</a>
+            {% endif %}
             {% if permissoes.pode_inativar_cliente %}<form method="post" action="{% url 'situacao_empresa' empresa.pk %}">{% csrf_token %}<button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{% if empresa.status == "Ativo" %}Inativar{% else %}Reativar{% endif %}</button></form>{% endif %}
             {% if permissoes.pode_excluir_cliente %}<form method="post" action="{% url 'excluir_empresa' empresa.pk %}" onsubmit="return confirm('Excluir este cliente? As notas dele saem do Sentinela.');">{% csrf_token %}<button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700 shadow-sm" type="submit">Excluir</button></form>{% endif %}
           </div>
         </td>
       </tr>
       {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="8">Nenhum cliente encontrado.</td></tr>
+      <tr><td class="px-3 py-4 text-stone-500" colspan="9">Nenhum cliente encontrado para esta pesquisa.</td></tr>
       {% endfor %}
     </tbody>
   </table>

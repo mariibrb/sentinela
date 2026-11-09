@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from clientes.models import Colaborador, DocumentoXML, Empresa, InscricaoSubstituto, LogAlteracao
+from clientes.models import Colaborador, DocumentoXML, Empresa, InscricaoSubstituto, LogAlteracao, NotaServico
 
 admin.site.site_header = "Sentinela"
 admin.site.site_title = "Sentinela"
@@ -31,6 +31,13 @@ class DocumentoXMLAdmin(admin.ModelAdmin):
     list_display = ("empresa", "competencia", "modelo", "numero_nota", "status_sefa", "tipo_operacao", "possui_divergencia")
     search_fields = ("chave_acesso", "numero_nota", "empresa__razao_social")
     list_filter = ("modelo", "status_sefa", "tipo_operacao", "possui_divergencia")
+
+
+@admin.register(NotaServico)
+class NotaServicoAdmin(admin.ModelAdmin):
+    list_display = ("empresa", "competencia", "tipo", "numero", "razao_terceiro", "valor_servico", "status", "etapa_escrituracao")
+    search_fields = ("chave_acesso", "numero", "razao_terceiro", "empresa__razao_social")
+    list_filter = ("tipo", "status", "etapa_escrituracao", "possui_alerta")
 
 
 @admin.register(LogAlteracao)

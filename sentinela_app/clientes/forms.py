@@ -1,8 +1,18 @@
+import json
+
 from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
 from clientes.cnpj import somente_digitos
+from clientes.escopo import (
+    ESTADOS_BR,
+    ITENS_CONTABEIS,
+    ITENS_DP,
+    ITENS_FISCAIS,
+    ITENS_REGULARIZACAO,
+    OPCOES_TTS,
+)
 from clientes.models import Colaborador, Empresa, InscricaoSubstituto
 
 CAMPO = {
@@ -22,7 +32,18 @@ class EmpresaForm(forms.ModelForm):
 
     class Meta:
         model = Empresa
-        exclude = ("data_cadastro",)
+        exclude = (
+            "data_cadastro",
+            "contatos",
+            "escopo_fiscal",
+            "tipos_icms_incentivado",
+            "estados_icms_st",
+            "escopo_contabil",
+            "escopo_dp",
+            "escopo_regularizacao",
+            "estados_st",
+            "busca_escopo",
+        )
         widgets = {
             "codigo_dominio": forms.TextInput(attrs={**CAMPO, "maxlength": "4", "inputmode": "numeric"}),
             "tipo_estabelecimento": forms.Select(attrs=CAMPO),
@@ -48,6 +69,19 @@ class EmpresaForm(forms.ModelForm):
             "regime_pis_cofins": forms.Select(attrs={**CAMPO, "aria-readonly": "true"}),
             "perfil_estabelecimento": forms.Select(attrs={**CAMPO, "id": "id_perfil_estabelecimento"}),
             "documento_regime_especial": forms.ClearableFileInput(attrs={"class": CAMPO["class"], "accept": "application/pdf,.pdf"}),
+            "data_abertura": forms.TextInput(attrs={**CAMPO, "placeholder": "DD/MM/AAAA", "maxlength": "10"}),
+            "data_inicio_cliente": forms.TextInput(attrs={**CAMPO, "placeholder": "MM/AAAA", "maxlength": "7"}),
+            "resumo_cliente": forms.Textarea(
+                attrs={
+                    **CAMPO,
+                    "rows": 4,
+                    "placeholder": "Escreva um breve resumo da empresa, histórico, segmento ou pontos de atenção…",
+                }
+            ),
+            "qtd_notas_entrada": forms.TextInput(attrs={**CAMPO, "placeholder": "Ex.: 80"}),
+            "qtd_notas_saida": forms.TextInput(attrs={**CAMPO, "placeholder": "Ex.: 150"}),
+            "qtd_emissao_notas_servico": forms.TextInput(attrs={**CAMPO, "placeholder": "Ex.: 25"}),
+            "qtd_emissao_notas_produto": forms.TextInput(attrs={**CAMPO, "placeholder": "Ex.: 40"}),
         }
 
     def __init__(self, *args, **kwargs):
@@ -110,9 +144,85 @@ class EmpresaForm(forms.ModelForm):
             raise forms.ValidationError("Anexe o regime especial em PDF.")
         return arquivo
 
+    def aplicar_escopo_do_post(self, post_data):
+        """Extrai o checklist de escopo (Fiscal, Contábil, DP, Regularização) e Contatos enviados no POST."""
+        if not post_data:
+            return
+        empresa = self.instance
+
+        # Contatos enviados como JSON ou listas paralelas
+        contatos_json = (post_data.get("contatos_json") or "").strip()
+        contatos_limpos = []
+        if contatos_json:
+            try:
+                brutos = json.loads(contatos_json)
+                if isinstance(brutos, list):
+                    for item in brutos:
+                        if not isinstance(item, dict):
+                            continue
+                        nome = str(item.get("Nome") or "").strip()
+                        setor = str(item.get("Setor") or "Outro").strip()
+                        email = str(item.get("E-mail") or "").strip()
+                        telefone = str(item.get("Telefone") or "").strip()
+                        whatsapp = bool(item.get("WhatsApp", False))
+                        if any((nome, email, telefone)):
+                            contatos_limpos.append({
+                                "Nome": nome,
+                                "Setor": setor,
+                                "E-mail": email,
+                                "Telefone": telefone,
+                                "WhatsApp": whatsapp,
+                            })
+            except ValueError:
+                pass
+        else:
+            nomes = post_data.getlist("contato_nome")
+            setores = post_data.getlist("contato_setor")
+            emails = post_data.getlist("contato_email")
+            telefones = post_data.getlist("contato_telefone")
+            whatsapps = set(post_data.getlist("contato_whatsapp_idx"))
+            for idx, nome in enumerate(nomes):
+                n = (nome or "").strip()
+                s = (setores[idx] if idx < len(setores) else "Outro").strip()
+                e = (emails[idx] if idx < len(emails) else "").strip()
+                t = (telefones[idx] if idx < len(telefones) else "").strip()
+                if any((n, e, t)):
+                    contatos_limpos.append({
+                        "Nome": n,
+                        "Setor": s,
+                        "E-mail": e,
+                        "Telefone": t,
+                        "WhatsApp": str(idx) in whatsapps,
+                    })
+        empresa.contatos = contatos_limpos
+
+        marcados_fisc = set(post_data.getlist("escopo_fiscal"))
+        empresa.escopo_fiscal = {item: (item in marcados_fisc) for item in ITENS_FISCAIS}
+
+        marcados_cont = set(post_data.getlist("escopo_contabil"))
+        empresa.escopo_contabil = {item: (item in marcados_cont) for item in ITENS_CONTABEIS}
+
+        marcados_dp = set(post_data.getlist("escopo_dp"))
+        empresa.escopo_dp = {item: (item in marcados_dp) for item in ITENS_DP}
+
+        marcados_reg = set(post_data.getlist("escopo_regularizacao"))
+        empresa.escopo_regularizacao = {item: (item in marcados_reg) for item in ITENS_REGULARIZACAO}
+
+        tts = [x for x in post_data.getlist("tipos_icms_incentivado") if x in OPCOES_TTS]
+        empresa.tipos_icms_incentivado = tts if empresa.escopo_fiscal.get("ICMS Incentivado") else []
+
+        uf_icms_st = [x for x in post_data.getlist("estados_icms_st") if x in ESTADOS_BR]
+        empresa.estados_icms_st = uf_icms_st if empresa.escopo_fiscal.get("Apuração: ICMS-ST") else []
+
+        uf_st = [x for x in post_data.getlist("estados_st") if x in ESTADOS_BR]
+        empresa.estados_st = uf_st if empresa.escopo_regularizacao.get("Inscrições de Substituto Tributário (ST)") else []
+
     def save(self, commit=True):
-        empresa = super().save(commit=commit)
+        empresa = super().save(commit=False)
+        if self.data:
+            self.aplicar_escopo_do_post(self.data)
         if commit:
+            empresa.save()
             self.gravar_substituicoes(empresa)
         return empresa
 

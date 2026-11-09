@@ -10,10 +10,16 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.1/ref/settings/
 """
 
+import importlib.util
 import os
 from pathlib import Path
 
-import dj_database_url
+try:
+    import dj_database_url
+except ImportError:
+    dj_database_url = None
+
+_TEM_WHITENOISE = importlib.util.find_spec("whitenoise") is not None
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -49,7 +55,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
+    *(['whitenoise.middleware.WhiteNoiseMiddleware'] if _TEM_WHITENOISE else []),
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -85,13 +91,37 @@ ASGI_APPLICATION = 'sentinela.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.1/ref/settings/#databases
 
-DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{(BASE_DIR / 'db.sqlite3').as_posix()}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+def _caminho_sqlite_padrao() -> Path:
+    import sqlite3
+
+    padrao = BASE_DIR / 'db.sqlite3'
+    try:
+        with sqlite3.connect(padrao) as conn:
+            conn.execute("SELECT 1")
+        return padrao
+    except Exception:
+        return BASE_DIR / 'sentinela.sqlite3'
+
+
+_SQLITE_PADRAO = _caminho_sqlite_padrao()
+
+if dj_database_url is not None:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=f"sqlite:///{_SQLITE_PADRAO.as_posix()}",
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': _SQLITE_PADRAO,
+        }
+    }
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # Password validation
@@ -137,7 +167,7 @@ STORAGES = {
     'staticfiles': {
         'BACKEND': (
             'django.contrib.staticfiles.storage.StaticFilesStorage'
-            if DEBUG
+            if (DEBUG or not _TEM_WHITENOISE)
             else 'whitenoise.storage.CompressedStaticFilesStorage'
         ),
     },
