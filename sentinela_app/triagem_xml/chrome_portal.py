@@ -49,12 +49,17 @@ def pasta_do_perfil() -> Path:
 def montar_comando(chrome: str, perfil: str) -> list[str]:
     return [
         chrome,
+        "--incognito",
         "--remote-debugging-port=0",
         f"--user-data-dir={perfil}",
         "--no-first-run",
         "--no-default-browser-check",
+        "--disable-extensions",
+        "--disable-sync",
+        "--disable-background-networking",
         "--disable-blink-features=AutomationControlled",
         "--start-maximized",
+        "--lang=pt-BR",
         "--new-window",
         URL_LOGIN,
     ]
