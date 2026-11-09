@@ -22,10 +22,10 @@
     Ao clicar em <strong>Iniciar Robô Apanhador {{ versao_coletor }}</strong>, o Google Chrome abrirá na tela de login do Emissor Nacional. Entre com o <strong>Certificado Digital</strong> ou <strong>usuário e senha</strong>: o robô confere se o CNPJ logado no Portal bate com <strong>{{ empresa_travada.razao_social }}</strong>, coleta primeiro os <strong>Serviços Prestados</strong> e depois os <strong>Serviços Tomados</strong>, baixa XML e PDF e grava os relatórios Excel identificados direto na pasta deste cliente.
   </p>
 
-  <div class="mt-4 grid gap-4 lg:grid-cols-2">
+  <div class="mt-4 grid gap-4 {% if eh_administrador %}lg:grid-cols-2{% endif %}">
     <form id="form-iniciar-coletor" method="post" action="{% url 'iniciar_coletor_nfse' %}" class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
       {% csrf_token %}
-      <h2 class="mb-2 text-base font-bold text-stone-800">1. Disparar Robô no Portal Nacional</h2>
+      <h2 class="mb-2 text-base font-bold text-stone-800">{% if eh_administrador %}1. {% endif %}Disparar Robô no Portal Nacional</h2>
       <div class="space-y-2 text-sm">
         <label class="flex items-center gap-2 font-medium text-stone-800">
           <input type="radio" name="modo_periodo" value="mes" checked onchange="alternarModoPeriodo(this.value)">
@@ -55,10 +55,14 @@
       </div>
     </form>
 
-    <form method="post" action="{% url 'importar_relatorio_nfse' %}" enctype="multipart/form-data" class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
+    {% if eh_administrador %}
+    <form method="post" action="{% url 'importar_relatorio_nfse' %}" enctype="multipart/form-data" class="rounded-2xl border border-pink-200 bg-pink-50/40 p-4">
       {% csrf_token %}
-      <h2 class="mb-1 text-base font-bold text-stone-800">2. Ou importar Planilha (.xlsx) / XMLs já baixados</h2>
-      <p class="mb-3 text-xs text-stone-500">Se você já tiver rodado o Apanhador antes, envie aqui as planilhas Excel ou XMLs de NFS-e para vincular a <strong>{{ empresa_travada.razao_social }}</strong> em <strong>{{ competencia_rotulo }}</strong>.</p>
+      <div class="mb-1 flex items-center justify-between gap-2">
+        <h2 class="text-base font-bold text-stone-800">2. Importar Planilha (.xlsx) / XMLs já baixados</h2>
+        <span class="rounded-lg bg-pink-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Somente Desenvolvedor</span>
+      </div>
+      <p class="mb-3 text-xs text-stone-500">Exclusivo para desenvolvedora/admin: envie planilhas Excel ou XMLs de NFS-e para vincular a <strong>{{ empresa_travada.razao_social }}</strong> em <strong>{{ competencia_rotulo }}</strong>.</p>
       <div class="flex flex-wrap items-center gap-2">
         <select name="tipo_relatorio" class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm">
           <option value="">Detectar automaticamente (Prestados / Tomados)</option>
@@ -69,6 +73,7 @@
         <button type="submit" class="rounded-xl bg-stone-800 px-4 py-2 text-sm font-semibold text-white shadow-sm">Importar para o Cliente</button>
       </div>
     </form>
+    {% endif %}
   </div>
 
   <div class="mt-4 rounded-2xl border border-stone-200 bg-stone-900 p-4 text-stone-100 shadow-sm">

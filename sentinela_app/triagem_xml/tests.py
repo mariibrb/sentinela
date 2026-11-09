@@ -192,6 +192,31 @@ class ColetorNFSeSentinelaTests(TestCase):
         self.assertContains(resp_auditoria, "Etapas do Fechamento Mensal")
         self.assertContains(resp_auditoria, "Apanhador de NFS-e v1.4.5")
 
+        # Desenvolvedor/admin enxerga a opção de importar planilha/XMLs
+        self.assertContains(resp_coletor, "Importar Planilha (.xlsx) / XMLs já baixados")
+
+        # Usuário comum (colaborador sem is_staff/is_superuser) NÃO enxerga e NÃO pode acessar a importação manual
+        from clientes.models import Colaborador
+
+        usr_comum = User.objects.create_user(username="colaborador_comum", password="123")
+        Colaborador.objects.create(
+            nome="Analista Comum",
+            cargo="Analista",
+            usuario=usr_comum,
+            ativo=True,
+            pode_triar=True,
+        )
+        self.client.force_login(usr_comum)
+        sessao = self.client.session
+        sessao["empresa_id"] = self.empresa.pk
+        sessao["competencia"] = "102026"
+        sessao.save()
+        resp_comum = self.client.get(reverse("coletor_nfse"))
+        self.assertEqual(resp_comum.status_code, 200)
+        self.assertNotContains(resp_comum, "Importar Planilha (.xlsx) / XMLs já baixados")
+        resp_post_bloqueado = self.client.post(reverse("importar_relatorio_nfse"), follow=True)
+        self.assertContains(resp_post_bloqueado, "restrita ao administrador")
+
     def test_cadastro_escopo_onboarding_e_pesquisa_equipe(self):
         self.client.force_login(self.user)
         dados_post = {

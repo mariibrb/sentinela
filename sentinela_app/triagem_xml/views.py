@@ -9,7 +9,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
 from auditoria.apuracao_motor import MotorApuracaoSentinela
-from clientes.acesso import exige
+from clientes.acesso import apenas_administrador, exige
 from clientes.competencia import deslocar, interpretar, rotulo
 from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa, NotaServico
@@ -290,7 +290,7 @@ def status_coletor_nfse(request):
 
 
 @require_POST
-@exige("pode_triar")
+@apenas_administrador
 def importar_relatorio_nfse(request):
     empresa = _empresa_ativa(request)
     if empresa is None:
