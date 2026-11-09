@@ -10,7 +10,7 @@ def abrir_navegador(playwright, pasta_dados):
 def aplicar_filtro(page, inicio, fim, log):
     ini_s = fmt_br(inicio)
     fim_s = fmt_br(fim)
-    log("Preenchendo no portal o período do Coletor: " + ini_s + " a " + fim_s + ".")
+    log("Preenchendo no portal o período do Apanhador: " + ini_s + " a " + fim_s + ".")
     log("Página atual: " + page.url)
     campo_ini = None
     campo_fim = None
@@ -40,7 +40,7 @@ def aplicar_filtro(page, inicio, fim, log):
         _salvar_evidencia(page, log, "campos de data não encontrados")
         raise RuntimeError(
             "Cheguei na tela, mas não achei as caixas Data inicial / Data final do portal "
-            "para colar o período que você escolheu no Coletor. O portal pode estar sobrecarregado. "
+            "para colar o período que você escolheu no Apanhador. O portal pode estar sobrecarregado. "
             "Página atual: " + page.url
         )
     falha_data = None

@@ -822,7 +822,7 @@ def _salvar_evidencia(page: Page, log: LogFn, motivo: str) -> None:
 
 def aplicar_filtro(page: Page, inicio: date, fim: date, log: LogFn) -> None:
     ini_s, fim_s = fmt_br(inicio), fmt_br(fim)
-    log(f"Preenchendo no portal o período do Coletor: {ini_s} a {fim_s}.")
+    log(f"Preenchendo no portal o período do Apanhador: {ini_s} a {fim_s}.")
     log(f"Página atual: {page.url}")
     campo_ini = _localizar_data(page, "inicio")
     campo_fim = _localizar_data(page, "fim")
@@ -830,7 +830,7 @@ def aplicar_filtro(page: Page, inicio: date, fim: date, log: LogFn) -> None:
         _salvar_evidencia(page, log, "campos de data não encontrados")
         raise RuntimeError(
             "Cheguei na tela, mas não achei as caixas Data inicial / Data final do portal "
-            "para colar o período que você escolheu no Coletor. "
+            "para colar o período que você escolheu no Apanhador. "
             f"Página atual: {page.url}"
         )
     _preencher_data(campo_ini, ini_s)
@@ -1945,7 +1945,7 @@ def executar(
         except Exception as e:
             raise RuntimeError(
                 "Não consegui abrir o Google Chrome. Confira se o Chrome está instalado "
-                "e feche outras janelas que usem o mesmo perfil do Coletor.\n"
+                "e feche outras janelas que usem o mesmo perfil do Apanhador.\n"
                 f"Detalhe: {e}"
             ) from e
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
