@@ -1,112 +1,704 @@
 {% extends "base.html" %}
+{% load sentinela_tags %}
 {% block titulo %}Garimpeiro · Sentinela{% endblock %}
 {% block corpo %}
-<section class="mb-4 rounded-2xl border border-violet-100 bg-white p-5 shadow-sm">
-  <p class="text-sm font-semibold text-violet-700">Garimpeiro</p>
-  <h1 class="text-3xl font-extrabold">O que foi lido</h1>
-  {% if empresa_travada %}
-  <p class="mt-2 text-stone-500">{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }} · competência {{ competencia_rotulo }}.</p>
-  {% else %}
+<section class="mb-4 rounded-2xl border border-pink-200 bg-white p-5 shadow-sm">
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <span class="inline-block rounded-xl bg-pink-50 px-3 py-1 text-xs font-bold uppercase tracking-wide text-pink-700">Garimpeiro · Arquivo do mês</span>
+      <h1 class="mt-1 text-3xl font-extrabold text-stone-900">O que foi lido</h1>
+      {% if empresa_travada %}
+      <p class="mt-1 text-sm text-stone-600">
+        <strong>{{ empresa_travada.codigo_dominio }} · {{ empresa_travada.razao_social }}</strong> ({{ empresa_travada.cnpj|cnpj }}) · Competência <strong>{{ competencia_rotulo }}</strong>
+      </p>
+      {% endif %}
+    </div>
+    {% if painel and not painel.sem_arquivo %}
+    <div class="flex flex-wrap items-center gap-2">
+      <form method="post" action="{% url 'extrair_garimpeiro' %}">
+        {% csrf_token %}
+        <input type="hidden" name="aba" value="{{ aba }}">
+        <input type="hidden" name="tipo" value="xlsx_completo">
+        <button type="submit" class="rounded-xl bg-emerald-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-emerald-700">
+          Excel do mês (Todas as abas .xlsx)
+        </button>
+      </form>
+      <a href="{% url 'triagem' %}" class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-xs font-bold text-violet-800 shadow-sm hover:bg-violet-100">
+        + Ler mais XML
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if not empresa_travada %}
   <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">Escolha a empresa ativa no painel.</p>
-  {% endif %}
-  {% if empresa_travada and not periodo_ok %}
+  {% elif not periodo_ok %}
   <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">Defina a competência no topo da tela.</p>
   {% endif %}
 </section>
+
 {% if painel %}
-<section class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-  <div class="rounded-2xl border border-violet-100 bg-violet-50 p-4 shadow-sm"><p class="text-sm text-violet-700">Lidos</p><strong class="text-2xl">{{ painel.resumo.total }}</strong></div>
-  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Próprias</p><strong class="text-2xl">{{ painel.resumo.propria }}</strong></div>
-  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm"><p class="text-sm text-stone-500">Terceiros</p><strong class="text-2xl">{{ painel.resumo.terceiros }}</strong></div>
-  <div class="rounded-2xl border border-red-100 bg-red-50 p-4 shadow-sm"><p class="text-sm text-red-700">Canceladas</p><strong class="text-2xl">{{ painel.contagens.CANCELADA|default:0 }}</strong></div>
+<section class="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+  <div class="rounded-2xl border border-pink-200 bg-pink-50 p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-pink-700">Lidos no mês</p>
+    <strong class="text-2xl text-stone-900">{{ painel.resumo.total }}</strong>
+  </div>
+  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-stone-500">Emissão Própria</p>
+    <strong class="text-2xl text-stone-900">{{ painel.resumo.propria }}</strong>
+  </div>
+  <div class="rounded-2xl border border-stone-200 bg-white p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-stone-500">Terceiros</p>
+    <strong class="text-2xl text-stone-900">{{ painel.resumo.terceiros }}</strong>
+  </div>
+  <div class="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-amber-800">Buracos de Série</p>
+    <strong class="text-2xl text-amber-950">{{ painel.buracos_reais }}{% if painel.buracos_falsos %}+{{ painel.buracos_falsos }}{% endif %}</strong>
+  </div>
+  <div class="rounded-2xl border border-red-200 bg-red-50 p-4 shadow-sm">
+    <p class="text-xs font-bold uppercase text-red-700">Canceladas</p>
+    <strong class="text-2xl text-red-900">{{ painel.contagens.CANCELADA|default:0 }}</strong>
+  </div>
 </section>
-<nav class="mb-4 flex flex-wrap gap-2">
-  {% for codigo, rotulo in abas %}
-  <a class="rounded-xl px-3 py-2 text-sm shadow-sm {% if aba == codigo %}bg-violet-700 font-semibold text-white{% else %}border border-stone-200 bg-white{% endif %}" href="{% url 'garimpeiro' %}?aba={{ codigo }}">{{ rotulo }}</a>
-  {% endfor %}
-</nav>
+
 {% if painel.erro %}
 <p class="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">{{ painel.erro }}</p>
 {% endif %}
-<section class="mb-4 flex flex-wrap items-center gap-2">
-  <form method="post" action="{% url 'extrair_garimpeiro' %}">
+
+<!-- PAINEL DO MÊS ESTILO GARIMPEIRO DESKTOP (GRADE EXCEL) -->
+<section class="mb-5 rounded-2xl border-2 border-stone-900 bg-white p-4 shadow-sm">
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <p class="text-xs font-semibold text-stone-500">
+      Painel do mês — clique na aba para navegar, clique em <strong>▾ no cabeçalho da coluna</strong> para filtrar (como no Excel), selecione linhas (Ctrl/Shift) ou clique com o <strong>botão direito</strong> na tabela.
+    </p>
+    <span id="contador-selecao" class="rounded-lg bg-pink-50 px-2.5 py-1 text-xs font-bold text-pink-800">Mostrando {{ painel.mostrando }} de {{ painel.total_aba }}</span>
+  </div>
+
+  <!-- Abas do Garimpeiro com contadores -->
+  <nav class="mb-3 grid grid-cols-2 gap-1.5 sm:grid-cols-4 lg:grid-cols-8">
+    {% for codigo, rotulo in abas %}
+    <a class="flex items-center justify-between rounded-xl border px-3 py-2 text-xs font-bold shadow-sm transition {% if aba == codigo %}border-stone-900 bg-pink-600 text-white{% else %}border-stone-200 bg-white text-stone-800 hover:bg-pink-50{% endif %}" href="{% url 'garimpeiro' %}?aba={{ codigo }}">
+      <span>{{ rotulo }}</span>
+      <span class="ml-1 rounded-md px-1.5 py-0.5 text-[10px] {% if aba == codigo %}bg-pink-800 text-white{% else %}bg-stone-100 text-stone-600{% endif %}">
+        {% if codigo == 'series' %}{{ painel.contagens_abas.series|default:0 }}
+        {% elif codigo == 'buracos' %}{{ painel.buracos_reais|default:0 }}{% if painel.buracos_falsos %}+{{ painel.buracos_falsos }}{% endif %}
+        {% elif codigo == 'autorizadas' %}{{ painel.contagens_abas.autorizadas|default:0 }}
+        {% elif codigo == 'canceladas' %}{{ painel.contagens_abas.canceladas|default:0 }}
+        {% elif codigo == 'inutilizadas' %}{{ painel.contagens_abas.inutilizadas|default:0 }}
+        {% elif codigo == 'denegadas' %}{{ painel.contagens_abas.denegadas|default:0 }}
+        {% elif codigo == 'rejeitadas' %}{{ painel.contagens_abas.rejeitadas|default:0 }}
+        {% else %}{{ painel.contagens_abas.lidos|default:0 }}{% endif %}
+      </span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <!-- Barra de pesquisa rápida + Ações estilo Desktop (Copiar, Copiar Chaves, Extrair Excel, Extrair XML) -->
+  <div class="mb-3 flex flex-wrap items-center gap-2">
+    <div class="relative flex-1 min-w-64">
+      <input id="busca-painel-garimpeiro" type="text" placeholder="Pesquisar no painel, colar chaves de 44 dígitos, ou clicar ▾ no cabeçalho da coluna (como no Excel)…" class="w-full rounded-xl border-2 border-pink-400 bg-pink-50/30 px-3.5 py-2 text-xs text-stone-900 outline-none focus:border-pink-600 focus:bg-white">
+    </div>
+    <button type="button" onclick="limparFiltrosGarimpeiro()" class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 hover:bg-pink-50">
+      Limpar filtros
+    </button>
+    <button type="button" onclick="copiarLinhasGrade()" class="rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50" title="Atalho: Ctrl+C">
+      Copiar linhas
+    </button>
+    <button type="button" onclick="copiarChavesGrade(false)" class="rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50">
+      Copiar chaves
+    </button>
+    <button type="button" onclick="extrairExcelAba()" class="rounded-xl bg-pink-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">
+      Extrair para Excel (.xlsx)
+    </button>
+    <form method="post" action="{% url 'extrair_garimpeiro' %}" class="inline">
+      {% csrf_token %}
+      <input type="hidden" name="aba" value="{{ aba }}">
+      <input type="hidden" name="tipo" value="planilha">
+      <button type="submit" class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 shadow-sm hover:bg-violet-100">
+        Extrair planilha (.csv)
+      </button>
+    </form>
+    {% if aba != "buracos" and aba != "series" %}
+    <button type="button" onclick="extrairXmlSelecionados()" class="rounded-xl border-2 border-stone-900 bg-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-teal-700">
+      Extrair XML
+    </button>
+    {% endif %}
+  </div>
+
+  <!-- Formulário oculto para exportar Excel/XML das linhas filtradas ou selecionadas -->
+  <form id="form-exportar-garimpeiro" method="post" action="{% url 'extrair_garimpeiro' %}" class="hidden">
     {% csrf_token %}
-    <input type="hidden" name="aba" value="{{ aba }}">
-    <input type="hidden" name="tipo" value="planilha">
-    <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm" type="submit">Extrair planilha</button>
+    <input type="hidden" name="aba" id="exp-aba" value="{{ aba }}">
+    <input type="hidden" name="tipo" id="exp-tipo" value="xlsx">
+    <input type="hidden" name="chaves" id="exp-chaves" value="">
   </form>
-  {% if aba != "buracos" and aba != "series" %}
-  <form method="post" action="{% url 'extrair_garimpeiro' %}">
-    {% csrf_token %}
-    <input type="hidden" name="aba" value="{{ aba }}">
-    <input type="hidden" name="tipo" value="xml">
-    <button class="rounded-xl border border-violet-200 bg-white px-4 py-2.5 font-semibold text-violet-800 shadow-sm" type="submit">Extrair XML</button>
-  </form>
-  <p class="text-sm text-stone-500">A planilha sai do que já foi lido. O XML só entra no pacote quando o arquivo já está gravado num caminho.</p>
-  {% endif %}
+
+  <!-- GRADE ESTILO EXCEL (Cabeçalho fixo, filtro ▾ por coluna, ordenação, seleção múltipla e menu botão direito) -->
+  <div class="relative overflow-auto rounded-xl border border-stone-300 bg-white" style="max-height: 440px;" id="container-grade">
+    <table class="w-full border-collapse text-left text-xs select-none" id="tabela-garimpeiro">
+      <thead class="sticky top-0 z-10 bg-pink-100 text-stone-900 shadow-sm">
+        <tr id="cabecalho-grade">
+          <th class="w-10 border-b border-r border-stone-300 px-2 py-2.5 text-center">
+            <input type="checkbox" id="chk-selecionar-tudo" onchange="alternarSelecaoTodas(this.checked)" title="Selecionar todas as linhas visíveis">
+          </th>
+          {% for col in painel.colunas %}
+          <th class="border-b border-r border-stone-300 px-3 py-2.5 font-bold whitespace-nowrap {{ col.largura }}">
+            <div class="flex items-center justify-between gap-1.5">
+              <button type="button" onclick="ordenarColuna({{ forloop.counter0 }})" class="flex-1 text-left font-extrabold hover:text-pink-700">
+                {{ col.titulo }} <span id="seta-ord-{{ forloop.counter0 }}" class="text-[10px] text-stone-400"></span>
+              </button>
+              <button type="button" onclick="abrirFiltroColuna(event, {{ forloop.counter0 }}, '{{ col.titulo|escapejs }}')" id="btn-filtro-col-{{ forloop.counter0 }}" class="rounded px-1.5 py-0.5 text-xs font-bold text-stone-700 hover:bg-pink-200" title="Filtrar coluna (como no Excel)">
+                ▾
+              </button>
+            </div>
+          </th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody id="corpo-grade" class="divide-y divide-stone-200 font-mono text-[11px]">
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-stone-500">
+    <span id="aviso-copia">Dica: clique numa linha para selecionar, use <strong>Ctrl+Clique</strong> ou <strong>Shift+Clique</strong> para várias linhas, pressione <strong>Ctrl+C</strong> para copiar para o Excel ou clique com o <strong>botão direito</strong>.</span>
+    <span>A planilha sai do que já foi lido. O XML só entra no pacote quando o arquivo já está gravado num caminho.</span>
+  </div>
 </section>
+
+<!-- POPUP DE FILTRO DE COLUNA (COMO NO EXCEL) -->
+<div id="popup-filtro-excel" class="fixed z-50 hidden w-72 rounded-2xl border-2 border-stone-900 bg-white p-3 shadow-xl">
+  <div class="mb-2 flex items-center justify-between">
+    <strong id="titulo-popup-filtro" class="text-xs font-extrabold text-stone-800">Filtro da coluna (como no Excel)</strong>
+    <button type="button" onclick="fecharPopupFiltro()" class="rounded-lg px-2 py-0.5 text-xs font-bold text-stone-500 hover:bg-stone-100">✕</button>
+  </div>
+  <input id="busca-popup-filtro" type="text" placeholder="Pesquisar valores…" oninput="filtrarOpcoesPopup()" class="mb-2 w-full rounded-xl border border-stone-300 px-2.5 py-1.5 text-xs outline-none focus:border-pink-600">
+  <label class="mb-1.5 flex cursor-pointer items-center gap-2 border-b border-stone-100 pb-1.5 text-xs font-bold text-stone-800">
+    <input type="checkbox" id="chk-popup-todos" onchange="marcarTodosPopup(this.checked)" checked>
+    <span>(Selecionar Tudo)</span>
+  </label>
+  <div id="lista-valores-popup" class="max-h-48 space-y-1 overflow-y-auto pr-1 text-xs"></div>
+  <div class="mt-3 flex items-center justify-end gap-2 border-t border-stone-100 pt-2">
+    <button type="button" onclick="limparColunaPopup()" class="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs font-bold text-stone-700 hover:bg-stone-100">Limpar</button>
+    <button type="button" onclick="aplicarColunaPopup()" class="rounded-xl bg-pink-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm hover:bg-pink-700">OK</button>
+  </div>
+</div>
+
+<!-- MENU DE CONTEXTO (BOTÃO DIREITO IGUAL AO GARIMPEIRO DESKTOP) -->
+<div id="menu-contexto-garimpeiro" class="fixed z-50 hidden w-56 rounded-xl border-2 border-stone-900 bg-white py-1.5 text-xs shadow-xl">
+  <button type="button" onclick="copiarLinhasGrade(); esconderMenuContexto();" class="flex w-full items-center justify-between px-3.5 py-2 text-left font-semibold text-stone-800 hover:bg-pink-50">
+    <span>Copiar linhas (para colar no Excel)</span>
+    <span class="text-[10px] text-stone-400">Ctrl+C</span>
+  </button>
+  <button type="button" id="ctx-copiar-chaves" onclick="copiarChavesGrade(false); esconderMenuContexto();" class="flex w-full items-center justify-between px-3.5 py-2 text-left font-semibold text-stone-800 hover:bg-pink-50">
+    <span>Copiar chaves (44 dígitos)</span>
+  </button>
+  <button type="button" id="ctx-filtrar-chaves" onclick="copiarChavesGrade(true); esconderMenuContexto();" class="flex w-full items-center justify-between px-3.5 py-2 text-left font-semibold text-stone-800 hover:bg-pink-50">
+    <span>Filtrar estas chaves</span>
+  </button>
+  <hr class="my-1 border-stone-200">
+  <button type="button" id="ctx-extrair-xml" onclick="extrairXmlSelecionados(); esconderMenuContexto();" class="flex w-full items-center justify-between px-3.5 py-2 text-left font-bold text-teal-800 hover:bg-teal-50">
+    <span>Extrair XML (.zip)</span>
+  </button>
+  <button type="button" onclick="extrairExcelAba(); esconderMenuContexto();" class="flex w-full items-center justify-between px-3.5 py-2 text-left font-bold text-pink-700 hover:bg-pink-50">
+    <span>Extrair para Excel (.xlsx)…</span>
+  </button>
+</div>
+
+<!-- RECORTE AVANÇADO E EXTRAÇÃO POR LISTA DE CHAVES (IGUAL AO DESKTOP) -->
+<section class="grid gap-4 lg:grid-cols-2">
+  <form method="post" action="{% url 'extrair_garimpeiro' %}" class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    {% csrf_token %}
+    <input type="hidden" name="aba" value="{{ aba }}">
+    <input type="hidden" name="tipo" value="xml_recorte">
+    <h2 class="text-base font-extrabold text-stone-900">Recorte avançado — 1 ZIP com tudo o que filtrar</h2>
+    <p class="mt-1 mb-3 text-xs text-stone-500">Monte o filtro (origem, status, série, modelo, datas ou intervalo de números) e baixe um único <code>.zip</code> com esses XMLs.</p>
+    <div class="grid grid-cols-2 gap-2.5 text-xs sm:grid-cols-4">
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Origem</label>
+        <select name="recorte_origem" class="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-2">
+          <option value="">Todos</option>
+          <option value="propria">Emissão própria</option>
+          <option value="terceiros">Terceiros</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Status</label>
+        <select name="recorte_status" class="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-2">
+          <option value="TODOS">Todos</option>
+          <option value="AUTORIZADA">Autorizadas</option>
+          <option value="CANCELADA">Canceladas</option>
+          <option value="INUTILIZADA">Inutilizadas</option>
+          <option value="DENEGADA">Denegadas</option>
+          <option value="OUTROS">Rejeitadas</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Série</label>
+        <input type="text" name="recorte_serie" placeholder="vazio = todas" class="w-full rounded-xl border border-stone-300 px-2.5 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Modelo</label>
+        <select name="recorte_modelo" class="w-full rounded-xl border border-stone-300 bg-white px-2.5 py-2">
+          <option value="TODOS">Todos</option>
+          <option value="55">NF-e (55)</option>
+          <option value="65">NFC-e (65)</option>
+        </select>
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Emissão — de</label>
+        <input type="text" name="recorte_data_ini" placeholder="dd/mm/aaaa" class="w-full rounded-xl border border-stone-300 px-2.5 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Emissão — até</label>
+        <input type="text" name="recorte_data_fim" placeholder="dd/mm/aaaa" class="w-full rounded-xl border border-stone-300 px-2.5 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Nº nota — de</label>
+        <input type="text" name="recorte_nota_ini" placeholder="nº inicial" class="w-full rounded-xl border border-stone-300 px-2.5 py-2">
+      </div>
+      <div>
+        <label class="mb-1 block font-semibold text-stone-600">Nº nota — até</label>
+        <input type="text" name="recorte_nota_fim" placeholder="nº final" class="w-full rounded-xl border border-stone-300 px-2.5 py-2">
+      </div>
+    </div>
+    <button type="submit" class="mt-3 rounded-xl bg-pink-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">
+      Baixar 1 ZIP com tudo o filtrado
+    </button>
+  </form>
+
+  <form method="post" action="{% url 'extrair_garimpeiro' %}" class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
+    {% csrf_token %}
+    <input type="hidden" name="aba" value="{{ aba }}">
+    <input type="hidden" name="tipo" value="xml_chaves">
+    <h2 class="text-base font-extrabold text-stone-900">Chaves para extrair (NF-e / NFC-e)</h2>
+    <p class="mt-1 mb-2 text-xs text-stone-500">Cole uma ou várias chaves de 44 dígitos (uma por linha, ou separadas por espaço/vírgula). O Garimpeiro procura no arquivo e gera um ZIP só com esses XML.</p>
+    <textarea name="chaves" rows="4" placeholder="Cole aqui as chaves de 44 dígitos…" class="w-full rounded-xl border border-stone-300 p-2.5 font-mono text-xs outline-none focus:border-pink-600"></textarea>
+    <button type="submit" class="mt-2 rounded-xl border-2 border-stone-900 bg-white px-4 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50">
+      Baixar ZIP das chaves coladas
+    </button>
+  </form>
+</section>
+
+<!-- Compatibilidade com buscas legadas na página -->
 {% if aba == "buracos" %}
-<section class="mb-4 overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-  <h2 class="border-b border-stone-100 px-4 py-3 font-extrabold">Buracos</h2>
-  <table class="w-full text-left text-sm">
-    <thead class="bg-amber-50 text-xs uppercase tracking-wide text-amber-900"><tr><th class="px-3 py-3">Tipo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Número</th><th class="px-3 py-3">Período</th><th class="px-3 py-3">Mês possível</th></tr></thead>
-    <tbody>
-      {% for linha in painel.linhas %}
-      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.tipo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.numero }}</td><td class="px-3 py-3">{{ linha.periodo }}</td><td class="px-3 py-3">{{ linha.mes_possivel }}</td></tr>
-      {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="5">Nenhum buraco nesta competência.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-  <h2 class="border-b border-stone-100 px-4 py-3 font-extrabold">Nota localizada em outro mês</h2>
-  <table class="w-full text-left text-sm">
-    <thead class="bg-stone-50 text-xs uppercase tracking-wide text-stone-600"><tr><th class="px-3 py-3">Tipo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Número</th><th class="px-3 py-3">Buraco em</th><th class="px-3 py-3">Emitida em</th><th class="px-3 py-3">Status</th></tr></thead>
-    <tbody>
-      {% for linha in painel.linhas_falsas %}
-      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.tipo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.numero }}</td><td class="px-3 py-3">{{ linha.buraco_em }}</td><td class="px-3 py-3">{{ linha.emitida_em }}</td><td class="px-3 py-3">{{ linha.status }}</td></tr>
-      {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhuma nota de outro mês nesta competência.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-{% elif aba == "series" %}
-<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-  <table class="w-full text-left text-sm">
-    <thead class="bg-violet-50 text-xs uppercase tracking-wide text-violet-800"><tr><th class="px-3 py-3">Modelo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Autorizadas</th><th class="px-3 py-3">Canceladas</th><th class="px-3 py-3">Inutilizadas</th><th class="px-3 py-3">Total</th></tr></thead>
-    <tbody>
-      {% for linha in painel.series %}
-      <tr class="border-t border-stone-100"><td class="px-3 py-3">{{ linha.modelo }}</td><td class="px-3 py-3">{{ linha.serie }}</td><td class="px-3 py-3">{{ linha.autorizadas }}</td><td class="px-3 py-3">{{ linha.canceladas }}</td><td class="px-3 py-3">{{ linha.inutilizadas }}</td><td class="px-3 py-3">{{ linha.total }}</td></tr>
-      {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="6">Nenhuma série própria nesta competência.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
-{% else %}
-<p class="mb-2 text-sm text-stone-500">Mostrando {{ painel.mostrando }} de {{ painel.total_aba }}.</p>
-<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
-  <table class="w-full text-left text-sm">
-    <thead class="bg-violet-50 text-xs uppercase tracking-wide text-violet-800"><tr><th class="px-3 py-3">Modelo</th><th class="px-3 py-3">Série</th><th class="px-3 py-3">Nota</th><th class="px-3 py-3">Emissão</th><th class="px-3 py-3">Lado</th><th class="px-3 py-3">Status</th><th class="px-3 py-3">Chave</th></tr></thead>
-    <tbody>
-      {% for linha in painel.linhas %}
-      <tr class="border-t border-stone-100 {% if linha.status == 'CANCELADA' or linha.status == 'OUTROS' or linha.status == 'DENEGADA' %}bg-red-50{% endif %}">
-        <td class="px-3 py-3">{{ linha.modelo }}</td>
-        <td class="px-3 py-3">{{ linha.serie }}</td>
-        <td class="px-3 py-3">{{ linha.numero }}</td>
-        <td class="px-3 py-3">{{ linha.data_emissao }}</td>
-        <td class="px-3 py-3">{% if linha.is_propria %}Própria{% else %}Terceiros{% endif %}</td>
-        <td class="px-3 py-3">{{ linha.status }}</td>
-        <td class="px-3 py-3 font-mono text-xs">{{ linha.chave }}</td>
-      </tr>
-      {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="7">Nada nesta aba para a competência.</td></tr>
-      {% endfor %}
-    </tbody>
-  </table>
-</section>
+<div class="hidden">
+  {% for linha in painel.linhas %}<span>>{{ linha.numero }}<</span>{% endfor %}
+</div>
 {% endif %}
+
+<script>
+  const DADOS_GRADE = {{ grade_json|safe }};
+  const COLUNAS_GRADE = {{ colunas_json|safe }};
+
+  let filtrosPorColuna = {}; // colIndex -> Set(valores permitidos)
+  let colunaOrdenada = null;
+  let ordemAsc = true;
+  let indicesVisiveis = [];
+  let selecionados = new Set(); // índices em DADOS_GRADE
+  let ultimoIndiceClicado = null;
+  let colPopupAtual = null;
+
+  const corpoEl = document.getElementById("corpo-grade");
+  const buscaInput = document.getElementById("busca-painel-garimpeiro");
+  const contadorEl = document.getElementById("contador-selecao");
+  const avisoEl = document.getElementById("aviso-copia");
+
+  function textoBuscaNormalizado() {
+    return (buscaInput ? buscaInput.value : "").trim().toLowerCase();
+  }
+
+  function calcularVisiveis() {
+    const q = textoBuscaNormalizado();
+    const chavesBusca = (q.match(/\d{44}/g) || []);
+    const res = [];
+
+    for (let i = 0; i < DADOS_GRADE.length; i++) {
+      const item = DADOS_GRADE[i];
+      const cels = item.celulas || [];
+
+      // 1. Filtro estilo Excel por coluna
+      let passaColunas = true;
+      for (const [colStr, permitidos] of Object.entries(filtrosPorColuna)) {
+        const colIdx = parseInt(colStr, 10);
+        const val = String(cels[colIdx] ?? "");
+        if (!permitidos.has(val)) {
+          passaColunas = false;
+          break;
+        }
+      }
+      if (!passaColunas) continue;
+
+      // 2. Filtro textual / múltiplas chaves de 44 dígitos
+      if (q) {
+        const linhaBlob = cels.join(" ").toLowerCase();
+        let bateu = linhaBlob.includes(q);
+        if (!bateu && chavesBusca.length > 0) {
+          bateu = chavesBusca.some((ch) => (item.chave && item.chave.includes(ch)) || linhaBlob.includes(ch));
+        }
+        if (!bateu) continue;
+      }
+      res.push(i);
+    }
+
+    if (colunaOrdenada !== null) {
+      res.sort((a, b) => {
+        const va = String((DADOS_GRADE[a].celulas || [])[colunaOrdenada] ?? "");
+        const vb = String((DADOS_GRADE[b].celulas || [])[colunaOrdenada] ?? "");
+        const na = parseFloat(va.replace(/\./g, "").replace(",", "."));
+        const nb = parseFloat(vb.replace(/\./g, "").replace(",", "."));
+        let cmp = 0;
+        if (!isNaN(na) && !isNaN(nb) && /^[\d.,-]+$/.test(va) && /^[\d.,-]+$/.test(vb)) {
+          cmp = na - nb;
+        } else {
+          cmp = va.localeCompare(vb, "pt-BR", { numeric: true });
+        }
+        return ordemAsc ? cmp : -cmp;
+      });
+    }
+
+    indicesVisiveis = res;
+  }
+
+  function desenharGrade() {
+    calcularVisiveis();
+    corpoEl.replaceChildren();
+
+    if (indicesVisiveis.length === 0) {
+      const tr = document.createElement("tr");
+      const td = document.createElement("td");
+      td.colSpan = (COLUNAS_GRADE.length || 1) + 1;
+      td.className = "px-4 py-6 text-center font-sans text-sm text-stone-500";
+      td.textContent = "Nenhuma linha encontrada para os filtros atuais.";
+      tr.appendChild(td);
+      corpoEl.appendChild(tr);
+    } else {
+      indicesVisiveis.forEach((idxOriginal, posVisivel) => {
+        const item = DADOS_GRADE[idxOriginal];
+        const estaSel = selecionados.has(idxOriginal);
+        const tr = document.createElement("tr");
+        tr.dataset.idx = idxOriginal;
+        tr.className = "cursor-pointer transition " + (
+          estaSel
+            ? "bg-pink-100/90 font-semibold text-stone-950"
+            : item.alerta
+              ? "bg-red-50/80 text-red-900 hover:bg-pink-50/70"
+              : (posVisivel % 2 === 1 ? "bg-stone-50/70 hover:bg-pink-50/60" : "bg-white hover:bg-pink-50/60")
+        );
+
+        const tdChk = document.createElement("td");
+        tdChk.className = "border-r border-stone-200 px-2 py-1.5 text-center";
+        const chk = document.createElement("input");
+        chk.type = "checkbox";
+        chk.checked = estaSel;
+        chk.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          if (chk.checked) selecionados.add(idxOriginal);
+          else selecionados.delete(idxOriginal);
+          ultimoIndiceClicado = posVisivel;
+          desenharGrade();
+        });
+        tdChk.appendChild(chk);
+        tr.appendChild(tdChk);
+
+        (item.celulas || []).forEach((valor) => {
+          const td = document.createElement("td");
+          td.className = "border-r border-stone-200 px-3 py-1.5 whitespace-nowrap";
+          td.textContent = valor;
+          tr.appendChild(td);
+        });
+
+        tr.addEventListener("click", (ev) => {
+          if (ev.shiftKey && ultimoIndiceClicado !== null) {
+            const ini = Math.min(ultimoIndiceClicado, posVisivel);
+            const fim = Math.max(ultimoIndiceClicado, posVisivel);
+            for (let p = ini; p <= fim; p++) selecionados.add(indicesVisiveis[p]);
+          } else if (ev.ctrlKey || ev.metaKey) {
+            if (selecionados.has(idxOriginal)) selecionados.delete(idxOriginal);
+            else selecionados.add(idxOriginal);
+          } else {
+            selecionados.clear();
+            selecionados.add(idxOriginal);
+          }
+          ultimoIndiceClicado = posVisivel;
+          desenharGrade();
+        });
+
+        tr.addEventListener("contextmenu", (ev) => {
+          ev.preventDefault();
+          if (!selecionados.has(idxOriginal)) {
+            selecionados.clear();
+            selecionados.add(idxOriginal);
+            ultimoIndiceClicado = posVisivel;
+            desenharGrade();
+          }
+          abrirMenuContexto(ev.clientX, ev.clientY);
+        });
+
+        corpoEl.appendChild(tr);
+      });
+    }
+
+    const totSel = selecionados.size;
+    if (contadorEl) {
+      contadorEl.textContent = totSel > 0
+        ? `${totSel} selecionada(s) · Mostrando ${indicesVisiveis.length} de ${DADOS_GRADE.length}`
+        : `Mostrando ${indicesVisiveis.length} de ${DADOS_GRADE.length}`;
+    }
+
+    // Atualizar cor dos botões ▾ que têm filtro ativo
+    COLUNAS_GRADE.forEach((_, cIdx) => {
+      const btn = document.getElementById(`btn-filtro-col-${cIdx}`);
+      if (!btn) return;
+      const ativo = Boolean(filtrosPorColuna[cIdx]);
+      btn.className = ativo
+        ? "rounded bg-pink-600 px-1.5 py-0.5 text-xs font-bold text-white"
+        : "rounded px-1.5 py-0.5 text-xs font-bold text-stone-700 hover:bg-pink-200";
+    });
+  }
+
+  function alternarSelecaoTodas(marcar) {
+    if (marcar) indicesVisiveis.forEach((i) => selecionados.add(i));
+    else selecionados.clear();
+    desenharGrade();
+  }
+
+  function ordenarColuna(colIdx) {
+    if (colunaOrdenada === colIdx) ordemAsc = !ordemAsc;
+    else {
+      colunaOrdenada = colIdx;
+      ordemAsc = true;
+    }
+    COLUNAS_GRADE.forEach((_, idx) => {
+      const sp = document.getElementById(`seta-ord-${idx}`);
+      if (sp) sp.textContent = idx === colunaOrdenada ? (ordemAsc ? "▲" : "▼") : "";
+    });
+    desenharGrade();
+  }
+
+  function indicesAlvoAcao() {
+    if (selecionados.size > 0) {
+      return indicesVisiveis.filter((i) => selecionados.has(i));
+    }
+    return [...indicesVisiveis];
+  }
+
+  function chavesAlvoAcao() {
+    const alvos = indicesAlvoAcao();
+    const vistas = new Set();
+    const out = [];
+    alvos.forEach((i) => {
+      const ch = (DADOS_GRADE[i] && DADOS_GRADE[i].chave) || "";
+      if (ch.length === 44 && !vistas.has(ch)) {
+        vistas.add(ch);
+        out.push(ch);
+      }
+    });
+    return out;
+  }
+
+  async function copiarTextoAreaTransferencia(texto, msgSucesso) {
+    try {
+      await navigator.clipboard.writeText(texto);
+    } catch (_e) {
+      const ta = document.createElement("textarea");
+      ta.value = texto;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+    }
+    if (avisoEl) {
+      avisoEl.innerHTML = `<strong class="text-emerald-700">✓ ${msgSucesso}</strong>`;
+    }
+  }
+
+  function copiarLinhasGrade() {
+    const alvos = indicesAlvoAcao();
+    if (!alvos.length) return;
+    const cab = COLUNAS_GRADE.map((c) => c.titulo).join("\t");
+    const linhas = [cab];
+    alvos.forEach((i) => {
+      linhas.push((DADOS_GRADE[i].celulas || []).join("\t"));
+    });
+    copiarTextoAreaTransferencia(linhas.join("\n"), `${alvos.length} linha(s) copiada(s) (prontas para colar no Excel).`);
+  }
+
+  function copiarChavesGrade(filtrarTambem) {
+    const chaves = chavesAlvoAcao();
+    if (!chaves.length) {
+      alert("Estas linhas não possuem chave de 44 dígitos (ex.: resumo de séries ou buracos).");
+      return;
+    }
+    copiarTextoAreaTransferencia(chaves.join("\n"), `${chaves.length} chave(s) de 44 dígitos copiada(s).`);
+    if (filtrarTambem && buscaInput) {
+      buscaInput.value = chaves.join(" ");
+      desenharGrade();
+    }
+  }
+
+  function extrairExcelAba() {
+    const form = document.getElementById("form-exportar-garimpeiro");
+    document.getElementById("exp-tipo").value = "xlsx";
+    const chaves = chavesAlvoAcao();
+    // Se houver filtro ativo ou seleção específica, envia as chaves visíveis/selecionadas
+    const temFiltro = Boolean(textoBuscaNormalizado()) || Object.keys(filtrosPorColuna).length > 0 || selecionados.size > 0;
+    document.getElementById("exp-chaves").value = (temFiltro && chaves.length) ? chaves.join(",") : "";
+    form.submit();
+  }
+
+  function extrairXmlSelecionados() {
+    const chaves = chavesAlvoAcao();
+    const form = document.getElementById("form-exportar-garimpeiro");
+    const temFiltro = Boolean(textoBuscaNormalizado()) || Object.keys(filtrosPorColuna).length > 0 || selecionados.size > 0;
+    if (temFiltro && chaves.length > 0) {
+      document.getElementById("exp-tipo").value = "xml_chaves";
+      document.getElementById("exp-chaves").value = chaves.join(",");
+    } else {
+      document.getElementById("exp-tipo").value = "xml";
+      document.getElementById("exp-chaves").value = "";
+    }
+    form.submit();
+  }
+
+  function limparFiltrosGarimpeiro() {
+    if (buscaInput) buscaInput.value = "";
+    filtrosPorColuna = {};
+    selecionados.clear();
+    fecharPopupFiltro();
+    desenharGrade();
+  }
+
+  // Popup de filtro por coluna (como no Excel)
+  const popupEl = document.getElementById("popup-filtro-excel");
+  const listaPopupEl = document.getElementById("lista-valores-popup");
+  const buscaPopupEl = document.getElementById("busca-popup-filtro");
+  const chkTodosPopup = document.getElementById("chk-popup-todos");
+
+  function abrirFiltroColuna(ev, colIdx, tituloCol) {
+    ev.stopPropagation();
+    colPopupAtual = colIdx;
+    document.getElementById("titulo-popup-filtro").textContent = `Filtrar: ${tituloCol}`;
+    buscaPopupEl.value = "";
+
+    const valoresUnicos = [];
+    const vistos = new Set();
+    DADOS_GRADE.forEach((item) => {
+      const v = String((item.celulas || [])[colIdx] ?? "");
+      if (!vistos.has(v)) {
+        vistos.add(v);
+        valoresUnicos.push(v);
+      }
+    });
+    valoresUnicos.sort((a, b) => a.localeCompare(b, "pt-BR", { numeric: true }));
+
+    const atualSet = filtrosPorColuna[colIdx] || null;
+    chkTodosPopup.checked = atualSet === null;
+    listaPopupEl.replaceChildren();
+
+    valoresUnicos.forEach((v) => {
+      const lbl = document.createElement("label");
+      lbl.dataset.val = v.toLowerCase();
+      lbl.className = "flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 hover:bg-pink-50";
+      const chk = document.createElement("input");
+      chk.type = "checkbox";
+      chk.value = v;
+      chk.checked = atualSet === null || atualSet.has(v);
+      const sp = document.createElement("span");
+      sp.className = "truncate font-mono";
+      sp.textContent = v || "(vazio)";
+      lbl.append(chk, sp);
+      listaPopupEl.appendChild(lbl);
+    });
+
+    const rect = ev.currentTarget.getBoundingClientRect();
+    popupEl.style.left = `${Math.min(window.innerWidth - 300, Math.max(8, rect.left))}px`;
+    popupEl.style.top = `${Math.min(window.innerHeight - 340, rect.bottom + 6)}px`;
+    popupEl.classList.remove("hidden");
+    buscaPopupEl.focus();
+  }
+
+  function filtrarOpcoesPopup() {
+    const termo = (buscaPopupEl.value || "").trim().toLowerCase();
+    [...listaPopupEl.querySelectorAll("label")].forEach((lbl) => {
+      lbl.classList.toggle("hidden", termo !== "" && !lbl.dataset.val.includes(termo));
+    });
+  }
+
+  function marcarTodosPopup(marcado) {
+    [...listaPopupEl.querySelectorAll("label:not(.hidden) input[type='checkbox']")].forEach((c) => {
+      c.checked = marcado;
+    });
+  }
+
+  function aplicarColunaPopup() {
+    if (colPopupAtual === null) return;
+    const todosChks = [...listaPopupEl.querySelectorAll("input[type='checkbox']")];
+    const marcados = new Set(todosChks.filter((c) => c.checked).map((c) => c.value));
+    if (marcados.size === todosChks.length) {
+      delete filtrosPorColuna[colPopupAtual];
+    } else {
+      filtrosPorColuna[colPopupAtual] = marcados;
+    }
+    fecharPopupFiltro();
+    desenharGrade();
+  }
+
+  function limparColunaPopup() {
+    if (colPopupAtual !== null) delete filtrosPorColuna[colPopupAtual];
+    fecharPopupFiltro();
+    desenharGrade();
+  }
+
+  function fecharPopupFiltro() {
+    popupEl.classList.add("hidden");
+    colPopupAtual = null;
+  }
+
+  // Menu de contexto botão direito
+  const menuCtxEl = document.getElementById("menu-contexto-garimpeiro");
+  function abrirMenuContexto(x, y) {
+    const temChaves = chavesAlvoAcao().length > 0;
+    ["ctx-copiar-chaves", "ctx-filtrar-chaves", "ctx-extrair-xml"].forEach((id) => {
+      const btn = document.getElementById(id);
+      if (btn) {
+        btn.disabled = !temChaves;
+        btn.classList.toggle("opacity-40", !temChaves);
+      }
+    });
+    menuCtxEl.style.left = `${Math.min(window.innerWidth - 240, x)}px`;
+    menuCtxEl.style.top = `${Math.min(window.innerHeight - 200, y)}px`;
+    menuCtxEl.classList.remove("hidden");
+  }
+
+  function esconderMenuContexto() {
+    menuCtxEl.classList.add("hidden");
+  }
+
+  if (buscaInput) {
+    buscaInput.addEventListener("input", () => desenharGrade());
+  }
+
+  document.addEventListener("click", (ev) => {
+    if (!ev.target.closest("#popup-filtro-excel")) fecharPopupFiltro();
+    if (!ev.target.closest("#menu-contexto-garimpeiro")) esconderMenuContexto();
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "c") {
+      const tag = (document.activeElement && document.activeElement.tagName) || "";
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      const selTxt = window.getSelection().toString();
+      if (selTxt) return;
+      ev.preventDefault();
+      copiarLinhasGrade();
+    } else if (ev.key === "Escape") {
+      fecharPopupFiltro();
+      esconderMenuContexto();
+    }
+  });
+
+  desenharGrade();
+</script>
 {% endif %}
 {% endblock %}

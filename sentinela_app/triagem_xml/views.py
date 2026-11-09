@@ -15,7 +15,7 @@ from clientes.governance import CadastroIncompleto, validar_cadastro_para_apurac
 from clientes.models import DocumentoXML, Empresa, NotaServico
 from clientes.trilha import registrar
 from clientes.utils_sharepoint import pasta_do_mes, pasta_relatorios
-from garimpeiro_legado.consulta import ABAS, ABAS_TELA, montar, planilha, zip_xml
+from garimpeiro_legado.consulta import ABAS, ABAS_TELA, montar, planilha, planilha_xlsx_bytes, zip_xml
 from triagem_xml.coletor_nfse import (
     GERENCIADOR_COLETOR,
     VERSAO_COLETOR,
@@ -131,18 +131,26 @@ def _periodo(request):
 
 @exige("pode_triar")
 def garimpeiro(request):
+    import json
+
     request.modulo = "garimpeiro"
     empresa = _empresa_ativa(request)
     aba = _aba(request.GET.get("aba", ""))
     painel_dados = None
     periodo = _periodo(request)
+    grade_json = "[]"
+    colunas_json = "[]"
     if empresa is not None and periodo is not None:
         painel_dados = montar(empresa, request.session.get("competencia", ""), aba)
+        grade_json = json.dumps(painel_dados.get("linhas_grade", []), ensure_ascii=False)
+        colunas_json = json.dumps(painel_dados.get("colunas", []), ensure_ascii=False)
     return render(request, "triagem/garimpeiro.html", {
         "empresa_travada": empresa,
         "aba": aba,
         "abas": ABAS_TELA,
         "painel": painel_dados,
+        "grade_json": grade_json,
+        "colunas_json": colunas_json,
         "periodo_ok": periodo is not None,
     })
 
@@ -150,6 +158,8 @@ def garimpeiro(request):
 @exige("pode_triar")
 @require_POST
 def extrair_garimpeiro(request):
+    import re
+
     empresa = _empresa_ativa(request)
     periodo = _periodo(request)
     if empresa is None or periodo is None:
@@ -158,13 +168,40 @@ def extrair_garimpeiro(request):
     ano, mes = periodo
     competencia = request.session.get("competencia", "")
     aba = _aba(request.POST.get("aba", ""))
-    nome = f"garimpeiro_{aba}_{mes:02d}{ano}"
-    if request.POST.get("tipo") == "xml":
-        conteudo, gravados, sem_arquivo = zip_xml(empresa, competencia, aba)
+    tipo = (request.POST.get("tipo") or "xlsx").strip().lower()
+    chaves_brutas = request.POST.get("chaves") or ""
+    chaves_lista = re.findall(r"\d{44}", chaves_brutas)
+
+    nome = f"garimpeiro_{empresa.codigo_dominio}_{aba}_{mes:02d}{ano}"
+
+    if tipo in {"xml", "xml_chaves", "xml_recorte"}:
+        filtros_recorte = None
+        if tipo == "xml_recorte":
+            filtros_recorte = {
+                "origem": request.POST.get("recorte_origem", ""),
+                "status": request.POST.get("recorte_status", ""),
+                "serie": request.POST.get("recorte_serie", ""),
+                "modelo": request.POST.get("recorte_modelo", ""),
+                "nota_ini": request.POST.get("recorte_nota_ini", ""),
+                "nota_fim": request.POST.get("recorte_nota_fim", ""),
+                "data_ini": request.POST.get("recorte_data_ini", ""),
+                "data_fim": request.POST.get("recorte_data_fim", ""),
+            }
+            nome = f"garimpeiro_recorte_{empresa.codigo_dominio}_{mes:02d}{ano}"
+        elif tipo == "xml_chaves" and chaves_lista:
+            nome = f"garimpeiro_selecao_{len(chaves_lista)}_xml_{mes:02d}{ano}"
+
+        conteudo, gravados, sem_arquivo = zip_xml(
+            empresa,
+            competencia,
+            aba,
+            chaves_especificas=chaves_lista if chaves_lista else None,
+            filtros_recorte=filtros_recorte,
+        )
         if gravados == 0:
             messages.warning(
                 request,
-                "Os XML desta leitura ainda não estão num caminho de salvamento. A planilha do que foi lido continua disponível.",
+                "Os XML desta seleção ainda não estão gravados na pasta ou nenhuma nota coincidiu com o filtro.",
             )
             return redirect(f"/triagem/garimpeiro/?aba={aba}")
         if sem_arquivo:
@@ -172,6 +209,24 @@ def extrair_garimpeiro(request):
         resposta = HttpResponse(conteudo, content_type="application/zip")
         resposta["Content-Disposition"] = f'attachment; filename="{nome}.zip"'
         return resposta
+
+    if tipo in {"xlsx", "xlsx_completo"}:
+        aba_alvo = "completo" if tipo == "xlsx_completo" else aba
+        sufixo = "completo" if tipo == "xlsx_completo" else aba
+        nome_xlsx = f"garimpeiro_{empresa.codigo_dominio}_{sufixo}_{mes:02d}{ano}.xlsx"
+        dados_xlsx = planilha_xlsx_bytes(
+            empresa,
+            competencia,
+            aba=aba_alvo,
+            chaves_filtro=set(chaves_lista) if chaves_lista else None,
+        )
+        resposta = HttpResponse(
+            dados_xlsx,
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        resposta["Content-Disposition"] = f'attachment; filename="{nome_xlsx}"'
+        return resposta
+
     texto = planilha(empresa, competencia, aba)
     resposta = HttpResponse("\ufeff" + texto, content_type="text/csv; charset=utf-8")
     resposta["Content-Disposition"] = f'attachment; filename="{nome}.csv"'
