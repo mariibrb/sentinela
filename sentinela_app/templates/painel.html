@@ -10,7 +10,7 @@
     <strong>{{ ano_ativo }}</strong>
     <form method="post" action="{% url 'definir_competencia' %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><input type="hidden" name="ano" value="{{ ano_ativo|add:'1' }}"><input type="hidden" name="mes" value="{{ mes_ativo }}"><button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{{ ano_ativo|add:"1" }}</button></form>
   </div>
-  <div class="grid grid-cols-3 gap-2 sm:grid-cols-6">
+    <div class="grid grid-cols-3 gap-2 sm:grid-cols-6 lg:grid-cols-12">
     {% for nome in meses_nomes %}
     <form method="post" action="{% url 'definir_competencia' %}">
       {% csrf_token %}

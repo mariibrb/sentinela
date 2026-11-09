@@ -11,12 +11,12 @@
     <div class="mb-3 rounded-2xl border-2 border-dashed border-violet-400 bg-violet-50 px-4 py-6 text-center text-violet-900 shadow-sm" id="soltar">Solte os XML aqui, quantas vezes quiser. A fila guarda o que já entrou. Lote grande segue em partes de 30 notas. PDF e imagem ficam de fora.</div>
     <p id="resumo-lote" class="mb-2 text-sm font-semibold text-violet-800">Nenhum arquivo na fila. Pode acrescentar aos poucos.</p>
     <ul id="fila-lote" class="mb-3 max-h-64 space-y-1 overflow-auto"></ul>
-    <div class="flex flex-wrap items-center gap-2">
-      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-arquivos" type="button">Acrescentar XML ou ZIP</button>
-      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 font-semibold shadow-sm" id="abrir-pasta" type="button">Acrescentar pasta</button>
-      <button class="rounded-xl bg-violet-700 px-4 py-2.5 font-semibold text-white shadow-sm disabled:bg-stone-300" id="ler-xml" type="submit" disabled>Ler XML</button>
-      <a class="rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 font-semibold text-violet-800 shadow-sm" href="{% url 'garimpeiro' %}">Abrir Garimpeiro</a>
-      <button class="rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-stone-600 shadow-sm" id="limpar-fila" type="button">Limpar fila</button>
+    <div class="flex flex-wrap items-center gap-2 lg:flex-nowrap">
+      <button class="shrink-0 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-stone-50" id="abrir-arquivos" type="button">Acrescentar XML ou ZIP</button>
+      <button class="shrink-0 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm font-semibold shadow-sm hover:bg-stone-50" id="abrir-pasta" type="button">Acrescentar pasta</button>
+      <button class="shrink-0 whitespace-nowrap rounded-xl bg-violet-700 px-4 py-2.5 text-sm font-semibold text-white shadow-sm disabled:bg-stone-300" id="ler-xml" type="submit" disabled>Ler XML</button>
+      <a class="shrink-0 whitespace-nowrap rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-800 shadow-sm hover:bg-violet-100" href="{% url 'garimpeiro' %}">Abrir Garimpeiro</a>
+      <button class="shrink-0 whitespace-nowrap rounded-xl border border-stone-200 bg-white px-4 py-2.5 text-sm text-stone-600 shadow-sm hover:bg-stone-50" id="limpar-fila" type="button">Limpar fila</button>
     </div>
     <input class="hidden" id="arquivos" type="file" accept=".xml,.zip" multiple>
     <input class="hidden" id="pasta" type="file" webkitdirectory directory multiple>

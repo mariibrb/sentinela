@@ -94,32 +94,32 @@
   </nav>
 
   <!-- Barra de pesquisa rápida + Ações estilo Desktop (Copiar, Copiar Chaves, Extrair Excel, Extrair XML) -->
-  <div class="mb-3 flex flex-wrap items-center gap-2">
-    <div class="relative flex-1 min-w-64">
+  <div class="mb-3 flex flex-wrap items-center gap-2 lg:flex-nowrap">
+    <div class="relative min-w-52 flex-1">
       <input id="busca-painel-garimpeiro" type="text" placeholder="Pesquisar no painel, colar chaves de 44 dígitos, ou clicar ▾ no cabeçalho da coluna (como no Excel)…" class="w-full rounded-xl border-2 border-pink-400 bg-pink-50/30 px-3.5 py-2 text-xs text-stone-900 outline-none focus:border-pink-600 focus:bg-white">
     </div>
-    <button type="button" onclick="limparFiltrosGarimpeiro()" class="rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 hover:bg-pink-50">
+    <button type="button" onclick="limparFiltrosGarimpeiro()" class="shrink-0 whitespace-nowrap rounded-xl border border-stone-300 bg-white px-3 py-2 text-xs font-bold text-stone-700 hover:bg-pink-50">
       Limpar filtros
     </button>
-    <button type="button" onclick="copiarLinhasGrade()" class="rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50" title="Atalho: Ctrl+C">
+    <button type="button" onclick="copiarLinhasGrade()" class="shrink-0 whitespace-nowrap rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50" title="Atalho: Ctrl+C">
       Copiar linhas
     </button>
-    <button type="button" onclick="copiarChavesGrade(false)" class="rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50">
+    <button type="button" onclick="copiarChavesGrade(false)" class="shrink-0 whitespace-nowrap rounded-xl border border-stone-800 bg-white px-3 py-2 text-xs font-bold text-stone-900 shadow-sm hover:bg-pink-50">
       Copiar chaves
     </button>
-    <button type="button" onclick="extrairExcelAba()" class="rounded-xl bg-pink-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">
+    <button type="button" onclick="extrairExcelAba()" class="shrink-0 whitespace-nowrap rounded-xl bg-pink-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">
       Extrair para Excel (.xlsx)
     </button>
-    <form method="post" action="{% url 'extrair_garimpeiro' %}" class="inline">
+    <form method="post" action="{% url 'extrair_garimpeiro' %}" class="inline shrink-0">
       {% csrf_token %}
       <input type="hidden" name="aba" value="{{ aba }}">
       <input type="hidden" name="tipo" value="planilha">
-      <button type="submit" class="rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 shadow-sm hover:bg-violet-100">
+      <button type="submit" class="whitespace-nowrap rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-bold text-violet-800 shadow-sm hover:bg-violet-100">
         Extrair planilha (.csv)
       </button>
     </form>
     {% if aba != "buracos" and aba != "series" %}
-    <button type="button" onclick="extrairXmlSelecionados()" class="rounded-xl border-2 border-stone-900 bg-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-teal-700">
+    <button type="button" onclick="extrairXmlSelecionados()" class="shrink-0 whitespace-nowrap rounded-xl border-2 border-stone-900 bg-teal-600 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-teal-700">
       Extrair XML
     </button>
     {% endif %}

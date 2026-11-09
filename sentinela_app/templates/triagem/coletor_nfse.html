@@ -90,22 +90,22 @@
   </div>
 
   {% if caminho_pasta_cliente %}
-  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-xs text-teal-900">
-    <span class="truncate"><strong>Pasta oficial da empresa na competência:</strong> <code class="font-mono">{{ caminho_pasta_cliente }}</code></span>
-    <div class="flex flex-wrap items-center gap-2">
-      <form method="post" action="{% url 'abrir_pasta_nfse' %}">
+  <div class="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-teal-100 bg-teal-50/70 px-4 py-2.5 text-xs text-teal-900 lg:flex-nowrap">
+    <span class="min-w-0 truncate"><strong>Pasta oficial da empresa na competência:</strong> <code class="font-mono">{{ caminho_pasta_cliente }}</code></span>
+    <div class="flex shrink-0 items-center gap-2">
+      <form method="post" action="{% url 'abrir_pasta_nfse' %}" class="shrink-0">
         {% csrf_token %}
-        <button type="submit" class="rounded-xl border border-teal-300 bg-white px-3 py-1.5 font-semibold text-teal-800 shadow-sm">Abrir pasta no Windows</button>
+        <button type="submit" class="whitespace-nowrap rounded-xl border border-teal-300 bg-white px-3 py-1.5 font-semibold text-teal-800 shadow-sm hover:bg-teal-50">Abrir pasta no Windows</button>
       </form>
-      <form method="post" action="{% url 'exportar_relatorio_nfse' %}">
+      <form method="post" action="{% url 'exportar_relatorio_nfse' %}" class="shrink-0">
         {% csrf_token %}
         <input type="hidden" name="tipo" value="prestados">
-        <button type="submit" class="rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm">Baixar Excel Prestados</button>
+        <button type="submit" class="whitespace-nowrap rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm hover:bg-teal-800">Baixar Excel Prestados</button>
       </form>
-      <form method="post" action="{% url 'exportar_relatorio_nfse' %}">
+      <form method="post" action="{% url 'exportar_relatorio_nfse' %}" class="shrink-0">
         {% csrf_token %}
         <input type="hidden" name="tipo" value="tomados">
-        <button type="submit" class="rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm">Baixar Excel Tomados</button>
+        <button type="submit" class="whitespace-nowrap rounded-xl bg-teal-700 px-3 py-1.5 font-semibold text-white shadow-sm hover:bg-teal-800">Baixar Excel Tomados</button>
       </form>
     </div>
   </div>
@@ -218,23 +218,23 @@
 {% endif %}
 
 <section class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm">
-  <div class="mb-4 flex flex-wrap items-center justify-between gap-2">
-    <div>
+  <div class="mb-4 flex flex-wrap items-center justify-between gap-2 lg:flex-nowrap">
+    <div class="min-w-0">
       <h2 class="text-xl font-extrabold">Relatório de Notas Fiscais de Serviço de {{ empresa_travada.razao_social }} ({{ competencia_rotulo }})</h2>
       <p class="text-xs text-stone-500">Marque o que já foi escriturado na Domínio e separe com 1 clique o que ficará para escriturar em {{ proxima_competencia_rotulo }}.</p>
     </div>
-    <div class="flex flex-wrap items-center gap-2">
-      <form method="post" action="{% url 'marcar_lote_nfse' %}">
+    <div class="flex shrink-0 items-center gap-2">
+      <form method="post" action="{% url 'marcar_lote_nfse' %}" class="shrink-0">
         {% csrf_token %}
         <input type="hidden" name="acao" value="escriturar_todas">
-        <button type="submit" class="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm">Marcar todas pendentes como Escrituradas</button>
+        <button type="submit" class="whitespace-nowrap rounded-xl bg-emerald-600 px-3 py-2 text-xs font-bold text-white shadow-sm">Marcar todas pendentes como Escrituradas</button>
       </form>
-      <form method="post" action="{% url 'marcar_lote_nfse' %}">
+      <form method="post" action="{% url 'marcar_lote_nfse' %}" class="shrink-0">
         {% csrf_token %}
         <input type="hidden" name="acao" value="reabrir_todas">
-        <button type="submit" class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 shadow-sm">Reabrir conferência</button>
+        <button type="submit" class="whitespace-nowrap rounded-xl border border-stone-200 bg-white px-3 py-2 text-xs font-semibold text-stone-700 shadow-sm">Reabrir conferência</button>
       </form>
-      <a href="{% url 'auditoria' %}" class="rounded-xl bg-blue-700 px-3 py-2 text-xs font-bold text-white shadow-sm">Ir para Apuração Final do Mês →</a>
+      <a href="{% url 'auditoria' %}" class="shrink-0 whitespace-nowrap rounded-xl bg-blue-700 px-3 py-2 text-xs font-bold text-white shadow-sm">Ir para Apuração Final do Mês →</a>
     </div>
   </div>
 
@@ -280,15 +280,15 @@
             {% endif %}
           </td>
           <td class="px-3 py-2.5">
-            <div class="flex flex-wrap gap-1">
+            <div class="flex items-center gap-1 whitespace-nowrap">
               {% if n.etapa_escrituracao != 'ESCRITURADA' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="rounded-lg bg-emerald-600 px-2 py-1 text-white" type="submit">Escriturada</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-white" type="submit">Escriturada</button></form>
               {% endif %}
               {% if n.etapa_escrituracao != 'MES_SEGUINTE' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="rounded-lg bg-violet-700 px-2 py-1 text-white" type="submit">Mês Seguinte</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="whitespace-nowrap rounded-lg bg-violet-700 px-2.5 py-1 text-white" type="submit">Mês Seguinte</button></form>
               {% endif %}
               {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="rounded-lg border border-stone-300 bg-white px-2 py-1 text-stone-700" type="submit">Pendente</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="whitespace-nowrap rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-stone-700" type="submit">Pendente</button></form>
               {% endif %}
             </div>
           </td>
@@ -342,15 +342,15 @@
             {% endif %}
           </td>
           <td class="px-3 py-2.5">
-            <div class="flex flex-wrap gap-1">
+            <div class="flex items-center gap-1 whitespace-nowrap">
               {% if n.etapa_escrituracao != 'ESCRITURADA' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="rounded-lg bg-emerald-600 px-2 py-1 text-white" type="submit">Escriturada</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="ESCRITURADA"><button class="whitespace-nowrap rounded-lg bg-emerald-600 px-2.5 py-1 text-white" type="submit">Escriturada</button></form>
               {% endif %}
               {% if n.etapa_escrituracao != 'MES_SEGUINTE' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="rounded-lg bg-violet-700 px-2 py-1 text-white" type="submit">Mês Seguinte</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="MES_SEGUINTE"><button class="whitespace-nowrap rounded-lg bg-violet-700 px-2.5 py-1 text-white" type="submit">Mês Seguinte</button></form>
               {% endif %}
               {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
-              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="rounded-lg border border-stone-300 bg-white px-2 py-1 text-stone-700" type="submit">Pendente</button></form>
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="whitespace-nowrap rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-stone-700" type="submit">Pendente</button></form>
               {% endif %}
             </div>
           </td>
