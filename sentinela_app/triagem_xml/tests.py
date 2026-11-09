@@ -2,7 +2,7 @@ import tempfile
 from pathlib import Path
 
 from django.contrib.auth.models import User
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from auditoria.apuracao_motor import MotorApuracaoSentinela
@@ -27,6 +27,13 @@ class ColetorNFSeSentinelaTests(TestCase):
         self.assertNotIn("onedrive", str(raiz_do_perfil()).lower())
 
     def setUp(self):
+        self._pasta_temp = tempfile.TemporaryDirectory()
+        self._override = override_settings(
+            PASTA_MAE=self._pasta_temp.name,
+            SHAREPOINT_ROOT_DIR=self._pasta_temp.name,
+            MEDIA_ROOT=self._pasta_temp.name,
+        )
+        self._override.enable()
         self.user = User.objects.create_superuser(username="admin_teste", password="123", email="a@b.com")
         self.empresa = Empresa.objects.create(
             codigo_dominio="0042",
@@ -60,6 +67,10 @@ class ColetorNFSeSentinelaTests(TestCase):
             regime_tributario="Lucro Real",
             regime_pis_cofins="Não-Cumulativo",
         )
+
+    def tearDown(self):
+        self._override.disable()
+        self._pasta_temp.cleanup()
 
     def test_carrega_motor_coletor_145(self):
         self.assertEqual(VERSAO_COLETOR, "1.4.5")

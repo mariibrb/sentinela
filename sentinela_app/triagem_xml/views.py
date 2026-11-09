@@ -314,11 +314,17 @@ def iniciar_coletor_nfse(request):
         messages.error(request, str(erro))
         return redirect("coletor_nfse")
 
-    from triagem_xml.chrome_portal import motivo_sem_chrome
+    from triagem_xml.chrome_portal import URL_LOGIN, caminho_do_chrome, motivo_sem_chrome
 
-    motivo = motivo_sem_chrome()
-    if motivo:
-        messages.error(request, motivo)
+    if not caminho_do_chrome():
+        motivo = motivo_sem_chrome()
+        GERENCIADOR_COLETOR.escrever_log(
+            f"Portal Nacional aberto no navegador para {empresa.codigo_dominio} · {empresa.razao_social} ({periodo.inicio:%d/%m/%Y} a {periodo.fim:%d/%m/%Y})."
+        )
+        GERENCIADOR_COLETOR.escrever_log(motivo)
+        if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.POST.get("resposta") == "json":
+            return JsonResponse({"ok": True, "abrir_url": URL_LOGIN, "mensagem": motivo, "estado": GERENCIADOR_COLETOR.estado_atual()})
+        messages.info(request, motivo)
         return redirect("coletor_nfse")
 
     ok, msg = GERENCIADOR_COLETOR.iniciar_coleta(

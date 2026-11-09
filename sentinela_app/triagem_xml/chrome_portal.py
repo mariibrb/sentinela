@@ -27,9 +27,8 @@ def caminho_do_chrome() -> str | None:
 def motivo_sem_chrome() -> str:
     if os.name != "nt":
         return (
-            "O login do Portal Nacional abre no Google Chrome do computador do escritório, "
-            "onde está o certificado. No site publicado o clique não alcança essa janela. "
-            "Abra o Sentinela neste computador e inicie o Apanhador por ele."
+            "A janela de login do Portal Nacional foi aberta no seu navegador. "
+            "Entre com o Certificado Digital ou com usuário e senha para baixar as notas e importar aqui no Sentinela."
         )
     if not caminho_do_chrome():
         return "Não encontrei o Google Chrome neste computador. Instale o Chrome e clique em Iniciar de novo."
