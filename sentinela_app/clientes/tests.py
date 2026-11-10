@@ -212,9 +212,10 @@ class FluxoSentinelaTest(TestCase):
         lista = self.client.get("/clientes/")
         self.assertContains(lista, "Inativar")
         self.assertContains(lista, "Excluir")
-        self.client.post(f"/clientes/{empresa.pk}/situacao/")
+        self.client.post(f"/clientes/{empresa.pk}/situacao/", {"data_saida_cliente": "11/2026"})
         empresa.refresh_from_db()
         self.assertEqual(empresa.status, "Inativo")
+        self.assertEqual(empresa.data_saida_cliente, "11/2026")
         travado = navegador.post(f"/colaboradores/{self.apuracao.pk}/excluir/", follow=True)
         self.assertContains(travado, "restrita ao administrador")
 
@@ -388,7 +389,7 @@ class FluxoSentinelaTest(TestCase):
         self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/"})
         uso = self.client.post("/triagem/importar/", {"arquivos": SimpleUploadedFile("nota.xml", xml_cancelada())}, follow=True)
         self.assertContains(uso, "APURAÇÃO BLOQUEADA")
-        self.assertContains(uso, "Responsável pela apuração")
+        self.assertContains(uso, "Responsável Operacional — Fiscal")
         self.assertEqual(DocumentoXML.objects.count(), 0)
         inscricoes = [
             {"inscricao_estadual": "248025829", "ativo": True, "estado": {"sigla": "BA"}},
@@ -478,13 +479,22 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(wb.sheetnames, ["Clientes_Escritorio"])
         ws = wb["Clientes_Escritorio"]
         cabecalhos = [str(c or "") for c in next(ws.iter_rows(min_row=3, max_row=3, values_only=True))]
-        self.assertIn("Código Domínio *", cabecalhos)
-        self.assertIn("CNPJ (14 dígitos) *", cabecalhos)
-        self.assertIn("Regime Tributário *", cabecalhos)
+        texto_cab = " | ".join(cabecalhos)
+        self.assertIn("Código Domínio *", texto_cab)
+        self.assertIn("CNPJ (14 dígitos) *", texto_cab)
+        self.assertIn("Regime Tributário *", texto_cab)
+        self.assertIn("Responsável Operacional Fiscal *", texto_cab)
+        self.assertIn("Responsável Revisador Fiscal *", texto_cab)
+        self.assertIn("Responsável Operacional Contábil", texto_cab)
+        self.assertIn("Responsável Revisador Contábil", texto_cab)
+        self.assertIn("Responsável Operacional DP", texto_cab)
+        self.assertIn("Responsável Revisador DP", texto_cab)
+        self.assertIn("Ramo de Atividade", texto_cab)
+        self.assertIn("Data de Saída", texto_cab)
         # Confirma que NÃO tem colunas que o botão Buscar CNPJ já traz automaticamente
-        self.assertNotIn("Razão Social *", cabecalhos)
-        self.assertNotIn("Logradouro *", cabecalhos)
-        self.assertNotIn("Código IBGE (7 dígitos) *", cabecalhos)
+        self.assertNotIn("Razão Social *", texto_cab)
+        self.assertNotIn("Logradouro *", texto_cab)
+        self.assertNotIn("Código IBGE (7 dígitos) *", texto_cab)
 
         from unittest.mock import patch
 
@@ -504,6 +514,8 @@ class FluxoSentinelaTest(TestCase):
             "uf": "MG",
             "codigo_ibge": "3125101",
             "cnae_principal": "4649499",
+            "cnae_descricao": "Comércio atacadista de outros equipamentos e artigos de uso pessoal e doméstico não especificados anteriormente",
+            "ramo_atividade": "Comércio",
             "inscricao_estadual": "0047805660026",
             "substituicoes": {"SP": "813035560114", "BA": "248025829", "CE": "073307130"},
         }
@@ -521,10 +533,47 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(emp.inscricao_estadual, "0047805660026")
         self.assertEqual(emp.regime_tributario, "Lucro Presumido")
         self.assertEqual(emp.regime_pis_cofins, "Cumulativo")
+        # A linha de exemplo do modelo em branco traz "Comércio e Indústria"; a descrição vem da busca CNPJ
+        self.assertEqual(emp.ramo_atividade, "Comércio e Indústria")
+        self.assertIn("Comércio atacadista", emp.cnae_descricao)
         self.assertEqual(emp.responsavel_apuracao, self.apuracao)
         self.assertEqual(emp.responsavel_revisao, self.revisao)
+        self.assertEqual(emp.responsavel_operacional_contabil, self.apuracao)
+        self.assertEqual(emp.responsavel_revisador_contabil, self.revisao)
+        self.assertEqual(emp.responsavel_operacional_dp, self.apuracao)
+        self.assertEqual(emp.responsavel_revisador_dp, self.revisao)
         self.assertTrue(emp.substituicoes.filter(uf="SP", numero="813035560114").exists())
         self.assertTrue(emp.escopo_fiscal.get("Escrituração de Notas Fiscais de Entrada"))
+
+        # Lista limpa: sem colunas Notas/Escopo; botão claro; exporta com filtros
+        lista = self.client.get("/clientes/")
+        self.assertContains(lista, "Usar no Sentinela")
+        self.assertNotContains(lista, ">Notas</th>")
+        self.assertNotContains(lista, ">Escopo de Trabalho</th>")
+        self.assertContains(lista, "Extrair Planilha dos Filtros")
+        rel = self.client.get("/clientes/exportar-relatorio/?ramo=Comércio")
+        self.assertEqual(rel.status_code, 200)
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            rel["Content-Type"],
+        )
+        # Inativar exige data de saída (limpa a data que veio na linha de exemplo)
+        emp.status = "Ativo"
+        emp.data_saida_cliente = ""
+        emp.save(update_fields=["status", "data_saida_cliente"])
+        sem_data = self.client.post(f"/clientes/{emp.pk}/situacao/", follow=True)
+        self.assertContains(sem_data, "informe obrigatoriamente a data de saída")
+        emp.refresh_from_db()
+        self.assertEqual(emp.status, "Ativo")
+        com_data = self.client.post(
+            f"/clientes/{emp.pk}/situacao/",
+            {"data_saida_cliente": "11/2026"},
+            follow=True,
+        )
+        self.assertContains(com_data, "está inativo")
+        emp.refresh_from_db()
+        self.assertEqual(emp.status, "Inativo")
+        self.assertEqual(emp.data_saida_cliente, "11/2026")
 
 
 class MatrioscaZipTest(SimpleTestCase):

@@ -7,14 +7,36 @@
     <div>
       <p class="text-sm font-semibold text-pink-700">Módulo de clientes e escopo contratado</p>
       <h1 class="text-3xl font-extrabold">Clientes</h1>
-      <p class="text-stone-500">Pesquise por código Domínio, razão social, CNPJ, contato ou qualquer item do checklist de escopo (ex.: DCTFWeb, Folha, SPED, ICMS-ST, TTS).</p>
+      <p class="text-stone-500">Pesquise por código Domínio, razão social, CNPJ, CNAE, ramo, responsável, contato ou qualquer item do checklist (Departamento Fiscal, Contábil, Pessoal e Regularização).</p>
     </div>
-    {% if permissoes.pode_cadastrar_cliente %}<a class="rounded-xl bg-pink-600 px-4 py-2.5 font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
+    <div class="flex flex-wrap items-center gap-2">
+      <a class="whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 text-sm font-bold text-pink-800 shadow-sm hover:bg-pink-100" href="{% url 'exportar_relatorio_clientes' %}?q={{ termo|urlencode }}&ramo={{ filtro_ramo|urlencode }}&regime={{ filtro_regime|urlencode }}&situacao={{ filtro_situacao|urlencode }}&escopo={{ filtro_escopo|urlencode }}" title="Baixa a planilha completa respeitando os filtros atuais da tela">
+        Extrair Planilha dos Filtros (.xlsx)
+      </a>
+      {% if permissoes.pode_cadastrar_cliente %}<a class="whitespace-nowrap rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
+    </div>
   </div>
   <form method="get" class="flex flex-wrap items-center gap-2">
-    <input class="w-full max-w-md rounded-xl border border-stone-200 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome, CNPJ, contato ou item do escopo…">
+    <input class="w-full max-w-md rounded-xl border border-stone-200 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Código, nome, CNPJ, CNAE, contato ou item do escopo…">
+    <select name="ramo" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500">
+      <option value="">Ramo de atividade (Todos)</option>
+      {% for ramo in ramos_atividade %}
+      <option value="{{ ramo }}" {% if filtro_ramo == ramo %}selected{% endif %}>{{ ramo }}</option>
+      {% endfor %}
+    </select>
+    <select name="regime" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500">
+      <option value="">Regime tributário (Todos)</option>
+      {% for regime in regimes_tributarios %}
+      <option value="{{ regime }}" {% if filtro_regime == regime %}selected{% endif %}>{{ regime }}</option>
+      {% endfor %}
+    </select>
+    <select name="situacao" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500">
+      <option value="">Situação (Todos)</option>
+      <option value="Ativo" {% if filtro_situacao == "Ativo" %}selected{% endif %}>Ativo</option>
+      <option value="Inativo" {% if filtro_situacao == "Inativo" %}selected{% endif %}>Inativo</option>
+    </select>
     <select name="escopo" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500">
-      <option value="">Filtrar por item do escopo (Todos)</option>
+      <option value="">Filtrar por item do checklist (Todos)</option>
       {% for grupo, itens in opcoes_filtro_escopo %}
       <optgroup label="{{ grupo }}">
         {% for item in itens %}
@@ -24,7 +46,7 @@
       {% endfor %}
     </select>
     <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
-    {% if termo or filtro_escopo %}
+    {% if termo or filtro_escopo or filtro_ramo or filtro_regime or filtro_situacao %}
     <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-600 shadow-sm">Limpar</a>
     {% endif %}
   </form>
@@ -35,18 +57,27 @@
       <div class="flex items-center gap-2">
         <span class="rounded-lg bg-pink-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Somente Desenvolvedor</span>
         <strong class="text-sm font-bold text-stone-900">Cadastro e Atualização de Clientes em Lote Único (.xlsx)</strong>
+        <span class="group relative inline-flex h-5 w-5 cursor-help items-center justify-center rounded-lg border border-pink-300 bg-white text-xs font-extrabold text-pink-700 shadow-sm">
+          ?
+          <span class="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-80 rounded-xl border border-stone-800 bg-stone-900 p-3 text-[11px] font-normal leading-relaxed text-white shadow-xl group-hover:block">
+            <strong>Como funciona a planilha de lote:</strong><br>
+            • Traz <strong>apenas dados manuais</strong> (Código Domínio, CNPJ, Regime, Responsáveis Operacionais/Revisadores de Fiscal/Contábil/DP, Contatos e Checklist colorido por setor).<br>
+            • Ao subir, o Sentinela dispara sozinho o <strong>Buscar CNPJ</strong> e preenche Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Ramo, Endereço, IBGE, IE e IEs ST!<br>
+            • Cada coluna no Excel tem um balão <strong>(?)</strong> que aparece ao passar o mouse.
+          </span>
+        </span>
       </div>
       <div class="flex flex-wrap items-center gap-2">
         <a href="{% url 'baixar_planilha_clientes' %}" class="whitespace-nowrap rounded-xl border border-pink-300 bg-white px-3.5 py-2 text-xs font-bold text-pink-800 shadow-sm hover:bg-pink-50">
-          Baixar Planilha com Clientes (.xlsx)
+          Baixar Planilha Manual dos Clientes (.xlsx)
         </a>
         <a href="{% url 'baixar_planilha_clientes' %}?vazia=1" class="whitespace-nowrap rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 shadow-sm hover:bg-stone-50">
-          Baixar Modelo em Branco (.xlsx)
+          Baixar Modelo em Branco com Exemplo (.xlsx)
         </a>
       </div>
     </div>
     <p class="mb-3 text-xs text-stone-600">
-      A tabela tem <strong>apenas os dados manuais</strong> (Código Domínio, CNPJ, Regime Tributário, Responsáveis, Contatos e Checklist de Escopo). Ao subir a planilha, o Sentinela aciona sozinho o <strong>Buscar CNPJ</strong> para cada linha e preenche Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Endereço, Código IBGE, IE principal e IEs de Substituto Tributário.
+      A planilha de upload traz <strong>apenas os dados manuais</strong>, 1ª linha de exemplo com 100% das colunas preenchidas, balões de ajuda <strong>(?)</strong> ao passar o mouse no Excel e cores separadas para <strong>Departamento Fiscal</strong> (azul), <strong>Departamento Contábil</strong> (verde), <strong>Departamento Pessoal</strong> (violeta) e <strong>Regularização</strong> (âmbar). Ao enviar, o <strong>Buscar CNPJ</strong> roda automaticamente para cada linha!
     </p>
     <form method="post" action="{% url 'importar_lote_clientes' %}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
       {% csrf_token %}
@@ -61,7 +92,16 @@
 <section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
   <table class="w-full text-left text-sm">
     <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
-      <tr><th class="px-3 py-3">Código</th><th class="px-3 py-3">Razão social / Contatos</th><th class="px-3 py-3">CNPJ</th><th class="px-3 py-3">UF</th><th class="px-3 py-3">Regime</th><th class="px-3 py-3">Escopo de Trabalho</th><th class="px-3 py-3">Situação</th><th class="px-3 py-3">Notas</th><th class="px-3 py-3">Ações</th></tr>
+      <tr>
+        <th class="px-3 py-3">Código</th>
+        <th class="px-3 py-3">Razão social / Contatos</th>
+        <th class="px-3 py-3">CNPJ</th>
+        <th class="px-3 py-3">UF</th>
+        <th class="px-3 py-3">Regime</th>
+        <th class="px-3 py-3">Ramo</th>
+        <th class="px-3 py-3">Situação</th>
+        <th class="px-3 py-3">Ações</th>
+      </tr>
     </thead>
     <tbody>
       {% for empresa in empresas %}
@@ -70,49 +110,39 @@
         <td class="px-3 py-3">
           {% if permissoes.pode_editar_cliente %}<a class="font-semibold text-pink-700" href="{% url 'editar_empresa' empresa.pk %}">{{ empresa.razao_social }}</a>{% else %}<span class="font-semibold">{{ empresa.razao_social }}</span>{% endif %}
           {% if empresa.data_inicio_cliente %}<span class="block text-xs text-stone-500">Cliente desde {{ empresa.data_inicio_cliente }}</span>{% endif %}
+          {% if empresa.status != "Ativo" and empresa.data_saida_cliente %}<span class="block text-xs text-stone-500">Saída em {{ empresa.data_saida_cliente }}</span>{% endif %}
           {% if empresa.contatos %}
           <span class="block text-xs text-stone-500">{{ empresa.contatos|length }} contato(s) cadastrado(s)</span>
+          {% endif %}
+          {% if empresa.cnae_descricao %}
+          <span class="block text-xs text-stone-400">{{ empresa.cnae_descricao|truncatechars:60 }}</span>
           {% endif %}
         </td>
         <td class="px-3 py-3">{{ empresa.cnpj|cnpj }}</td>
         <td class="px-3 py-3">{{ empresa.uf }}</td>
         <td class="px-3 py-3">{{ empresa.regime_tributario }}</td>
-        <td class="px-3 py-3">
-          {% with esc=empresa.resumo_escopo %}
-            {% if esc.macros %}
-              <div class="flex flex-wrap gap-1">
-                {% for m in esc.macros %}
-                <span class="rounded-lg bg-pink-50 px-2 py-0.5 text-xs font-semibold text-pink-800">{{ m }}</span>
-                {% endfor %}
-              </div>
-              {% if permissoes.pode_editar_cliente %}
-              <a href="{% url 'editar_empresa' empresa.pk %}?aba=escopo" class="mt-1 inline-block text-xs font-semibold text-pink-700 underline">Ver checklist ({{ esc.total_itens }} itens)</a>
-              {% endif %}
-            {% else %}
-              {% if permissoes.pode_editar_cliente %}
-              <a href="{% url 'editar_empresa' empresa.pk %}?aba=escopo" class="text-xs font-semibold text-stone-400 hover:text-pink-700">+ Preencher escopo</a>
-              {% else %}
-              <span class="text-xs text-stone-400">Não definido</span>
-              {% endif %}
-            {% endif %}
-          {% endwith %}
-        </td>
+        <td class="px-3 py-3">{{ empresa.ramo_atividade|default:"—" }}</td>
         <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
-        <td class="px-3 py-3">{{ empresa.notas }}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
-            <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit">Selecionar</button></form>
+            <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit" title="Define esta empresa como a ativa nas telas do Sentinela (Garimpeiro, Apanhador, etc.)">Usar no Sentinela</button></form>
             {% if permissoes.pode_editar_cliente %}
               <a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}">Cadastro</a>
               <a class="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 font-semibold text-pink-800 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}?aba=escopo">Escopo</a>
             {% endif %}
-            {% if permissoes.pode_inativar_cliente %}<form method="post" action="{% url 'situacao_empresa' empresa.pk %}">{% csrf_token %}<button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{% if empresa.status == "Ativo" %}Inativar{% else %}Reativar{% endif %}</button></form>{% endif %}
+            {% if permissoes.pode_inativar_cliente %}
+            <form method="post" action="{% url 'situacao_empresa' empresa.pk %}" {% if empresa.status == "Ativo" %}onsubmit="var d=prompt('Informe a data de saída do cliente (MM/AAAA ou DD/MM/AAAA). Obrigatório para inativar:'); if(!d||!d.trim()){alert('Data de saída é obrigatória para inativar.'); return false;} this.querySelector('[name=data_saida_cliente]').value=d.trim();"{% endif %}>
+              {% csrf_token %}
+              <input type="hidden" name="data_saida_cliente" value="{{ empresa.data_saida_cliente }}">
+              <button class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" type="submit">{% if empresa.status == "Ativo" %}Inativar{% else %}Reativar{% endif %}</button>
+            </form>
+            {% endif %}
             {% if permissoes.pode_excluir_cliente %}<form method="post" action="{% url 'excluir_empresa' empresa.pk %}" onsubmit="return confirm('Excluir este cliente? As notas dele saem do Sentinela.');">{% csrf_token %}<button class="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-red-700 shadow-sm" type="submit">Excluir</button></form>{% endif %}
           </div>
         </td>
       </tr>
       {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="9">Nenhum cliente encontrado para esta pesquisa.</td></tr>
+      <tr><td class="px-3 py-4 text-stone-500" colspan="8">Nenhum cliente encontrado para esta pesquisa.</td></tr>
       {% endfor %}
     </tbody>
   </table>

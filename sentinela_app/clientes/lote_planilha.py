@@ -12,6 +12,7 @@ import re
 from typing import Any
 
 from openpyxl import Workbook, load_workbook
+from openpyxl.comments import Comment
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.datavalidation import DataValidation
@@ -38,9 +39,15 @@ COLUNAS_MANUAIS: list[tuple[str, str, int, str]] = [
     ("regime_tributario", "Regime Tributário *", 24, "obrig"),
     ("anexo_simples", "Anexo Simples (I a V)", 20, "cad"),
     ("perfil_estabelecimento", "Perfil / Regime Especial", 26, "cad"),
-    ("responsavel_apuracao", "Responsável Apuração *", 24, "obrig"),
-    ("responsavel_revisao", "Responsável Revisão *", 24, "obrig"),
+    ("responsavel_apuracao", "Responsável Operacional Fiscal *", 28, "obrig"),
+    ("responsavel_revisao", "Responsável Revisador Fiscal *", 28, "obrig"),
+    ("responsavel_operacional_contabil", "Responsável Operacional Contábil", 28, "cad"),
+    ("responsavel_revisador_contabil", "Responsável Revisador Contábil", 28, "cad"),
+    ("responsavel_operacional_dp", "Responsável Operacional DP", 26, "cad"),
+    ("responsavel_revisador_dp", "Responsável Revisador DP", 26, "cad"),
     ("data_inicio_cliente", "Cliente desde (MM/AAAA)", 22, "cad"),
+    ("data_saida_cliente", "Data de Saída (se Inativo)", 24, "cad"),
+    ("ramo_atividade", "Ramo de Atividade (Comércio/Indústria/Serviços)", 32, "cad"),
     ("inscricao_municipal", "Inscrição Municipal", 22, "cad"),
     ("suframa", "SUFRAMA", 16, "cad"),
     ("inscricao_estadual_manual", "IE Manual / ISENTO (se não vier na busca)", 30, "cad"),
@@ -60,11 +67,62 @@ COLUNAS_MANUAIS: list[tuple[str, str, int, str]] = [
 
 # Na mesma tabela única, logo à direita, entram os itens do Checklist de Escopo (Sim/Não)
 COLUNAS_CHECKLIST_UNICAS: list[tuple[str, str, str]] = (
-    [("Fiscal", item, f"[Fiscal] {item}") for item in ITENS_FISCAIS]
-    + [("Contábil", item, f"[Contábil] {item}") for item in ITENS_CONTABEIS]
-    + [("DP", item, f"[DP] {item}") for item in ITENS_DP]
+    [("Fiscal", item, f"[Departamento Fiscal] {item}") for item in ITENS_FISCAIS]
+    + [("Contábil", item, f"[Departamento Contábil] {item}") for item in ITENS_CONTABEIS]
+    + [("DP", item, f"[Departamento Pessoal] {item}") for item in ITENS_DP]
     + [("Regularização", item, f"[Regularização] {item}") for item in ITENS_REGULARIZACAO]
 )
+
+AJUDA_COLUNAS_MANUAIS: dict[str, str] = {
+    "codigo_dominio": "Número da empresa no sistema Domínio (até 4 dígitos). Ex.: 0578.",
+    "cnpj": "Informe os 14 dígitos do CNPJ. Ao subir a planilha, o Sentinela dispara sozinho o 'Buscar CNPJ' e traz Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Endereço, IBGE, IE e IEs ST!",
+    "regime_tributario": "Escolha na lista: Simples Nacional, Lucro Presumido, Lucro Real, MEI ou Imune/Isenta. O PIS/COFINS é preenchido sozinho pelo regime.",
+    "anexo_simples": "Obrigatório quando Simples Nacional. Opções: I, II, III, IV ou V.",
+    "perfil_estabelecimento": "Opções: GERAL, ECOMMERCE, INDUSTRIA, CD, REGIME_ESPECIAL_MG, REGIME_ESPECIAL_SP.",
+    "responsavel_apuracao": "Nome do colaborador responsável pelo operacional do Departamento Fiscal (ex.: Ismael).",
+    "responsavel_revisao": "Nome do colaborador responsável pela revisão do Departamento Fiscal (ex.: Mariana Barbosa).",
+    "responsavel_operacional_contabil": "Nome do colaborador responsável pelo operacional do Departamento Contábil.",
+    "responsavel_revisador_contabil": "Nome do colaborador responsável pela revisão do Departamento Contábil.",
+    "responsavel_operacional_dp": "Nome do colaborador responsável pelo operacional do Departamento Pessoal (DP).",
+    "responsavel_revisador_dp": "Nome do colaborador responsável pela revisão do Departamento Pessoal (DP).",
+    "data_inicio_cliente": "Mês/Ano em que passou a ser cliente do escritório (MM/AAAA). Ex.: 01/2025.",
+    "data_saida_cliente": "Obrigatório para clientes INATIVOS: data em que o cliente saiu (MM/AAAA ou DD/MM/AAAA) para sabermos a partir de quando cessam as obrigações nos setores.",
+    "ramo_atividade": "Se deixar em branco, o Sentinela identifica sozinho pelo CNAE! Ou escolha: Comércio | Indústria | Serviços | Comércio e Indústria | Comércio e Serviços | Indústria e Serviços | Comércio, Indústria e Serviços | Holding / Patrimonial / Outros.",
+    "inscricao_municipal": "Número da Inscrição Municipal (quando prestador de serviço). Ex.: 123456-0.",
+    "suframa": "Inscrição SUFRAMA (quando houver). Ex.: 200123456.",
+    "inscricao_estadual_manual": "Deixe em branco para usar a IE buscada automaticamente na Sefaz, ou escreva ISENTO (ou o nº manual).",
+    "contribuinte_icms": "Escolha Sim ou Não.",
+    "contribuinte_ipi": "Escolha Sim ou Não.",
+    "possui_regime_especial": "Escolha Sim ou Não.",
+    "contatos_texto": "Formato: Nome | Setor | E-mail | Telefone | WhatsApp(Sim/Não). Para mais de um contato, separe por ponto e vírgula (;).",
+    "resumo_cliente": "Breve histórico, particularidades da operação ou observações importantes para a equipe.",
+    "qtd_notas_entrada": "Média mensal de notas de entrada. Ex.: 80.",
+    "qtd_notas_saida": "Média mensal de notas de saída. Ex.: 200.",
+    "qtd_emissao_notas_servico": "Média mensal de emissão de NFS-e pelo escritório. Ex.: 15.",
+    "qtd_emissao_notas_produto": "Média mensal de emissão de NF-e de produtos pelo escritório. Ex.: 40.",
+    "tipos_icms_incentivado": "Opções válidas de TTS (separe por ; se tiver mais de uma):\n- " + "\n- ".join(OPCOES_TTS),
+    "estados_icms_st": "Siglas das UFs onde possui apuração de ICMS-ST separadas por ; (ex.: MG; SP; BA).",
+    "estados_st": "Siglas das UFs para controle de Inscrição de Substituto Tributário separadas por ; (ex.: SP; RJ; PR).",
+}
+
+CORES_CHECKLIST = {
+    "Fiscal": {
+        "cab": PatternFill("solid", fgColor="1D4ED8"),     # Azul forte
+        "cel": PatternFill("solid", fgColor="EFF6FF"),     # Azul clarinho
+    },
+    "Contábil": {
+        "cab": PatternFill("solid", fgColor="047857"),     # Esmeralda forte
+        "cel": PatternFill("solid", fgColor="ECFDF5"),     # Esmeralda clarinho
+    },
+    "DP": {
+        "cab": PatternFill("solid", fgColor="6D28D9"),     # Violeta forte
+        "cel": PatternFill("solid", fgColor="F5F3FF"),     # Violeta clarinho
+    },
+    "Regularização": {
+        "cab": PatternFill("solid", fgColor="B45309"),     # Âmbar forte
+        "cel": PatternFill("solid", fgColor="FFFBEB"),     # Âmbar clarinho
+    },
+}
 
 
 def _sim_nao(valor: bool) -> str:
@@ -82,6 +140,7 @@ def _interpretar_booleano(valor: Any, padrao: bool = False) -> bool:
 
 def _normalizar_cabecalho(texto: Any) -> str:
     bruto = str(texto or "").strip().lower()
+    bruto = re.sub(r"\(\?\)", "", bruto)
     bruto = re.sub(r"\*+", "", bruto).strip()
     return bruto
 
@@ -183,10 +242,11 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
     cel_dica.alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[2].height = 22
 
-    # Linha 3: Cabeçalhos da Tabela Única (somente dados manuais + checklist)
-    ws.row_dimensions[3].height = 34
-    for idx, (_chave, titulo, largura, estilo) in enumerate(COLUNAS_MANUAIS, start=1):
-        c = ws.cell(row=3, column=idx, value=titulo)
+    # Linha 3: Cabeçalhos da Tabela Única (somente dados manuais + checklist colorido por departamento)
+    ws.row_dimensions[3].height = 36
+    for idx, (chave, titulo, largura, estilo) in enumerate(COLUNAS_MANUAIS, start=1):
+        rotulo_com_ajuda = f"{titulo} (?)" if chave in AJUDA_COLUNAS_MANUAIS else titulo
+        c = ws.cell(row=3, column=idx, value=rotulo_com_ajuda)
         if estilo == "obrig":
             c.font = fonte_cab_obrig
             c.fill = preench_obrig
@@ -198,20 +258,37 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
             c.fill = preench_cad
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         c.border = borda_fina
-        ws.column_dimensions[get_column_letter(idx)].width = largura
+        ws.column_dimensions[get_column_letter(idx)].width = largura + 3
+        texto_ajuda = AJUDA_COLUNAS_MANUAIS.get(chave)
+        if texto_ajuda:
+            comentario = Comment(f"❓ COMO PREENCHER:\n{texto_ajuda}", "Sentinela")
+            comentario.width = 320
+            comentario.height = 130
+            c.comment = comentario
 
     offset_check = len(COLUNAS_MANUAIS)
-    for idx_c, (_grupo, _item, rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
-        c = ws.cell(row=3, column=idx_c, value=rotulo_col)
+    for idx_c, (grupo, item_nome, rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
+        cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
+        c = ws.cell(row=3, column=idx_c, value=f"{rotulo_col} (?)")
         c.font = fonte_cab_esc
-        c.fill = preench_esc
+        c.fill = cor_grupo["cab"]
         c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
         c.border = borda_fina
-        ws.column_dimensions[get_column_letter(idx_c)].width = 23
+        ws.column_dimensions[get_column_letter(idx_c)].width = 25
+        c.comment = Comment(
+            f"❓ CHECKLIST {grupo.upper()}:\nMarque 'Sim' (ou 'X') se o serviço '{item_nome}' faz parte do escopo contratado por este cliente.",
+            "Sentinela",
+        )
 
     empresas_existentes = list(
-        Empresa.objects.select_related("responsavel_apuracao", "responsavel_revisao")
-        .order_by("codigo_dominio")
+        Empresa.objects.select_related(
+            "responsavel_apuracao",
+            "responsavel_revisao",
+            "responsavel_operacional_contabil",
+            "responsavel_revisador_contabil",
+            "responsavel_operacional_dp",
+            "responsavel_revisador_dp",
+        ).order_by("codigo_dominio")
     ) if incluir_existentes else []
 
     linha_atual = 4
@@ -225,7 +302,13 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
                 "perfil_estabelecimento": emp.perfil_estabelecimento,
                 "responsavel_apuracao": emp.responsavel_apuracao.nome if emp.responsavel_apuracao else "",
                 "responsavel_revisao": emp.responsavel_revisao.nome if emp.responsavel_revisao else "",
+                "responsavel_operacional_contabil": emp.responsavel_operacional_contabil.nome if emp.responsavel_operacional_contabil else "",
+                "responsavel_revisador_contabil": emp.responsavel_revisador_contabil.nome if emp.responsavel_revisador_contabil else "",
+                "responsavel_operacional_dp": emp.responsavel_operacional_dp.nome if emp.responsavel_operacional_dp else "",
+                "responsavel_revisador_dp": emp.responsavel_revisador_dp.nome if emp.responsavel_revisador_dp else "",
                 "data_inicio_cliente": emp.data_inicio_cliente or "",
+                "data_saida_cliente": emp.data_saida_cliente or "",
+                "ramo_atividade": emp.ramo_atividade or "",
                 "inscricao_municipal": emp.inscricao_municipal or "",
                 "suframa": emp.suframa or "",
                 "inscricao_estadual_manual": "ISENTO" if (emp.inscricao_estadual or "").upper() == "ISENTO" else "",
@@ -249,6 +332,7 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
                 cel.number_format = "@"
 
             for idx_c, (grupo, item_nome, _rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
+                cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
                 mapa = (
                     emp.escopo_fiscal if grupo == "Fiscal"
                     else emp.escopo_contabil if grupo == "Contábil"
@@ -257,32 +341,40 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
                 ) or {}
                 cel_chk = ws.cell(row=linha_atual, column=idx_c, value="Sim" if mapa.get(item_nome) else "")
                 cel_chk.font = fonte_celula
+                cel_chk.fill = cor_grupo["cel"]
                 cel_chk.alignment = Alignment(horizontal="center")
                 cel_chk.border = borda_fina
             linha_atual += 1
     else:
+        # Primeira linha 100% preenchida em TODAS as colunas para servir de exemplo visual claro
         exemplo = {
             "codigo_dominio": "0578",
             "cnpj": "45785442000390",
             "regime_tributario": "Lucro Presumido",
-            "anexo_simples": "",
+            "anexo_simples": "I",
             "perfil_estabelecimento": "GERAL",
             "responsavel_apuracao": "Ismael",
             "responsavel_revisao": "Mariana Barbosa",
+            "responsavel_operacional_contabil": "Ismael",
+            "responsavel_revisador_contabil": "Mariana Barbosa",
+            "responsavel_operacional_dp": "Ismael",
+            "responsavel_revisador_dp": "Mariana Barbosa",
             "data_inicio_cliente": "01/2025",
-            "inscricao_municipal": "",
-            "suframa": "",
-            "inscricao_estadual_manual": "",
+            "data_saida_cliente": "12/2026",
+            "ramo_atividade": "Comércio e Indústria",
+            "inscricao_municipal": "123456",
+            "suframa": "200123456",
+            "inscricao_estadual_manual": "0047805660026",
             "contribuinte_icms": "Sim",
             "contribuinte_ipi": "Não",
             "possui_regime_especial": "Não",
             "contatos_texto": "Financeiro Cliente | Fiscal | fiscal@exemplo.com.br | (35) 99999-0000 | Sim",
-            "resumo_cliente": "Linha de exemplo (substitua ou adicione abaixo todos os clientes do escritório).",
+            "resumo_cliente": "Linha de exemplo com todas as colunas preenchidas (substitua ou adicione abaixo os clientes).",
             "qtd_notas_entrada": "80",
             "qtd_notas_saida": "200",
             "qtd_emissao_notas_servico": "10",
             "qtd_emissao_notas_produto": "150",
-            "tipos_icms_incentivado": "",
+            "tipos_icms_incentivado": "TTS/CORREDOR DE IMPORTAÇÃO; TTS/INDUSTRIA",
             "estados_icms_st": "CE; SP; BA",
             "estados_st": "CE; SP; BA",
         }
@@ -293,17 +385,24 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
             cel.border = borda_fina
             cel.number_format = "@"
         for idx_c, (grupo, _item_nome, _rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
-            cel_chk = ws.cell(row=linha_atual, column=idx_c, value="Sim" if grupo in {"Fiscal", "Contábil"} else "")
+            cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
+            cel_chk = ws.cell(row=linha_atual, column=idx_c, value="Sim")
             cel_chk.font = fonte_celula
-            cel_chk.fill = preench_zebra
+            cel_chk.fill = cor_grupo["cel"]
             cel_chk.alignment = Alignment(horizontal="center")
             cel_chk.border = borda_fina
         linha_atual += 1
 
-    # Formato texto nas colunas de Código Domínio, CNPJ, IM, SUFRAMA e IE manual
-    for r in range(linha_atual, 250):
-        for c_idx in (1, 2, 8, 9, 10, 11):
+    # Pinta também as células em branco do checklist com a cor suave de cada departamento (Fiscal/Contábil/DP/Regularização)
+    for r in range(linha_atual, 120):
+        for c_idx in (1, 2, 12, 13, 14, 15):
             ws.cell(row=r, column=c_idx).number_format = "@"
+        for idx_c, (grupo, _item_nome, _rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
+            cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
+            cel_vazia = ws.cell(row=r, column=idx_c)
+            cel_vazia.fill = cor_grupo["cel"]
+            cel_vazia.border = borda_fina
+            cel_vazia.alignment = Alignment(horizontal="center")
 
     ws.freeze_panes = "C4"
     ws.auto_filter.ref = f"A3:{get_column_letter(total_cols)}{max(linha_atual, 50)}"
@@ -320,14 +419,15 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
     _adicionar_validacao(3, [r[0] for r in Empresa.REGIMES_TRIBUTARIOS])
     _adicionar_validacao(4, ["I", "II", "III", "IV", "V"])
     _adicionar_validacao(5, [p[0] for p in Empresa.PERFIS_ESTABELECIMENTO])
-    _adicionar_validacao(12, ["Sim", "Não"])
-    _adicionar_validacao(13, ["Sim", "Não"])
-    _adicionar_validacao(14, ["Sim", "Não"])
+    _adicionar_validacao(14, [r[0] for r in Empresa.RAMOS_ATIVIDADE])
+    _adicionar_validacao(18, ["Sim", "Não"])
+    _adicionar_validacao(19, ["Sim", "Não"])
+    _adicionar_validacao(20, ["Sim", "Não"])
 
     nomes_colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome").values_list("nome", flat=True))
     if nomes_colaboradores:
-        _adicionar_validacao(6, nomes_colaboradores)
-        _adicionar_validacao(7, nomes_colaboradores)
+        for col_resp in (6, 7, 8, 9, 10, 11):
+            _adicionar_validacao(col_resp, nomes_colaboradores)
 
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -431,10 +531,28 @@ def importar_planilha_clientes(
         "perfil": "perfil_estabelecimento",
         "responsável apuração": "responsavel_apuracao",
         "responsavel apuracao": "responsavel_apuracao",
-        "apuração": "responsavel_apuracao",
+        "responsável operacional fiscal": "responsavel_apuracao",
+        "responsavel operacional fiscal": "responsavel_apuracao",
+        "operacional fiscal": "responsavel_apuracao",
         "responsável revisão": "responsavel_revisao",
         "responsavel revisao": "responsavel_revisao",
-        "revisão": "responsavel_revisao",
+        "responsável revisador fiscal": "responsavel_revisao",
+        "responsavel revisador fiscal": "responsavel_revisao",
+        "revisador fiscal": "responsavel_revisao",
+        "responsável operacional contábil": "responsavel_operacional_contabil",
+        "responsavel operacional contabil": "responsavel_operacional_contabil",
+        "operacional contábil": "responsavel_operacional_contabil",
+        "operacional contabil": "responsavel_operacional_contabil",
+        "responsável revisador contábil": "responsavel_revisador_contabil",
+        "responsavel revisador contabil": "responsavel_revisador_contabil",
+        "revisador contábil": "responsavel_revisador_contabil",
+        "revisador contabil": "responsavel_revisador_contabil",
+        "responsável operacional dp": "responsavel_operacional_dp",
+        "responsavel operacional dp": "responsavel_operacional_dp",
+        "operacional dp": "responsavel_operacional_dp",
+        "responsável revisador dp": "responsavel_revisador_dp",
+        "responsavel revisador dp": "responsavel_revisador_dp",
+        "revisador dp": "responsavel_revisador_dp",
         "cliente desde": "data_inicio_cliente",
         "im": "inscricao_municipal",
         "inscrição municipal": "inscricao_municipal",
@@ -453,14 +571,18 @@ def importar_planilha_clientes(
     for c_idx, nome_cab in enumerate(cabecalhos_norm):
         if not nome_cab:
             continue
-        bruto_col = cabecalhos_brutos[c_idx]
-        m_chk = re.match(r"^\[(Fiscal|Contábil|DP|Regularização)\]\s*(.+)$", bruto_col, flags=re.I)
+        bruto_col = re.sub(r"\s*\(\?\)\s*$", "", cabecalhos_brutos[c_idx]).strip()
+        m_chk = re.match(
+            r"^\[(?:Departamento\s+)?(Fiscal|Contábil|Contabil|Pessoal|DP|Regularização|Regularizacao)\]\s*(.+)$",
+            bruto_col,
+            flags=re.I,
+        )
         if m_chk:
             grp_raw = m_chk.group(1).lower()
             grp = (
                 "Fiscal" if grp_raw.startswith("fisc")
                 else "Contábil" if grp_raw.startswith("cont")
-                else "DP" if grp_raw == "dp"
+                else "DP" if grp_raw in {"dp", "pessoal"}
                 else "Regularização"
             )
             cols_checklist[c_idx] = (grp, m_chk.group(2).strip())
@@ -584,6 +706,10 @@ def importar_planilha_clientes(
             empresa.bairro = str(dados_api["bairro"])[:100]
         if dados_api.get("cnae_principal"):
             empresa.cnae_principal = somente_digitos(str(dados_api["cnae_principal"]))[:10]
+        if dados_api.get("cnae_descricao"):
+            empresa.cnae_descricao = str(dados_api["cnae_descricao"])[:255]
+        if dados_api.get("ramo_atividade") and not (dados_linha.get("ramo_atividade") or "").strip():
+            empresa.ramo_atividade = str(dados_api["ramo_atividade"])[:50]
         if dados_api.get("inscricao_estadual"):
             empresa.inscricao_estadual = str(dados_api["inscricao_estadual"])[:30]
 
@@ -591,13 +717,21 @@ def importar_planilha_clientes(
         empresa.regime_tributario = regime_tributario
         empresa.anexo_simples = anexo_simples if regime_tributario == "Simples Nacional" else None
         empresa.perfil_estabelecimento = _normalizar_perfil(dados_linha.get("perfil_estabelecimento", ""))
+        ramo_manual = (dados_linha.get("ramo_atividade") or "").strip()
+        if ramo_manual in dict(Empresa.RAMOS_ATIVIDADE):
+            empresa.ramo_atividade = ramo_manual
 
-        resp_ap = _resolver_colaborador(dados_linha.get("responsavel_apuracao", ""))
-        resp_rev = _resolver_colaborador(dados_linha.get("responsavel_revisao", ""))
-        if resp_ap is not None:
-            empresa.responsavel_apuracao = resp_ap
-        if resp_rev is not None:
-            empresa.responsavel_revisao = resp_rev
+        for campo_resp in (
+            "responsavel_apuracao",
+            "responsavel_revisao",
+            "responsavel_operacional_contabil",
+            "responsavel_revisador_contabil",
+            "responsavel_operacional_dp",
+            "responsavel_revisador_dp",
+        ):
+            col_resolvido = _resolver_colaborador(dados_linha.get(campo_resp, ""))
+            if col_resolvido is not None:
+                setattr(empresa, campo_resp, col_resolvido)
 
         ie_manual = (dados_linha.get("inscricao_estadual_manual") or "").strip()
         if ie_manual:
@@ -619,6 +753,8 @@ def importar_planilha_clientes(
 
         if dados_linha.get("data_inicio_cliente"):
             empresa.data_inicio_cliente = dados_linha["data_inicio_cliente"].strip()[:10]
+        if dados_linha.get("data_saida_cliente"):
+            empresa.data_saida_cliente = dados_linha["data_saida_cliente"].strip()[:20]
         if dados_linha.get("resumo_cliente"):
             empresa.resumo_cliente = dados_linha["resumo_cliente"].strip()
 
@@ -712,3 +848,178 @@ def importar_planilha_clientes(
         "atualizados": atualizados,
         "erros": erros,
     }
+
+
+def gerar_planilha_relatorio_completo_clientes(queryset=None) -> bytes:
+    """Extrai para os usuários uma planilha completa dos clientes (filtrados ou todos) e setores."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatorio_Clientes_Setores"
+
+    fonte_titulo = Font(name="Segoe UI", size=12, bold=True, color="FFFFFF")
+    fonte_cab = Font(name="Segoe UI", size=10, bold=True, color="FFFFFF")
+    fonte_celula = Font(name="Segoe UI", size=10, color="111827")
+    preench_titulo = PatternFill("solid", fgColor="9D174D")
+    preench_cab_cad = PatternFill("solid", fgColor="DB2777")
+    borda_fina = Border(
+        left=Side(style="thin", color="D6D3D1"),
+        right=Side(style="thin", color="D6D3D1"),
+        top=Side(style="thin", color="D6D3D1"),
+        bottom=Side(style="thin", color="D6D3D1"),
+    )
+
+    colunas_relatorio = [
+        ("codigo_dominio", "Código Domínio", 16),
+        ("cnpj", "CNPJ", 20),
+        ("tipo_estabelecimento", "Matriz / Filial", 16),
+        ("status", "Situação", 14),
+        ("data_saida_cliente", "Data de Saída (se Inativo)", 22),
+        ("razao_social", "Razão Social", 36),
+        ("nome_fantasia", "Nome Fantasia", 26),
+        ("ramo_atividade", "Ramo de Atividade", 26),
+        ("cnae_principal", "CNAE Principal", 16),
+        ("cnae_descricao", "Descrição do CNAE", 34),
+        ("data_abertura", "Data de Abertura", 18),
+        ("data_inicio_cliente", "Cliente desde", 16),
+        ("regime_tributario", "Regime Tributário", 22),
+        ("regime_pis_cofins", "Regime PIS/COFINS", 20),
+        ("anexo_simples", "Anexo Simples", 16),
+        ("perfil_estabelecimento", "Perfil / Regime Especial", 24),
+        ("responsavel_apuracao", "Operacional — Departamento Fiscal", 26),
+        ("responsavel_revisao", "Revisador — Departamento Fiscal", 26),
+        ("responsavel_operacional_contabil", "Operacional — Departamento Contábil", 28),
+        ("responsavel_revisador_contabil", "Revisador — Departamento Contábil", 28),
+        ("responsavel_operacional_dp", "Operacional — Departamento Pessoal", 28),
+        ("responsavel_revisador_dp", "Revisador — Departamento Pessoal", 28),
+        ("inscricao_estadual", "Inscrição Estadual", 20),
+        ("ies_st", "IEs Substituto Tributário (0015)", 32),
+        ("inscricao_municipal", "Inscrição Municipal", 20),
+        ("suframa", "SUFRAMA", 16),
+        ("cep", "CEP", 14),
+        ("uf", "UF", 10),
+        ("municipio", "Município", 22),
+        ("codigo_ibge", "Código IBGE", 16),
+        ("logradouro", "Logradouro", 32),
+        ("numero", "Número", 12),
+        ("complemento", "Complemento", 18),
+        ("bairro", "Bairro", 20),
+        ("contatos_texto", "Contatos dos Responsáveis", 46),
+        ("resumo_cliente", "Resumo / Histórico", 36),
+        ("tipos_icms_incentivado", "Incentivos TTS", 32),
+        ("estados_icms_st", "UFs Apuração ICMS-ST", 22),
+        ("estados_st", "UFs Inscrição ST", 22),
+    ]
+
+    total_cols = len(colunas_relatorio) + len(COLUNAS_CHECKLIST_UNICAS)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=min(total_cols, 30))
+    c_tit = ws.cell(
+        row=1,
+        column=1,
+        value="SENTINELA NASCEL — RELATÓRIO COMPLETO DE CLIENTES E ESCOPO DE TODOS OS DEPARTAMENTOS",
+    )
+    c_tit.font = fonte_titulo
+    c_tit.fill = preench_titulo
+    ws.row_dimensions[1].height = 28
+
+    ws.row_dimensions[2].height = 34
+    for idx, (_ch, titulo, larg) in enumerate(colunas_relatorio, start=1):
+        c = ws.cell(row=2, column=idx, value=titulo)
+        c.font = fonte_cab
+        c.fill = preench_cab_cad
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = borda_fina
+        ws.column_dimensions[get_column_letter(idx)].width = larg
+
+    offset_chk = len(colunas_relatorio)
+    for idx_c, (grupo, _item_nome, rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_chk + 1):
+        cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
+        c = ws.cell(row=2, column=idx_c, value=rotulo_col)
+        c.font = fonte_cab
+        c.fill = cor_grupo["cab"]
+        c.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        c.border = borda_fina
+        ws.column_dimensions[get_column_letter(idx_c)].width = 24
+
+    base_qs = queryset if queryset is not None else Empresa.objects.all()
+    empresas = (
+        base_qs.select_related(
+            "responsavel_apuracao",
+            "responsavel_revisao",
+            "responsavel_operacional_contabil",
+            "responsavel_revisador_contabil",
+            "responsavel_operacional_dp",
+            "responsavel_revisador_dp",
+        )
+        .prefetch_related("substituicoes")
+        .order_by("codigo_dominio")
+    )
+    linha = 3
+    for emp in empresas:
+        ies_st_str = "; ".join(f"{s.uf}:{s.numero}" for s in emp.substituicoes.all())
+        valores = {
+            "codigo_dominio": emp.codigo_dominio,
+            "cnpj": emp.cnpj,
+            "tipo_estabelecimento": emp.tipo_estabelecimento,
+            "status": emp.status,
+            "data_saida_cliente": emp.data_saida_cliente or "",
+            "razao_social": emp.razao_social,
+            "nome_fantasia": emp.nome_fantasia or "",
+            "ramo_atividade": emp.ramo_atividade or "",
+            "cnae_principal": emp.cnae_principal or "",
+            "cnae_descricao": emp.cnae_descricao or "",
+            "data_abertura": emp.data_abertura or "",
+            "data_inicio_cliente": emp.data_inicio_cliente or "",
+            "regime_tributario": emp.regime_tributario,
+            "regime_pis_cofins": emp.regime_pis_cofins,
+            "anexo_simples": emp.anexo_simples or "",
+            "perfil_estabelecimento": emp.perfil_estabelecimento,
+            "responsavel_apuracao": emp.responsavel_apuracao.nome if emp.responsavel_apuracao else "",
+            "responsavel_revisao": emp.responsavel_revisao.nome if emp.responsavel_revisao else "",
+            "responsavel_operacional_contabil": emp.responsavel_operacional_contabil.nome if emp.responsavel_operacional_contabil else "",
+            "responsavel_revisador_contabil": emp.responsavel_revisador_contabil.nome if emp.responsavel_revisador_contabil else "",
+            "responsavel_operacional_dp": emp.responsavel_operacional_dp.nome if emp.responsavel_operacional_dp else "",
+            "responsavel_revisador_dp": emp.responsavel_revisador_dp.nome if emp.responsavel_revisador_dp else "",
+            "inscricao_estadual": emp.inscricao_estadual or "",
+            "ies_st": ies_st_str,
+            "inscricao_municipal": emp.inscricao_municipal or "",
+            "suframa": emp.suframa or "",
+            "cnae_principal": emp.cnae_principal or "",
+            "cep": emp.cep or "",
+            "uf": emp.uf or "",
+            "municipio": emp.municipio or "",
+            "codigo_ibge": emp.codigo_ibge or "",
+            "logradouro": emp.logradouro or "",
+            "numero": emp.numero or "",
+            "complemento": emp.complemento or "",
+            "bairro": emp.bairro or "",
+            "contatos_texto": _formatar_contatos_planilha(emp.contatos),
+            "resumo_cliente": emp.resumo_cliente or "",
+            "tipos_icms_incentivado": "; ".join(emp.tipos_icms_incentivado or []),
+            "estados_icms_st": "; ".join(emp.estados_icms_st or []),
+            "estados_st": "; ".join(emp.estados_st or []),
+        }
+        for col_idx, (chave, _tit, _larg) in enumerate(colunas_relatorio, start=1):
+            cel = ws.cell(row=linha, column=col_idx, value=valores.get(chave, ""))
+            cel.font = fonte_celula
+            cel.border = borda_fina
+            cel.number_format = "@"
+        for idx_c, (grupo, item_nome, _rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_chk + 1):
+            cor_grupo = CORES_CHECKLIST.get(grupo, CORES_CHECKLIST["Fiscal"])
+            mapa = (
+                emp.escopo_fiscal if grupo == "Fiscal"
+                else emp.escopo_contabil if grupo == "Contábil"
+                else emp.escopo_dp if grupo == "DP"
+                else emp.escopo_regularizacao
+            ) or {}
+            cel_chk = ws.cell(row=linha, column=idx_c, value="Sim" if mapa.get(item_nome) else "")
+            cel_chk.font = fonte_celula
+            cel_chk.fill = cor_grupo["cel"]
+            cel_chk.alignment = Alignment(horizontal="center")
+            cel_chk.border = borda_fina
+        linha += 1
+
+    ws.freeze_panes = "C3"
+    ws.auto_filter.ref = f"A2:{get_column_letter(total_cols)}{max(linha, 10)}"
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()

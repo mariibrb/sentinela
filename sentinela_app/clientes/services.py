@@ -64,6 +64,16 @@ class ServicoConsultaCNPJ:
         data_abertura = abertura_bruta
         if len(abertura_bruta) >= 10 and abertura_bruta[4] == "-" and abertura_bruta[7] == "-":
             data_abertura = f"{abertura_bruta[8:10]}/{abertura_bruta[5:7]}/{abertura_bruta[:4]}"
+        from clientes.models import Empresa
+
+        cnae_princ = str(data.get("cnae_fiscal", "") or "")
+        cnae_desc = str(data.get("cnae_fiscal_descricao", "") or "").strip()
+        secundarios = [
+            str(item.get("codigo") or "")
+            for item in (data.get("cnaes_secundarios") or [])
+            if isinstance(item, dict) and item.get("codigo")
+        ]
+        ramo_sugerido = Empresa.sugerir_ramo_por_cnae(cnae_princ, secundarios)
         return {
             "cnpj": cnpj,
             "razao_social": razao,
@@ -79,7 +89,9 @@ class ServicoConsultaCNPJ:
             "municipio": municipio,
             "uf": uf,
             "codigo_ibge": codigo_ibge,
-            "cnae_principal": str(data.get("cnae_fiscal", "") or ""),
+            "cnae_principal": cnae_princ,
+            "cnae_descricao": cnae_desc,
+            "ramo_atividade": ramo_sugerido,
             "inscricao_estadual": ServicoConsultaCNPJ.escolher_inscricao_estadual(inscricoes, uf),
             "substituicoes": ServicoConsultaCNPJ.substituicoes_das_inscricoes(inscricoes, uf),
         }

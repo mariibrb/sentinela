@@ -85,6 +85,16 @@ class Empresa(models.Model):
         ("REGIME_ESPECIAL_MG", "Regime Especial Concedido por MG (setorial, diferimento, PTA)"),
         ("REGIME_ESPECIAL_SP", "Regime Especial Concedido por SP (armazém geral, dispensa de emissão, diferimentos)"),
     ]
+    RAMOS_ATIVIDADE = [
+        ("Comércio", "Comércio"),
+        ("Indústria", "Indústria"),
+        ("Serviços", "Serviços"),
+        ("Comércio e Indústria", "Comércio e Indústria"),
+        ("Comércio e Serviços", "Comércio e Serviços"),
+        ("Indústria e Serviços", "Indústria e Serviços"),
+        ("Comércio, Indústria e Serviços", "Comércio, Indústria e Serviços"),
+        ("Holding / Patrimonial / Outros", "Holding / Patrimonial / Outros"),
+    ]
     PERFIS_COM_PDF = {"REGIME_ESPECIAL_MG", "REGIME_ESPECIAL_SP"}
     # Bloco A: Identificação e Controle Domínio
     codigo_dominio = models.CharField(max_length=4, unique=True, verbose_name="Código Domínio")
@@ -103,7 +113,7 @@ class Empresa(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="apuracoes",
-        verbose_name="Responsável pela apuração",
+        verbose_name="Responsável Operacional — Fiscal",
     )
     responsavel_revisao = models.ForeignKey(
         Colaborador,
@@ -111,7 +121,39 @@ class Empresa(models.Model):
         blank=True,
         on_delete=models.PROTECT,
         related_name="revisoes",
-        verbose_name="Responsável pela revisão",
+        verbose_name="Responsável Revisador — Fiscal",
+    )
+    responsavel_operacional_contabil = models.ForeignKey(
+        Colaborador,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="operacionais_contabil",
+        verbose_name="Responsável Operacional — Contábil",
+    )
+    responsavel_revisador_contabil = models.ForeignKey(
+        Colaborador,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="revisadores_contabil",
+        verbose_name="Responsável Revisador — Contábil",
+    )
+    responsavel_operacional_dp = models.ForeignKey(
+        Colaborador,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="operacionais_dp",
+        verbose_name="Responsável Operacional — DP",
+    )
+    responsavel_revisador_dp = models.ForeignKey(
+        Colaborador,
+        null=True,
+        blank=True,
+        on_delete=models.PROTECT,
+        related_name="revisadores_dp",
+        verbose_name="Responsável Revisador — DP",
     )
 
     # Bloco B: Inscrições e Dados Cadastrais
@@ -119,6 +161,14 @@ class Empresa(models.Model):
     inscricao_municipal = models.CharField(max_length=30, blank=True, null=True, verbose_name="Inscrição Municipal")
     suframa = models.CharField(max_length=20, blank=True, null=True)
     cnae_principal = models.CharField(max_length=10, verbose_name="CNAE Principal")
+    cnae_descricao = models.CharField(max_length=255, blank=True, default="", verbose_name="Descrição do CNAE")
+    ramo_atividade = models.CharField(
+        max_length=50,
+        blank=True,
+        default="",
+        choices=RAMOS_ATIVIDADE,
+        verbose_name="Ramo de Atividade",
+    )
 
     # Bloco C: Localização e SPED
     cep = models.CharField(max_length=10)
@@ -167,10 +217,11 @@ class Empresa(models.Model):
     # Bloco E: Onboarding, Contrato, Contatos e Escopo de Trabalho
     data_abertura = models.CharField(max_length=20, blank=True, default="", verbose_name="Data de Abertura")
     data_inicio_cliente = models.CharField(max_length=10, blank=True, default="", verbose_name="Cliente a partir de (MM/AAAA)")
+    data_saida_cliente = models.CharField(max_length=20, blank=True, default="", verbose_name="Data de Saída / Inativação")
     contatos = models.JSONField(default=list, blank=True, verbose_name="Contatos dos Responsáveis")
     resumo_cliente = models.TextField(blank=True, default="", verbose_name="Resumo / Histórico do Cliente")
 
-    escopo_fiscal = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Compliance Fiscal")
+    escopo_fiscal = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Departamento Fiscal")
     qtd_notas_entrada = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd média Entradas")
     qtd_notas_saida = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd média Saídas")
     qtd_emissao_notas_servico = models.CharField(max_length=40, blank=True, default="", verbose_name="Qtd Emissão Serviços")
@@ -178,8 +229,8 @@ class Empresa(models.Model):
     tipos_icms_incentivado = models.JSONField(default=list, blank=True, verbose_name="Incentivos TTS (ICMS Incentivado)")
     estados_icms_st = models.JSONField(default=list, blank=True, verbose_name="Estados Apuração ICMS-ST")
 
-    escopo_contabil = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Contabilidade")
-    escopo_dp = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Departamento Pessoal")
+    escopo_contabil = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Departamento Contábil")
+    escopo_dp = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Departamento Pessoal (DP)")
     escopo_regularizacao = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Regularização / Abertura")
     estados_st = models.JSONField(default=list, blank=True, verbose_name="Estados para Inscrição ST")
     busca_escopo = models.TextField(blank=True, default="", verbose_name="Índice de pesquisa do escopo")
@@ -198,6 +249,44 @@ class Empresa(models.Model):
     def pis_cofins_do_regime(cls, regime_tributario):
         return cls.VINCULO_PIS_COFINS.get(regime_tributario, "")
 
+    @staticmethod
+    def sugerir_ramo_por_cnae(cnae_principal: str, cnaes_secundarios: list[str] | None = None) -> str:
+        codigos = [cnae_principal] + list(cnaes_secundarios or [])
+        tem_comercio = False
+        tem_industria = False
+        tem_servicos = False
+        tem_holding = False
+        for bruto in codigos:
+            dig = "".join(ch for ch in str(bruto or "") if ch.isdigit())
+            if len(dig) < 2:
+                continue
+            div = int(dig[:2])
+            if 5 <= div <= 33:
+                tem_industria = True
+            elif 45 <= div <= 47:
+                tem_comercio = True
+            elif div in {64, 68} and dig.startswith(("646", "681", "682")):
+                tem_holding = True
+            else:
+                tem_servicos = True
+        if tem_comercio and tem_industria and tem_servicos:
+            return "Comércio, Indústria e Serviços"
+        if tem_comercio and tem_industria:
+            return "Comércio e Indústria"
+        if tem_comercio and tem_servicos:
+            return "Comércio e Serviços"
+        if tem_industria and tem_servicos:
+            return "Indústria e Serviços"
+        if tem_comercio:
+            return "Comércio"
+        if tem_industria:
+            return "Indústria"
+        if tem_holding and not tem_servicos:
+            return "Holding / Patrimonial / Outros"
+        if tem_servicos:
+            return "Serviços"
+        return ""
+
     def save(self, *args, **kwargs):
         from clientes.escopo import montar_busca_escopo
 
@@ -207,6 +296,12 @@ class Empresa(models.Model):
             campos = kwargs.get("update_fields")
             if campos is not None:
                 kwargs["update_fields"] = set(campos) | {"regime_pis_cofins"}
+        if not (self.ramo_atividade or "").strip() and (self.cnae_principal or "").strip():
+            sugerido = self.sugerir_ramo_por_cnae(self.cnae_principal)
+            if sugerido:
+                self.ramo_atividade = sugerido
+                if kwargs.get("update_fields") is not None:
+                    kwargs["update_fields"] = set(kwargs["update_fields"]) | {"ramo_atividade"}
         self.busca_escopo = montar_busca_escopo(self)
         if kwargs.get("update_fields") is not None:
             kwargs["update_fields"] = set(kwargs["update_fields"]) | {"busca_escopo"}

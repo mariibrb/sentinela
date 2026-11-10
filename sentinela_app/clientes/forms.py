@@ -49,13 +49,19 @@ class EmpresaForm(forms.ModelForm):
             "tipo_estabelecimento": forms.Select(attrs=CAMPO),
             "razao_social": forms.TextInput(attrs=CAMPO),
             "nome_fantasia": forms.TextInput(attrs=CAMPO),
-            "status": forms.TextInput(attrs=CAMPO),
+            "status": forms.Select(choices=[("Ativo", "Ativo"), ("Inativo", "Inativo")], attrs={**CAMPO, "id": "id_status"}),
             "responsavel_apuracao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
             "responsavel_revisao": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
+            "responsavel_operacional_contabil": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
+            "responsavel_revisador_contabil": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
+            "responsavel_operacional_dp": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
+            "responsavel_revisador_dp": forms.Select(attrs={**CAMPO, "data-busca": "colaborador"}),
             "inscricao_estadual": forms.TextInput(attrs={**CAMPO, "placeholder": "Preenchida pela UF do CNPJ, ou ISENTO"}),
             "inscricao_municipal": forms.TextInput(attrs=CAMPO),
             "suframa": forms.TextInput(attrs=CAMPO),
             "cnae_principal": forms.TextInput(attrs=CAMPO),
+            "cnae_descricao": forms.TextInput(attrs={**CAMPO, "placeholder": "Preenchida automaticamente pela busca do CNPJ"}),
+            "ramo_atividade": forms.Select(attrs=CAMPO),
             "cep": forms.TextInput(attrs=CAMPO),
             "logradouro": forms.TextInput(attrs=CAMPO),
             "numero": forms.TextInput(attrs=CAMPO),
@@ -71,6 +77,7 @@ class EmpresaForm(forms.ModelForm):
             "documento_regime_especial": forms.ClearableFileInput(attrs={"class": CAMPO["class"], "accept": "application/pdf,.pdf"}),
             "data_abertura": forms.TextInput(attrs={**CAMPO, "placeholder": "DD/MM/AAAA", "maxlength": "10"}),
             "data_inicio_cliente": forms.TextInput(attrs={**CAMPO, "placeholder": "MM/AAAA", "maxlength": "7"}),
+            "data_saida_cliente": forms.TextInput(attrs={**CAMPO, "id": "id_data_saida_cliente", "placeholder": "MM/AAAA ou DD/MM/AAAA (obrigatório se Inativo)", "maxlength": "20"}),
             "resumo_cliente": forms.Textarea(
                 attrs={
                     **CAMPO,
@@ -96,7 +103,16 @@ class EmpresaForm(forms.ModelForm):
             self.initial["regime_pis_cofins"] = ""
         self.fields["anexo_simples"].choices = [("", "Selecione o anexo")] + list(Empresa.ANEXOS_SIMPLES)
         self.fields["perfil_estabelecimento"].choices = list(Empresa.PERFIS_ESTABELECIMENTO)
-        for nome in ("responsavel_apuracao", "responsavel_revisao"):
+        self.fields["ramo_atividade"].choices = [("", "Automático pelo CNAE ou selecione")] + list(Empresa.RAMOS_ATIVIDADE)
+        self.fields["ramo_atividade"].required = False
+        for nome in (
+            "responsavel_apuracao",
+            "responsavel_revisao",
+            "responsavel_operacional_contabil",
+            "responsavel_revisador_contabil",
+            "responsavel_operacional_dp",
+            "responsavel_revisador_dp",
+        ):
             atual = getattr(self.instance, f"{nome}_id", None)
             opcoes = Colaborador.objects.filter(ativo=True)
             if atual:
@@ -129,6 +145,13 @@ class EmpresaForm(forms.ModelForm):
             limpo["possui_regime_especial"] = True
             if not arquivo and "documento_regime_especial" not in self.errors:
                 self.add_error("documento_regime_especial", "Anexe o PDF do PTA ou do regime especial.")
+        status = (limpo.get("status") or "Ativo").strip()
+        data_saida = (limpo.get("data_saida_cliente") or "").strip()
+        if status == "Inativo" and not data_saida:
+            self.add_error(
+                "data_saida_cliente",
+                "Para cliente inativo, informe obrigatoriamente a data de saída (MM/AAAA ou DD/MM/AAAA) para sabermos a partir de quando cessam as obrigações nos setores.",
+            )
         return limpo
 
     def clean_regime_tributario(self):

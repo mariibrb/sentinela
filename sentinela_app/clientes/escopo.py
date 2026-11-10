@@ -2,8 +2,8 @@
 
 Baseado nas diretrizes da Ficha de Novo Cliente da Nascel (onboarding):
 - Contatos dos Responsáveis por setor
-- Escopo: Compliance Fiscal (com quantidades médias, opções TTS e estados ICMS-ST)
-- Escopo: Contabilidade
+- Escopo: Departamento Fiscal (com quantidades médias, opções TTS e estados ICMS-ST)
+- Escopo: Departamento Contábil
 - Escopo: Departamento Pessoal
 - Escopo: Regularização / Abertura (com estados para Inscrição ST)
 - Resumo / Histórico do Cliente
@@ -148,8 +148,26 @@ def montar_busca_escopo(empresa) -> str:
         partes.append(f"Abertura {empresa.data_abertura}")
     if getattr(empresa, "data_inicio_cliente", ""):
         partes.append(f"Cliente desde {empresa.data_inicio_cliente}")
+    if getattr(empresa, "data_saida_cliente", ""):
+        partes.append(f"Saída {empresa.data_saida_cliente}")
+    if getattr(empresa, "ramo_atividade", ""):
+        partes.append(f"Ramo {empresa.ramo_atividade}")
+    if getattr(empresa, "cnae_descricao", ""):
+        partes.append(str(empresa.cnae_descricao))
     if getattr(empresa, "resumo_cliente", ""):
         partes.append(str(empresa.resumo_cliente))
+
+    for attr_resp, rot_resp in (
+        ("responsavel_apuracao", "Operacional Fiscal"),
+        ("responsavel_revisao", "Revisador Fiscal"),
+        ("responsavel_operacional_contabil", "Operacional Contábil"),
+        ("responsavel_revisador_contabil", "Revisador Contábil"),
+        ("responsavel_operacional_dp", "Operacional DP"),
+        ("responsavel_revisador_dp", "Revisador DP"),
+    ):
+        col = getattr(empresa, attr_resp, None)
+        if col and getattr(col, "nome", ""):
+            partes.append(f"{rot_resp}: {col.nome}")
 
     for c in getattr(empresa, "contatos", None) or []:
         if isinstance(c, dict):
@@ -163,7 +181,7 @@ def montar_busca_escopo(empresa) -> str:
 
     fisc = _marcados(getattr(empresa, "escopo_fiscal", {}), ITENS_FISCAIS)
     if fisc:
-        partes.append("Compliance Fiscal: " + ", ".join(fisc))
+        partes.append("Departamento Fiscal: " + ", ".join(fisc))
     for attr, rot in (
         ("qtd_notas_entrada", "Qtd média Entradas"),
         ("qtd_notas_saida", "Qtd média Saídas"),
@@ -184,11 +202,11 @@ def montar_busca_escopo(empresa) -> str:
 
     cont = _marcados(getattr(empresa, "escopo_contabil", {}), ITENS_CONTABEIS)
     if cont:
-        partes.append("Contabilidade: " + ", ".join(cont))
+        partes.append("Departamento Contábil: " + ", ".join(cont))
 
     dp = _marcados(getattr(empresa, "escopo_dp", {}), ITENS_DP)
     if dp:
-        partes.append("Departamento Pessoal DP: " + ", ".join(dp))
+        partes.append("Departamento Pessoal (DP): " + ", ".join(dp))
 
     reg = _marcados(getattr(empresa, "escopo_regularizacao", {}), ITENS_REGULARIZACAO)
     if reg:
@@ -209,11 +227,11 @@ def resumo_escopo_empresa(empresa) -> dict:
     reg = _marcados(getattr(empresa, "escopo_regularizacao", {}), ITENS_REGULARIZACAO)
     macros = []
     if fisc:
-        macros.append(f"Compliance Fiscal ({len(fisc)})")
+        macros.append(f"Departamento Fiscal ({len(fisc)})")
     if cont:
-        macros.append(f"Contabilidade ({len(cont)})")
+        macros.append(f"Departamento Contábil ({len(cont)})")
     if dp:
-        macros.append(f"DP ({len(dp)})")
+        macros.append(f"Departamento Pessoal ({len(dp)})")
     if reg:
         macros.append(f"Regularização ({len(reg)})")
     return {

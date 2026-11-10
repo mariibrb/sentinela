@@ -87,10 +87,11 @@ def definir_competencia(request):
     return redirect(destino)
 
 
-@login_required
-def lista_empresas(request):
-    request.modulo = "clientes"
+def _filtrar_empresas_request(request):
     termo = request.GET.get("q", "").strip()
+    filtro_ramo = request.GET.get("ramo", "").strip()
+    filtro_regime = request.GET.get("regime", "").strip()
+    filtro_situacao = request.GET.get("situacao", "").strip()
     filtro_escopo = request.GET.get("escopo", "").strip()
     empresas = Empresa.objects.annotate(notas=Count("documentos"))
     if termo:
@@ -103,15 +104,36 @@ def lista_empresas(request):
             | Q(busca_escopo__icontains=termo)
             | Q(resumo_cliente__icontains=termo)
             | Q(cnae_principal__icontains=termo)
+            | Q(cnae_descricao__icontains=termo)
+            | Q(ramo_atividade__icontains=termo)
         )
+    if filtro_ramo:
+        empresas = empresas.filter(ramo_atividade=filtro_ramo)
+    if filtro_regime:
+        empresas = empresas.filter(regime_tributario=filtro_regime)
+    if filtro_situacao in {"Ativo", "Inativo"}:
+        empresas = empresas.filter(status=filtro_situacao)
     if filtro_escopo:
         empresas = empresas.filter(busca_escopo__icontains=filtro_escopo)
+    return empresas, {
+        "termo": termo,
+        "filtro_ramo": filtro_ramo,
+        "filtro_regime": filtro_regime,
+        "filtro_situacao": filtro_situacao,
+        "filtro_escopo": filtro_escopo,
+    }
+
+
+@login_required
+def lista_empresas(request):
+    request.modulo = "clientes"
+    empresas, filtros = _filtrar_empresas_request(request)
     from clientes.escopo import ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
 
     opcoes_filtro_escopo = [
-        ("Compliance Fiscal", ITENS_FISCAIS),
-        ("Contabilidade", ITENS_CONTABEIS),
-        ("Departamento Pessoal", ITENS_DP),
+        ("Departamento Fiscal", ITENS_FISCAIS),
+        ("Departamento Contábil", ITENS_CONTABEIS),
+        ("Departamento Pessoal (DP)", ITENS_DP),
         ("Regularização / Abertura", ITENS_REGULARIZACAO),
     ]
     return render(
@@ -119,8 +141,9 @@ def lista_empresas(request):
         "clientes/lista.html",
         {
             "empresas": empresas,
-            "termo": termo,
-            "filtro_escopo": filtro_escopo,
+            **filtros,
+            "ramos_atividade": [r[0] for r in Empresa.RAMOS_ATIVIDADE],
+            "regimes_tributarios": [r[0] for r in Empresa.REGIMES_TRIBUTARIOS],
             "opcoes_filtro_escopo": opcoes_filtro_escopo,
         },
     )
@@ -218,8 +241,21 @@ def editar_empresa(request, empresa_id=None):
 def alternar_status_empresa(request, empresa_id):
     empresa = get_object_or_404(Empresa, pk=empresa_id)
     anterior = empresa.status
-    empresa.status = "Inativo" if empresa.status == "Ativo" else "Ativo"
-    empresa.save(update_fields=["status"])
+    novo_status = "Inativo" if empresa.status == "Ativo" else "Ativo"
+    if novo_status == "Inativo":
+        data_saida = (request.POST.get("data_saida_cliente") or empresa.data_saida_cliente or "").strip()
+        if not data_saida:
+            messages.error(
+                request,
+                f"Para inativar {empresa.razao_social}, informe obrigatoriamente a data de saída (MM/AAAA ou DD/MM/AAAA).",
+            )
+            return redirect("lista_empresas")
+        empresa.status = "Inativo"
+        empresa.data_saida_cliente = data_saida[:20]
+        empresa.save(update_fields=["status", "data_saida_cliente"])
+    else:
+        empresa.status = "Ativo"
+        empresa.save(update_fields=["status"])
     registrar(request.user, empresa, "CADASTRO", "status", anterior, empresa.status)
     messages.success(request, f"{empresa.razao_social} está {empresa.status.lower()}.")
     return redirect("lista_empresas")
@@ -355,6 +391,20 @@ def excluir_colaborador(request, colaborador_id):
     registrar(request.user, None, "EXCLUSAO", "Colaborador", nome, "excluído")
     messages.success(request, f"Colaborador excluído: {nome}.")
     return redirect("lista_colaboradores")
+
+
+@login_required
+def exportar_relatorio_clientes(request):
+    from clientes.lote_planilha import gerar_planilha_relatorio_completo_clientes
+
+    empresas_filtradas, _filtros = _filtrar_empresas_request(request)
+    conteudo = gerar_planilha_relatorio_completo_clientes(queryset=empresas_filtradas)
+    resposta = HttpResponse(
+        conteudo,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    resposta["Content-Disposition"] = 'attachment; filename="Sentinela_Relatorio_Clientes_Todos_Setores.xlsx"'
+    return resposta
 
 
 @apenas_administrador
