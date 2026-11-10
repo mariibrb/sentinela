@@ -12,9 +12,14 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <a class="whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 text-sm font-bold text-pink-800 shadow-sm hover:bg-pink-100" href="{% url 'exportar_relatorio_clientes' %}{% if query_filtros %}?{{ query_filtros }}{% endif %}" title="Baixa a planilha completa respeitando os filtros atuais da tela">
-        Extrair Planilha dos Filtros (.xlsx)
+      <a class="whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 text-sm font-bold text-pink-800 shadow-sm hover:bg-pink-100" href="{% url 'exportar_relatorio_clientes' %}" title="Baixa a planilha completa de todos os clientes, sem filtros">
+        Extrair todos (.xlsx)
       </a>
+      {% if tem_filtro %}
+      <a class="whitespace-nowrap rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-stone-800 shadow-sm hover:bg-stone-50" href="{% url 'exportar_relatorio_clientes' %}?{{ query_filtros }}" title="Baixa só os clientes que estão na tela com os filtros atuais">
+        Extrair filtrados (.xlsx)
+      </a>
+      {% endif %}
       {% if permissoes.pode_cadastrar_cliente %}<a class="whitespace-nowrap rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
     </div>
   </div>
@@ -23,9 +28,7 @@
     <input class="w-full max-w-xl rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Busca livre: código, nome, CNPJ, CNAE, contato, DCTFWeb…">
     {% include "clientes/_filtro_excel.html" with nome="escopo" rotulo="Checklist" opcoes=opcoes_escopo_pares selecionados=filtro_escopo %}
     <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
-    {% if tem_filtro %}
-    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-600 shadow-sm">Limpar tudo</a>
-    {% endif %}
+    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold text-stone-700 shadow-sm hover:bg-stone-50">Limpar filtros</a>
     <span class="text-xs text-stone-500">{{ total_empresas }} cliente{{ total_empresas|pluralize:"s" }} na tela</span>
   </form>
 
@@ -82,7 +85,6 @@
         <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="ramo" rotulo="Ramo" opcoes=opcoes_ramo selecionados=filtro_ramo %}</th>
         <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="especial" rotulo="Regime especial" opcoes=opcoes_especial selecionados=filtro_especial %}</th>
         <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="perfil" rotulo="Perfil" opcoes=opcoes_perfil selecionados=filtro_perfil %}</th>
-        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="op_fiscal" rotulo="Operacional Fiscal" opcoes=opcoes_colaboradores selecionados=filtro_op_fiscal %}</th>
         <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="situacao" rotulo="Situação" opcoes=opcoes_situacao selecionados=filtro_situacao %}</th>
         <th class="px-3 py-3">Ações</th>
       </tr>
@@ -115,7 +117,6 @@
           {% endif %}
         </td>
         <td class="px-3 py-3 text-xs">{{ empresa.get_perfil_estabelecimento_display }}</td>
-        <td class="px-3 py-3">{{ empresa.responsavel_apuracao.nome|default:"—" }}</td>
         <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
@@ -135,7 +136,7 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="12">Nenhum cliente encontrado com esses filtros.</td></tr>
+      <tr><td class="px-3 py-4 text-stone-500" colspan="11">Nenhum cliente encontrado com esses filtros.</td></tr>
       {% endfor %}
     </tbody>
   </table>
