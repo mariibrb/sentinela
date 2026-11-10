@@ -20,10 +20,11 @@ class ColetorNFSeSentinelaTests(TestCase):
     def test_chrome_abre_o_login_do_portal(self):
         from triagem_xml.chrome_portal import URL_LOGIN, montar_comando, raiz_do_perfil
 
-        comando = montar_comando(r"C:\chrome.exe", r"C:\perfil")
+        comando = montar_comando(r"C:\chrome.exe", r"C:\perfil", 9333)
         self.assertIn("--incognito", comando)
         self.assertIn("--disable-extensions", comando)
-        self.assertIn("--remote-debugging-port=0", comando)
+        self.assertIn("--remote-debugging-port=9333", comando)
+        self.assertLess(comando.index("--remote-debugging-port=9333"), comando.index("--incognito"))
         self.assertIn(URL_LOGIN, comando)
         self.assertNotIn("onedrive", str(raiz_do_perfil()).lower())
 

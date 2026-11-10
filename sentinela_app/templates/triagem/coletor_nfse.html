@@ -19,7 +19,7 @@
 
   {% if empresa_travada %}
   <p class="mt-3 text-sm text-stone-600">
-    Ao clicar em <strong>Iniciar Robô Apanhador {{ versao_coletor }}</strong>, o Google Chrome abrirá na tela de login do Emissor Nacional. Entre com o <strong>Certificado Digital</strong> ou <strong>usuário e senha</strong>: o robô confere se o CNPJ logado no Portal bate com <strong>{{ empresa_travada.razao_social }}</strong>, coleta primeiro os <strong>Serviços Prestados</strong> e depois os <strong>Serviços Tomados</strong>, baixa XML e PDF e grava os relatórios Excel identificados direto na pasta deste cliente.
+    Ao clicar em <strong>Iniciar Robô Apanhador {{ versao_coletor }}</strong>, o Google Chrome abre em <strong>guia anônima</strong> na tela de login do Emissor Nacional. Entre com o <strong>Certificado Digital</strong> ou <strong>usuário e senha</strong>: o robô confere se o CNPJ logado no Portal bate com <strong>{{ empresa_travada.razao_social }}</strong>, coleta primeiro os <strong>Serviços Prestados</strong> e depois os <strong>Serviços Tomados</strong>, baixa XML e PDF e grava os relatórios Excel identificados direto na pasta deste cliente.
   </p>
 
   <div class="mt-4 grid gap-4 {% if eh_administrador %}lg:grid-cols-2{% endif %}">
@@ -424,20 +424,29 @@
   if (formIniciar) {
     formIniciar.addEventListener("submit", async (evento) => {
       evento.preventDefault();
-      const urlLogin = formIniciar.dataset.urlLogin || "https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2femissornacional";
-      let abaLogin = null;
-      try {
-        abaLogin = window.open(urlLogin, "_blank", "noopener");
-      } catch (_e) {}
+      if (btnIniciar) btnIniciar.disabled = true;
       const fd = new FormData(formIniciar);
       fd.append("resposta", "json");
       try {
-        const resp = await fetch(formIniciar.action, { method: "POST", body: fd, credentials: "same-origin" });
+        const resp = await fetch(formIniciar.action, {
+          method: "POST",
+          body: fd,
+          credentials: "same-origin",
+          headers: { "X-Requested-With": "XMLHttpRequest" },
+        });
         const dados = await resp.json().catch(() => null);
-        if (dados && dados.estado && dados.estado.rodando && abaLogin && !abaLogin.closed) {
-          try { abaLogin.close(); } catch (_e) {}
+        if (dados && dados.abrir_url) {
+          // Sem Chrome no servidor: abre o portal no navegador (não dá para forçar guia anônima pelo JS).
+          window.open(dados.abrir_url, "_blank", "noopener");
+          if (consoleEl && dados.mensagem) {
+            consoleEl.textContent = (consoleEl.textContent ? consoleEl.textContent + "\n" : "") + dados.mensagem;
+          }
+          if (statusCurto && dados.mensagem) statusCurto.textContent = dados.mensagem;
         }
         await atualizarStatusColetor();
+        if (btnIniciar && !(dados && dados.estado && dados.estado.rodando)) {
+          btnIniciar.disabled = false;
+        }
       } catch (_e) {
         formIniciar.submit();
       }

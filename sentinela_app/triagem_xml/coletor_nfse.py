@@ -1069,8 +1069,9 @@ class GerenciadorColetorSentinela:
                 self.erro = "Empresa não encontrada."
             return
 
-        # Prepara os módulos originais do Coletor 1.4.5
-        pasta_base_coletor = Path(r"D:\App Mari\ColetorNovo")
+        # Módulos 1.4.5 embutidos em triagem_xml/coletor_145; D:\ só se existir cópia local de desenvolvimento.
+        pasta_extra = Path(r"D:\App Mari\ColetorNovo")
+        pasta_base_coletor = pasta_extra if pasta_extra.is_dir() else None
         pasta_dados_exec = pasta_do_mes(empresa, competencia) / "03_ARQUIVOS_DOMINIO" / "coletor_dados"
         pasta_dados_exec.mkdir(parents=True, exist_ok=True)
 
