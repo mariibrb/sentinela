@@ -384,11 +384,9 @@ def importar_lote_clientes(request):
         messages.error(request, "Envie um arquivo no formato Excel (.xlsx).")
         return redirect("lista_empresas")
 
-    consultar_api = request.POST.get("consultar_api_se_vazio") == "1"
     resultado = importar_planilha_clientes(
         arquivo.read(),
         usuario=request.user,
-        consultar_api_se_vazio=consultar_api,
     )
     criados = resultado.get("criados", 0)
     atualizados = resultado.get("atualizados", 0)

@@ -1,4 +1,10 @@
-"""Geração de planilha em TABELA ÚNICA (.xlsx) e importação em lote de clientes do escritório."""
+"""Planilha em TABELA ÚNICA (.xlsx) apenas com os dados manuais do escritório.
+
+Ao subir a planilha, o Sentinela aciona automaticamente a consulta de CNPJ
+(ServicoConsultaCNPJ.dados_cadastrais) para preencher Razão Social, Nome Fantasia,
+Matriz/Filial, Data de Abertura, CNAE, CEP, Endereço, Município, UF, Código IBGE,
+Inscrição Estadual principal e Inscrições de Substituto Tributário (0015).
+"""
 from __future__ import annotations
 
 import io
@@ -21,52 +27,38 @@ from clientes.escopo import (
     SETORES_CONTATO,
 )
 from clientes.models import Colaborador, Empresa, InscricaoSubstituto
+from clientes.pastas import criar_pastas
 from clientes.services import ServicoConsultaCNPJ
 from clientes.trilha import foto_empresa, registrar, registrar_empresa
-from clientes.pastas import criar_pastas
 
-COLUNAS_BASE: list[tuple[str, str, int, str]] = [
-    ("codigo_dominio", "Código Domínio *", 16, "obrig"),
-    ("cnpj", "CNPJ (14 dígitos) *", 20, "obrig"),
-    ("tipo_estabelecimento", "Tipo (Matriz/Filial) *", 18, "obrig"),
-    ("status", "Status (Ativo/Inativo)", 18, "cad"),
-    ("razao_social", "Razão Social *", 36, "obrig"),
-    ("nome_fantasia", "Nome Fantasia / Pasta", 24, "cad"),
-    ("regime_tributario", "Regime Tributário *", 22, "obrig"),
-    ("anexo_simples", "Anexo Simples (I a V)", 18, "cad"),
-    ("perfil_estabelecimento", "Perfil / Regime Especial", 24, "cad"),
+# Apenas os campos MANUAIS que o botão "Buscar CNPJ" não preenche sozinho
+COLUNAS_MANUAIS: list[tuple[str, str, int, str]] = [
+    ("codigo_dominio", "Código Domínio *", 18, "obrig"),
+    ("cnpj", "CNPJ (14 dígitos) *", 22, "obrig"),
+    ("regime_tributario", "Regime Tributário *", 24, "obrig"),
+    ("anexo_simples", "Anexo Simples (I a V)", 20, "cad"),
+    ("perfil_estabelecimento", "Perfil / Regime Especial", 26, "cad"),
     ("responsavel_apuracao", "Responsável Apuração *", 24, "obrig"),
     ("responsavel_revisao", "Responsável Revisão *", 24, "obrig"),
-    ("inscricao_estadual", "Inscrição Estadual (ou ISENTO) *", 26, "obrig"),
-    ("inscricao_municipal", "Inscrição Municipal", 20, "cad"),
-    ("suframa", "SUFRAMA", 15, "cad"),
-    ("cnae_principal", "CNAE Principal *", 16, "obrig"),
-    ("cep", "CEP *", 14, "obrig"),
-    ("uf", "UF *", 10, "obrig"),
-    ("municipio", "Município *", 22, "obrig"),
-    ("codigo_ibge", "Código IBGE (7 dígitos) *", 22, "obrig"),
-    ("logradouro", "Logradouro *", 32, "obrig"),
-    ("numero", "Número *", 12, "obrig"),
-    ("complemento", "Complemento", 18, "cad"),
-    ("bairro", "Bairro *", 20, "obrig"),
-    ("contribuinte_icms", "Contribuinte ICMS (Sim/Não)", 22, "cad"),
-    ("contribuinte_ipi", "Contribuinte IPI (Sim/Não)", 22, "cad"),
-    ("possui_regime_especial", "Regime Especial (Sim/Não)", 22, "cad"),
-    ("ies_st", "IEs Substituto Tributário (UF:IE; UF:IE)", 34, "cad"),
-    ("data_abertura", "Data de Abertura (DD/MM/AAAA)", 22, "cad"),
-    ("data_inicio_cliente", "Cliente desde (MM/AAAA)", 20, "cad"),
-    ("contatos_texto", "Contatos (Nome | Setor | E-mail | Telefone | WhatsApp)", 48, "cad"),
-    ("resumo_cliente", "Resumo / Histórico do Cliente", 38, "cad"),
+    ("data_inicio_cliente", "Cliente desde (MM/AAAA)", 22, "cad"),
+    ("inscricao_municipal", "Inscrição Municipal", 22, "cad"),
+    ("suframa", "SUFRAMA", 16, "cad"),
+    ("inscricao_estadual_manual", "IE Manual / ISENTO (se não vier na busca)", 30, "cad"),
+    ("contribuinte_icms", "Contribuinte ICMS (Sim/Não)", 24, "cad"),
+    ("contribuinte_ipi", "Contribuinte IPI (Sim/Não)", 24, "cad"),
+    ("possui_regime_especial", "Regime Especial (Sim/Não)", 24, "cad"),
+    ("contatos_texto", "Contatos (Nome | Setor | E-mail | Telefone | WhatsApp)", 50, "cad"),
+    ("resumo_cliente", "Resumo / Histórico do Cliente", 40, "cad"),
     ("qtd_notas_entrada", "Qtd média Entradas / mês", 22, "escopo"),
     ("qtd_notas_saida", "Qtd média Saídas / mês", 22, "escopo"),
     ("qtd_emissao_notas_servico", "Qtd Emissão Serviços / mês", 22, "escopo"),
     ("qtd_emissao_notas_produto", "Qtd Emissão Produtos / mês", 22, "escopo"),
-    ("tipos_icms_incentivado", "Incentivos TTS (separados por ;)", 32, "escopo"),
+    ("tipos_icms_incentivado", "Incentivos TTS (separados por ;)", 34, "escopo"),
     ("estados_icms_st", "UFs Apuração ICMS-ST (ex: MG;SP)", 26, "escopo"),
     ("estados_st", "UFs Inscrição ST (ex: MG;SP;BA)", 26, "escopo"),
 ]
 
-# Na mesma tabela única, logo à direita, entram todas as colunas de checklist (Sim/Não)
+# Na mesma tabela única, logo à direita, entram os itens do Checklist de Escopo (Sim/Não)
 COLUNAS_CHECKLIST_UNICAS: list[tuple[str, str, str]] = (
     [("Fiscal", item, f"[Fiscal] {item}") for item in ITENS_FISCAIS]
     + [("Contábil", item, f"[Contábil] {item}") for item in ITENS_CONTABEIS]
@@ -135,25 +127,8 @@ def _interpretar_contatos_planilha(texto: str) -> list[dict]:
     return contatos
 
 
-def _interpretar_ies_st(texto: str) -> dict[str, str]:
-    resultado: dict[str, str] = {}
-    if not texto or not str(texto).strip():
-        return resultado
-    for bloco in re.split(r"[;,\n]+", str(texto)):
-        bloco = bloco.strip()
-        if not bloco:
-            continue
-        m = re.match(r"^([A-Za-z]{2})\s*[:=\-\s]\s*([0-9.\-/]+)$", bloco)
-        if m:
-            uf = m.group(1).upper()
-            num = somente_digitos(m.group(2))
-            if uf in ESTADOS_BR and num:
-                resultado[uf] = num
-    return resultado
-
-
 def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
-    """Gera a planilha Excel (.xlsx) em TABELA ÚNICA (1 linha por cliente com cadastro + contatos + checklist)."""
+    """Gera a planilha Excel (.xlsx) em TABELA ÚNICA apenas com os campos manuais (que a busca de CNPJ não traz)."""
     wb = Workbook()
     ws = wb.active
     ws.title = "Clientes_Escritorio"
@@ -179,14 +154,14 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         bottom=Side(style="thin", color="D6D3D1"),
     )
 
-    total_cols = len(COLUNAS_BASE) + len(COLUNAS_CHECKLIST_UNICAS)
-    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=min(total_cols, 38))
+    total_cols = len(COLUNAS_MANUAIS) + len(COLUNAS_CHECKLIST_UNICAS)
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=min(total_cols, 28))
     cel_titulo = ws.cell(
         row=1,
         column=1,
         value=(
-            "SENTINELA NASCEL — TABELA ÚNICA DE CLIENTES DO ESCRITÓRIO "
-            "(1 linha por estabelecimento: Cadastro + Tributação + Responsáveis + Contatos + Checklist de Escopo)"
+            "SENTINELA NASCEL — PLANILHA EM LOTE APENAS DE DADOS MANUAIS "
+            "(Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Endereço, IBGE, IE e IEs ST vêm automático pelo CNPJ!)"
         ),
     )
     cel_titulo.font = fonte_titulo
@@ -194,14 +169,13 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
     cel_titulo.alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[1].height = 28
 
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=min(total_cols, 38))
+    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=min(total_cols, 28))
     cel_dica = ws.cell(
         row=2,
         column=1,
         value=(
-            "Preencha tudo nesta única tabela! Colunas em ROSA ESCURO (*) liberam a apuração. "
-            "O PIS/COFINS é preenchido sozinho pelo Regime Tributário. "
-            "Nas colunas verdes à direita ([Fiscal], [Contábil], [DP], [Regularização]), marque 'Sim' ou 'X' para o que o cliente contratou."
+            "Ao subir esta planilha, o Sentinela executa a busca automática de cada CNPJ (igual ao botão 'Buscar CNPJ') "
+            "e junta com os dados manuais abaixo (Código Domínio, Regime Tributário, Responsáveis, Contatos e Checklist de Escopo)."
         ),
     )
     cel_dica.font = fonte_dica
@@ -209,9 +183,9 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
     cel_dica.alignment = Alignment(horizontal="left", vertical="center")
     ws.row_dimensions[2].height = 22
 
-    # Linha 3: Cabeçalhos da Tabela Única
+    # Linha 3: Cabeçalhos da Tabela Única (somente dados manuais + checklist)
     ws.row_dimensions[3].height = 34
-    for idx, (_chave, titulo, largura, estilo) in enumerate(COLUNAS_BASE, start=1):
+    for idx, (_chave, titulo, largura, estilo) in enumerate(COLUNAS_MANUAIS, start=1):
         c = ws.cell(row=3, column=idx, value=titulo)
         if estilo == "obrig":
             c.font = fonte_cab_obrig
@@ -226,7 +200,7 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         c.border = borda_fina
         ws.column_dimensions[get_column_letter(idx)].width = largura
 
-    offset_check = len(COLUNAS_BASE)
+    offset_check = len(COLUNAS_MANUAIS)
     for idx_c, (_grupo, _item, rotulo_col) in enumerate(COLUNAS_CHECKLIST_UNICAS, start=offset_check + 1):
         c = ws.cell(row=3, column=idx_c, value=rotulo_col)
         c.font = fonte_cab_esc
@@ -237,44 +211,27 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
 
     empresas_existentes = list(
         Empresa.objects.select_related("responsavel_apuracao", "responsavel_revisao")
-        .prefetch_related("substituicoes")
         .order_by("codigo_dominio")
     ) if incluir_existentes else []
 
     linha_atual = 4
     if empresas_existentes:
         for emp in empresas_existentes:
-            ies_st_str = "; ".join(f"{s.uf}:{s.numero}" for s in emp.substituicoes.all())
             valores = {
                 "codigo_dominio": emp.codigo_dominio,
                 "cnpj": emp.cnpj,
-                "tipo_estabelecimento": emp.tipo_estabelecimento,
-                "status": emp.status,
-                "razao_social": emp.razao_social,
-                "nome_fantasia": emp.nome_fantasia or "",
                 "regime_tributario": emp.regime_tributario,
                 "anexo_simples": emp.anexo_simples or "",
                 "perfil_estabelecimento": emp.perfil_estabelecimento,
                 "responsavel_apuracao": emp.responsavel_apuracao.nome if emp.responsavel_apuracao else "",
                 "responsavel_revisao": emp.responsavel_revisao.nome if emp.responsavel_revisao else "",
-                "inscricao_estadual": emp.inscricao_estadual or "",
+                "data_inicio_cliente": emp.data_inicio_cliente or "",
                 "inscricao_municipal": emp.inscricao_municipal or "",
                 "suframa": emp.suframa or "",
-                "cnae_principal": emp.cnae_principal or "",
-                "cep": emp.cep or "",
-                "uf": emp.uf or "",
-                "municipio": emp.municipio or "",
-                "codigo_ibge": emp.codigo_ibge or "",
-                "logradouro": emp.logradouro or "",
-                "numero": emp.numero or "",
-                "complemento": emp.complemento or "",
-                "bairro": emp.bairro or "",
+                "inscricao_estadual_manual": "ISENTO" if (emp.inscricao_estadual or "").upper() == "ISENTO" else "",
                 "contribuinte_icms": _sim_nao(emp.contribuinte_icms),
                 "contribuinte_ipi": _sim_nao(emp.contribuinte_ipi),
                 "possui_regime_especial": _sim_nao(emp.possui_regime_especial),
-                "ies_st": ies_st_str,
-                "data_abertura": emp.data_abertura or "",
-                "data_inicio_cliente": emp.data_inicio_cliente or "",
                 "contatos_texto": _formatar_contatos_planilha(emp.contatos),
                 "resumo_cliente": emp.resumo_cliente or "",
                 "qtd_notas_entrada": emp.qtd_notas_entrada or "",
@@ -285,7 +242,7 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
                 "estados_icms_st": "; ".join(emp.estados_icms_st or []),
                 "estados_st": "; ".join(emp.estados_st or []),
             }
-            for col_idx, (chave, _titulo, _larg, _est) in enumerate(COLUNAS_BASE, start=1):
+            for col_idx, (chave, _titulo, _larg, _est) in enumerate(COLUNAS_MANUAIS, start=1):
                 cel = ws.cell(row=linha_atual, column=col_idx, value=valores.get(chave, ""))
                 cel.font = fonte_celula
                 cel.border = borda_fina
@@ -307,33 +264,18 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         exemplo = {
             "codigo_dominio": "0578",
             "cnpj": "45785442000390",
-            "tipo_estabelecimento": "Filial",
-            "status": "Ativo",
-            "razao_social": "AFFONSO DESCARTAVEIS LTDA",
-            "nome_fantasia": "AFFONSO DESCARTAVEIS",
             "regime_tributario": "Lucro Presumido",
             "anexo_simples": "",
             "perfil_estabelecimento": "GERAL",
             "responsavel_apuracao": "Ismael",
             "responsavel_revisao": "Mariana Barbosa",
-            "inscricao_estadual": "0047805660026",
+            "data_inicio_cliente": "01/2025",
             "inscricao_municipal": "",
             "suframa": "",
-            "cnae_principal": "4649499",
-            "cep": "37646028",
-            "uf": "MG",
-            "municipio": "EXTREMA",
-            "codigo_ibge": "3125101",
-            "logradouro": "ESTRADA VEREADOR LAMARTINE JOSE DE OLIVEIRA",
-            "numero": "1137",
-            "complemento": "",
-            "bairro": "RODEIO",
+            "inscricao_estadual_manual": "",
             "contribuinte_icms": "Sim",
             "contribuinte_ipi": "Não",
             "possui_regime_especial": "Não",
-            "ies_st": "CE:073307130; SP:813035560114; BA:248025829",
-            "data_abertura": "15/05/2022",
-            "data_inicio_cliente": "01/2025",
             "contatos_texto": "Financeiro Cliente | Fiscal | fiscal@exemplo.com.br | (35) 99999-0000 | Sim",
             "resumo_cliente": "Linha de exemplo (substitua ou adicione abaixo todos os clientes do escritório).",
             "qtd_notas_entrada": "80",
@@ -344,7 +286,7 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
             "estados_icms_st": "CE; SP; BA",
             "estados_st": "CE; SP; BA",
         }
-        for col_idx, (chave, _titulo, _larg, _est) in enumerate(COLUNAS_BASE, start=1):
+        for col_idx, (chave, _titulo, _larg, _est) in enumerate(COLUNAS_MANUAIS, start=1):
             cel = ws.cell(row=linha_atual, column=col_idx, value=exemplo.get(chave, ""))
             cel.font = fonte_celula
             cel.fill = preench_zebra
@@ -358,9 +300,9 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
             cel_chk.border = borda_fina
         linha_atual += 1
 
-    # Formato texto nas colunas numéricas sensíveis a zero à esquerda
+    # Formato texto nas colunas de Código Domínio, CNPJ, IM, SUFRAMA e IE manual
     for r in range(linha_atual, 250):
-        for c_idx in (1, 2, 12, 15, 16, 19):
+        for c_idx in (1, 2, 8, 9, 10, 11):
             ws.cell(row=r, column=c_idx).number_format = "@"
 
     ws.freeze_panes = "C4"
@@ -375,19 +317,17 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         dv.add(f"{letra}4:{letra}300")
         ws.add_data_validation(dv)
 
-    _adicionar_validacao(3, ["Matriz", "Filial"])
-    _adicionar_validacao(4, ["Ativo", "Inativo"])
-    _adicionar_validacao(7, [r[0] for r in Empresa.REGIMES_TRIBUTARIOS])
-    _adicionar_validacao(8, ["I", "II", "III", "IV", "V"])
-    _adicionar_validacao(9, [p[0] for p in Empresa.PERFIS_ESTABELECIMENTO])
-    _adicionar_validacao(23, ["Sim", "Não"])
-    _adicionar_validacao(24, ["Sim", "Não"])
-    _adicionar_validacao(25, ["Sim", "Não"])
+    _adicionar_validacao(3, [r[0] for r in Empresa.REGIMES_TRIBUTARIOS])
+    _adicionar_validacao(4, ["I", "II", "III", "IV", "V"])
+    _adicionar_validacao(5, [p[0] for p in Empresa.PERFIS_ESTABELECIMENTO])
+    _adicionar_validacao(12, ["Sim", "Não"])
+    _adicionar_validacao(13, ["Sim", "Não"])
+    _adicionar_validacao(14, ["Sim", "Não"])
 
     nomes_colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome").values_list("nome", flat=True))
     if nomes_colaboradores:
-        _adicionar_validacao(10, nomes_colaboradores)
-        _adicionar_validacao(11, nomes_colaboradores)
+        _adicionar_validacao(6, nomes_colaboradores)
+        _adicionar_validacao(7, nomes_colaboradores)
 
     buffer = io.BytesIO()
     wb.save(buffer)
@@ -433,28 +373,12 @@ def _normalizar_perfil(valor: str) -> str:
     return "GERAL"
 
 
-def _interpretar_lista_escopo(texto: str, todos_itens: tuple[str, ...]) -> set[str]:
-    if not texto or not str(texto).strip():
-        return set()
-    limpo = str(texto).strip()
-    if limpo.upper() in {"TODOS", "TODAS", "COMPLETO", "SIM", "X"}:
-        return set(todos_itens)
-    pedacos = [p.strip().lower() for p in re.split(r"[;\n]+", limpo) if p.strip()]
-    achados: set[str] = set()
-    for item in todos_itens:
-        item_low = item.lower()
-        if any(p == item_low or p in item_low for p in pedacos):
-            achados.add(item)
-    return achados
-
-
 def importar_planilha_clientes(
     arquivo_bytes: bytes,
     *,
     usuario=None,
-    consultar_api_se_vazio: bool = False,
 ) -> dict[str, Any]:
-    """Lê a tabela única (.xlsx) e cria/atualiza todos os clientes do escritório em lote único."""
+    """Lê a tabela única de dados manuais (.xlsx), busca automaticamente cada CNPJ e grava os clientes."""
     try:
         wb = load_workbook(io.BytesIO(arquivo_bytes), data_only=True)
     except Exception as exc:
@@ -473,7 +397,8 @@ def importar_planilha_clientes(
     idx_cabecalho = None
     for idx, row in enumerate(linhas[:15]):
         textos = [_normalizar_cabecalho(c) for c in (row or [])]
-        if any("cnpj" in t for t in textos) and any("domínio" in t or "dominio" in t for t in textos):
+        nao_vazios = [t for t in textos if t]
+        if len(nao_vazios) >= 3 and any("cnpj" in t for t in textos) and any("domínio" in t or "dominio" in t for t in textos):
             idx_cabecalho = idx
             break
     if idx_cabecalho is None:
@@ -488,7 +413,7 @@ def importar_planilha_clientes(
     cabecalhos_norm = [_normalizar_cabecalho(c) for c in cabecalhos_brutos]
 
     mapa_aliases: dict[str, str] = {}
-    for chave, titulo, _larg, _est in COLUNAS_BASE:
+    for chave, titulo, _larg, _est in COLUNAS_MANUAIS:
         mapa_aliases[_normalizar_cabecalho(titulo)] = chave
         mapa_aliases[chave.lower()] = chave
 
@@ -498,17 +423,6 @@ def importar_planilha_clientes(
         "código": "codigo_dominio",
         "codigo": "codigo_dominio",
         "cnpj": "cnpj",
-        "tipo": "tipo_estabelecimento",
-        "tipo estabelecimento": "tipo_estabelecimento",
-        "matriz/filial": "tipo_estabelecimento",
-        "status": "status",
-        "situação": "status",
-        "situacao": "status",
-        "razão social": "razao_social",
-        "razao social": "razao_social",
-        "empresa": "razao_social",
-        "nome fantasia": "nome_fantasia",
-        "fantasia": "nome_fantasia",
         "regime": "regime_tributario",
         "regime tributário": "regime_tributario",
         "regime tributario": "regime_tributario",
@@ -521,31 +435,19 @@ def importar_planilha_clientes(
         "responsável revisão": "responsavel_revisao",
         "responsavel revisao": "responsavel_revisao",
         "revisão": "responsavel_revisao",
-        "ie": "inscricao_estadual",
-        "inscrição estadual": "inscricao_estadual",
-        "inscricao estadual": "inscricao_estadual",
+        "cliente desde": "data_inicio_cliente",
         "im": "inscricao_municipal",
         "inscrição municipal": "inscricao_municipal",
         "inscricao municipal": "inscricao_municipal",
-        "cnae": "cnae_principal",
-        "cnae principal": "cnae_principal",
-        "ibge": "codigo_ibge",
-        "código ibge": "codigo_ibge",
-        "codigo ibge": "codigo_ibge",
-        "endereço": "logradouro",
-        "endereco": "logradouro",
-        "rua": "logradouro",
-        "número": "numero",
-        "numero": "numero",
-        "escopo fiscal (todos ou itens por ;)": "escopo_fiscal_resumo",
-        "escopo contábil (todos ou itens por ;)": "escopo_contabil_resumo",
-        "escopo dp (todos ou itens por ;)": "escopo_dp_resumo",
-        "escopo regularização (todos ou itens por ;)": "escopo_regularizacao_resumo",
+        "ie": "inscricao_estadual_manual",
+        "inscrição estadual": "inscricao_estadual_manual",
+        "inscricao estadual": "inscricao_estadual_manual",
+        "ie manual": "inscricao_estadual_manual",
     }
     mapa_aliases.update(aliases_extras)
 
     col_para_chave: dict[int, str] = {}
-    cols_ie_st_uf: dict[int, str] = {}
+    chaves_ja_mapeadas: set[str] = set()
     cols_checklist: dict[int, tuple[str, str]] = {}
 
     for c_idx, nome_cab in enumerate(cabecalhos_norm):
@@ -564,15 +466,14 @@ def importar_planilha_clientes(
             cols_checklist[c_idx] = (grp, m_chk.group(2).strip())
             continue
         if nome_cab in mapa_aliases:
-            col_para_chave[c_idx] = mapa_aliases[nome_cab]
-            continue
-        m_st = re.match(r"^ie[_\s-]*st[_\s-]*([a-z]{2})$", nome_cab)
-        if m_st and m_st.group(1).upper() in ESTADOS_BR:
-            cols_ie_st_uf[c_idx] = m_st.group(1).upper()
+            alvo = mapa_aliases[nome_cab]
+            col_para_chave[c_idx] = alvo
+            chaves_ja_mapeadas.add(alvo)
             continue
         for alias, alvo in mapa_aliases.items():
-            if alias and alias in nome_cab and c_idx not in col_para_chave:
+            if alias and alias in nome_cab and c_idx not in col_para_chave and alvo not in chaves_ja_mapeadas:
                 col_para_chave[c_idx] = alvo
+                chaves_ja_mapeadas.add(alvo)
                 break
 
     criados = 0
@@ -606,24 +507,10 @@ def importar_planilha_clientes(
             erros.append(f"Linha {offset_linha} (Domínio {codigo_dominio}): CNPJ inválido ('{dados_linha.get('cnpj', '')}').")
             continue
 
-        dados_api: dict[str, Any] = {}
-        precisa_api = consultar_api_se_vazio and not all(
-            dados_linha.get(k) for k in ("razao_social", "cnae_principal", "cep", "uf", "municipio", "codigo_ibge", "logradouro")
-        )
-        if precisa_api:
-            consulta = ServicoConsultaCNPJ.buscar_dados_cnpj(cnpj)
-            if not consulta.get("erro"):
-                dados_api = consulta
-
-        razao_social = dados_linha.get("razao_social") or str(dados_api.get("razao_social") or "").strip()
-        if not razao_social:
-            erros.append(f"Linha {offset_linha} (Domínio {codigo_dominio}): Razão Social em branco.")
-            continue
-
         regime_tributario = _normalizar_regime(dados_linha.get("regime_tributario", ""))
         if regime_tributario not in dict(Empresa.REGIMES_TRIBUTARIOS):
             erros.append(
-                f"Linha {offset_linha} ({razao_social}): Regime Tributário '{dados_linha.get('regime_tributario', '')}' inválido. "
+                f"Linha {offset_linha} (Domínio {codigo_dominio}): Regime Tributário '{dados_linha.get('regime_tributario', '')}' inválido. "
                 "Use Simples Nacional, Lucro Presumido, Lucro Real, MEI ou Imune/Isenta."
             )
             continue
@@ -632,31 +519,26 @@ def importar_planilha_clientes(
         if regime_tributario == "Simples Nacional" and anexo_simples not in dict(Empresa.ANEXOS_SIMPLES):
             anexo_simples = "I"
 
-        tipo_estab = (dados_linha.get("tipo_estabelecimento") or "Matriz").strip().capitalize()
-        if tipo_estab not in {"Matriz", "Filial"}:
-            tipo_estab = "Matriz"
-
-        status = (dados_linha.get("status") or "Ativo").strip().capitalize()
-        if status not in {"Ativo", "Inativo"}:
-            status = "Ativo"
-
-        uf = (dados_linha.get("uf") or str(dados_api.get("uf") or "")).strip().upper()[:2]
-        cep = somente_digitos(dados_linha.get("cep") or str(dados_api.get("cep") or ""))[:10]
-        municipio = (dados_linha.get("municipio") or str(dados_api.get("municipio") or "")).strip()
-        codigo_ibge = somente_digitos(dados_linha.get("codigo_ibge") or str(dados_api.get("codigo_ibge") or ""))[:7]
-        logradouro = (dados_linha.get("logradouro") or str(dados_api.get("logradouro") or "")).strip()
-        numero = (dados_linha.get("numero") or str(dados_api.get("numero") or "S/N")).strip()[:20]
-        complemento = (dados_linha.get("complemento") or str(dados_api.get("complemento") or "")).strip()[:100]
-        bairro = (dados_linha.get("bairro") or str(dados_api.get("bairro") or "")).strip()[:100]
-        cnae_principal = somente_digitos(dados_linha.get("cnae_principal") or str(dados_api.get("cnae_principal") or ""))[:10]
-        inscricao_estadual = (dados_linha.get("inscricao_estadual") or str(dados_api.get("inscricao_estadual") or "")).strip()[:30]
-
         empresa = (
             Empresa.objects.filter(codigo_dominio=codigo_dominio).first()
             or Empresa.objects.filter(cnpj=cnpj).first()
         )
         eh_novo = empresa is None
         antes = foto_empresa(empresa) if empresa else {}
+
+        # Aciona automaticamente a mesma busca do botão "Buscar CNPJ" (ServicoConsultaCNPJ.dados_cadastrais)
+        dados_api: dict[str, Any] = {}
+        substituicoes_api: dict[str, str] = {}
+        try:
+            dados_api = ServicoConsultaCNPJ.dados_cadastrais(cnpj)
+            substituicoes_api = dados_api.pop("substituicoes", {}) or {}
+        except Exception as exc_api:
+            if eh_novo:
+                erros.append(
+                    f"Linha {offset_linha} (Domínio {codigo_dominio} · CNPJ {cnpj}): "
+                    f"a busca automática do CNPJ não respondeu ({exc_api}). Tente subir novamente em instantes."
+                )
+                continue
 
         if eh_novo:
             empresa = Empresa(codigo_dominio=codigo_dominio, cnpj=cnpj)
@@ -671,10 +553,41 @@ def importar_planilha_clientes(
             empresa.codigo_dominio = codigo_dominio
             empresa.cnpj = cnpj
 
-        empresa.tipo_estabelecimento = tipo_estab
-        empresa.status = status
-        empresa.razao_social = razao_social[:255]
-        empresa.nome_fantasia = (dados_linha.get("nome_fantasia") or str(dados_api.get("nome_fantasia") or "")).strip()[:255]
+        # Preenche tudo que vem automático do botão "Buscar CNPJ"
+        if dados_api.get("razao_social"):
+            empresa.razao_social = str(dados_api["razao_social"])[:255]
+        if dados_api.get("nome_fantasia"):
+            empresa.nome_fantasia = str(dados_api["nome_fantasia"])[:255]
+        if dados_api.get("tipo_estabelecimento"):
+            empresa.tipo_estabelecimento = str(dados_api["tipo_estabelecimento"])[:10]
+        if dados_api.get("status"):
+            empresa.status = str(dados_api["status"])[:20]
+        if dados_api.get("data_abertura"):
+            empresa.data_abertura = str(dados_api["data_abertura"])[:20]
+        if dados_api.get("cep"):
+            empresa.cep = somente_digitos(str(dados_api["cep"]))[:10]
+        if dados_api.get("uf"):
+            empresa.uf = str(dados_api["uf"]).strip().upper()[:2]
+        if dados_api.get("municipio"):
+            empresa.municipio = str(dados_api["municipio"])[:100]
+        if dados_api.get("codigo_ibge"):
+            empresa.codigo_ibge = somente_digitos(str(dados_api["codigo_ibge"]))[:7]
+        if dados_api.get("logradouro"):
+            empresa.logradouro = str(dados_api["logradouro"])[:255]
+        if dados_api.get("numero"):
+            empresa.numero = str(dados_api["numero"])[:20]
+        elif not empresa.numero:
+            empresa.numero = "S/N"
+        if dados_api.get("complemento") is not None:
+            empresa.complemento = str(dados_api.get("complemento") or "")[:100]
+        if dados_api.get("bairro"):
+            empresa.bairro = str(dados_api["bairro"])[:100]
+        if dados_api.get("cnae_principal"):
+            empresa.cnae_principal = somente_digitos(str(dados_api["cnae_principal"]))[:10]
+        if dados_api.get("inscricao_estadual"):
+            empresa.inscricao_estadual = str(dados_api["inscricao_estadual"])[:30]
+
+        # Preenche os dados MANUAIS vindos da planilha
         empresa.regime_tributario = regime_tributario
         empresa.anexo_simples = anexo_simples if regime_tributario == "Simples Nacional" else None
         empresa.perfil_estabelecimento = _normalizar_perfil(dados_linha.get("perfil_estabelecimento", ""))
@@ -686,18 +599,14 @@ def importar_planilha_clientes(
         if resp_rev is not None:
             empresa.responsavel_revisao = resp_rev
 
-        empresa.inscricao_estadual = inscricao_estadual
-        empresa.inscricao_municipal = (dados_linha.get("inscricao_municipal") or "").strip()[:30]
-        empresa.suframa = (dados_linha.get("suframa") or "").strip()[:20]
-        empresa.cnae_principal = cnae_principal
-        empresa.cep = cep
-        empresa.uf = uf
-        empresa.municipio = municipio[:100]
-        empresa.codigo_ibge = codigo_ibge
-        empresa.logradouro = logradouro[:255]
-        empresa.numero = numero
-        empresa.complemento = complemento
-        empresa.bairro = bairro
+        ie_manual = (dados_linha.get("inscricao_estadual_manual") or "").strip()
+        if ie_manual:
+            empresa.inscricao_estadual = "ISENTO" if ie_manual.upper() == "ISENTO" else somente_digitos(ie_manual)[:30]
+
+        if dados_linha.get("inscricao_municipal") is not None and dados_linha.get("inscricao_municipal") != "":
+            empresa.inscricao_municipal = dados_linha["inscricao_municipal"].strip()[:30]
+        if dados_linha.get("suframa") is not None and dados_linha.get("suframa") != "":
+            empresa.suframa = dados_linha["suframa"].strip()[:20]
 
         if dados_linha.get("contribuinte_icms", ""):
             empresa.contribuinte_icms = _interpretar_booleano(dados_linha.get("contribuinte_icms"), True)
@@ -708,8 +617,6 @@ def importar_planilha_clientes(
         if empresa.perfil_estabelecimento in Empresa.PERFIS_COM_PDF:
             empresa.possui_regime_especial = True
 
-        if dados_linha.get("data_abertura") or str(dados_api.get("data_abertura") or ""):
-            empresa.data_abertura = (dados_linha.get("data_abertura") or str(dados_api.get("data_abertura") or "")).strip()[:20]
         if dados_linha.get("data_inicio_cliente"):
             empresa.data_inicio_cliente = dados_linha["data_inicio_cliente"].strip()[:10]
         if dados_linha.get("resumo_cliente"):
@@ -723,7 +630,6 @@ def importar_planilha_clientes(
         if contatos_lidos:
             empresa.contatos = contatos_lidos
 
-        # Lê as colunas de checklist da própria linha da tabela única
         chk_linha: dict[str, set[str]] = {
             "Fiscal": set(),
             "Contábil": set(),
@@ -734,19 +640,11 @@ def importar_planilha_clientes(
             if c_idx < len(row) and _interpretar_booleano(row[c_idx], False):
                 chk_linha[grp].add(item_nome)
 
-        fisc_set = _interpretar_lista_escopo(dados_linha.get("escopo_fiscal_resumo", ""), ITENS_FISCAIS) | chk_linha["Fiscal"]
-        cont_set = _interpretar_lista_escopo(dados_linha.get("escopo_contabil_resumo", ""), ITENS_CONTABEIS) | chk_linha["Contábil"]
-        dp_set = _interpretar_lista_escopo(dados_linha.get("escopo_dp_resumo", ""), ITENS_DP) | chk_linha["DP"]
-        reg_set = _interpretar_lista_escopo(dados_linha.get("escopo_regularizacao_resumo", ""), ITENS_REGULARIZACAO) | chk_linha["Regularização"]
-
-        if cols_checklist or fisc_set or eh_novo:
-            empresa.escopo_fiscal = {item: (item in fisc_set) for item in ITENS_FISCAIS}
-        if cols_checklist or cont_set or eh_novo:
-            empresa.escopo_contabil = {item: (item in cont_set) for item in ITENS_CONTABEIS}
-        if cols_checklist or dp_set or eh_novo:
-            empresa.escopo_dp = {item: (item in dp_set) for item in ITENS_DP}
-        if cols_checklist or reg_set or eh_novo:
-            empresa.escopo_regularizacao = {item: (item in reg_set) for item in ITENS_REGULARIZACAO}
+        if cols_checklist or eh_novo:
+            empresa.escopo_fiscal = {item: (item in chk_linha["Fiscal"]) for item in ITENS_FISCAIS}
+            empresa.escopo_contabil = {item: (item in chk_linha["Contábil"]) for item in ITENS_CONTABEIS}
+            empresa.escopo_dp = {item: (item in chk_linha["DP"]) for item in ITENS_DP}
+            empresa.escopo_regularizacao = {item: (item in chk_linha["Regularização"]) for item in ITENS_REGULARIZACAO}
 
         if dados_linha.get("tipos_icms_incentivado"):
             partes_tts = [p.strip().upper() for p in re.split(r"[;\n]+", dados_linha["tipos_icms_incentivado"]) if p.strip()]
@@ -769,23 +667,14 @@ def importar_planilha_clientes(
 
         empresa.save()
 
-        mapa_st = _interpretar_ies_st(dados_linha.get("ies_st", ""))
-        for c_idx, uf_col in cols_ie_st_uf.items():
-            if c_idx < len(row) and row[c_idx] is not None:
-                num_st = somente_digitos(str(row[c_idx]))
-                if num_st:
-                    mapa_st[uf_col] = num_st
-        if isinstance(dados_api.get("inscricoes_substituto"), dict):
-            for uf_api, num_api in dados_api["inscricoes_substituto"].items():
-                if uf_api in ESTADOS_BR and num_api and uf_api not in mapa_st:
-                    mapa_st[uf_api] = somente_digitos(str(num_api))
-
-        if mapa_st:
-            for uf_sigla, num_ie in mapa_st.items():
+        # Grava Inscrições de Substituto Tributário trazidas automaticamente pela consulta de CNPJ
+        for uf_sigla, num_ie in substituicoes_api.items():
+            num_limpo = somente_digitos(str(num_ie))
+            if uf_sigla in ESTADOS_BR and num_limpo:
                 InscricaoSubstituto.objects.update_or_create(
                     empresa=empresa,
                     uf=uf_sigla,
-                    defaults={"numero": num_ie},
+                    defaults={"numero": num_limpo},
                 )
 
         try:

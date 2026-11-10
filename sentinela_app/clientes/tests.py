@@ -476,15 +476,49 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(down.status_code, 200)
         wb = load_workbook(BytesIO(down.content))
         self.assertEqual(wb.sheetnames, ["Clientes_Escritorio"])
+        ws = wb["Clientes_Escritorio"]
+        cabecalhos = [str(c or "") for c in next(ws.iter_rows(min_row=3, max_row=3, values_only=True))]
+        self.assertIn("Código Domínio *", cabecalhos)
+        self.assertIn("CNPJ (14 dígitos) *", cabecalhos)
+        self.assertIn("Regime Tributário *", cabecalhos)
+        # Confirma que NÃO tem colunas que o botão Buscar CNPJ já traz automaticamente
+        self.assertNotIn("Razão Social *", cabecalhos)
+        self.assertNotIn("Logradouro *", cabecalhos)
+        self.assertNotIn("Código IBGE (7 dígitos) *", cabecalhos)
 
-        up = self.client.post(
-            "/clientes/importar-lote/",
-            {"planilha_clientes": SimpleUploadedFile("clientes.xlsx", down.content)},
-            follow=True,
-        )
+        from unittest.mock import patch
+
+        retorno_busca_cnpj = {
+            "cnpj": CNPJ,
+            "razao_social": "AFFONSO DESCARTAVEIS LTDA",
+            "nome_fantasia": "AFFONSO DESCARTAVEIS",
+            "data_abertura": "15/05/2022",
+            "tipo_estabelecimento": "Filial",
+            "status": "Ativo",
+            "cep": "37646028",
+            "logradouro": "ESTRADA VEREADOR LAMARTINE JOSE DE OLIVEIRA",
+            "numero": "1137",
+            "complemento": "",
+            "bairro": "RODEIO",
+            "municipio": "EXTREMA",
+            "uf": "MG",
+            "codigo_ibge": "3125101",
+            "cnae_principal": "4649499",
+            "inscricao_estadual": "0047805660026",
+            "substituicoes": {"SP": "813035560114", "BA": "248025829", "CE": "073307130"},
+        }
+        with patch.object(ServicoConsultaCNPJ, "dados_cadastrais", side_effect=lambda _c: dict(retorno_busca_cnpj)):
+            up = self.client.post(
+                "/clientes/importar-lote/",
+                {"planilha_clientes": SimpleUploadedFile("clientes.xlsx", down.content)},
+                follow=True,
+            )
         self.assertContains(up, "1 cliente(s) criado(s)")
         emp = Empresa.objects.get(codigo_dominio="0578")
         self.assertEqual(emp.cnpj, CNPJ)
+        self.assertEqual(emp.razao_social, "AFFONSO DESCARTAVEIS LTDA")
+        self.assertEqual(emp.codigo_ibge, "3125101")
+        self.assertEqual(emp.inscricao_estadual, "0047805660026")
         self.assertEqual(emp.regime_tributario, "Lucro Presumido")
         self.assertEqual(emp.regime_pis_cofins, "Cumulativo")
         self.assertEqual(emp.responsavel_apuracao, self.apuracao)

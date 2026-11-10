@@ -46,15 +46,11 @@
       </div>
     </div>
     <p class="mb-3 text-xs text-stone-600">
-      Baixe a planilha Excel com todas as colunas manuais (Código Domínio, CNPJ, Matriz/Filial, Regime Tributário, Responsáveis, IE, IEs de Substituto Tributário, Contatos e Checklist de Escopo), preencha todos os clientes do escritório e envie abaixo em lote único.
+      A tabela tem <strong>apenas os dados manuais</strong> (Código Domínio, CNPJ, Regime Tributário, Responsáveis, Contatos e Checklist de Escopo). Ao subir a planilha, o Sentinela aciona sozinho o <strong>Buscar CNPJ</strong> para cada linha e preenche Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Endereço, Código IBGE, IE principal e IEs de Substituto Tributário.
     </p>
     <form method="post" action="{% url 'importar_lote_clientes' %}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
       {% csrf_token %}
       <input type="file" name="planilha_clientes" accept=".xlsx" required class="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs">
-      <label class="flex items-center gap-1.5 text-xs font-medium text-stone-700">
-        <input type="checkbox" name="consultar_api_se_vazio" value="1" class="h-4 w-4 rounded text-pink-600">
-        Completar endereço/IE/CNAE automaticamente pelo CNPJ quando a célula estiver em branco
-      </label>
       <button type="submit" class="whitespace-nowrap rounded-xl bg-pink-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-pink-700">
         Subir Planilha em Lote Único
       </button>
