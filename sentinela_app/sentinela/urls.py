@@ -7,7 +7,7 @@ from django.shortcuts import redirect
 from django.urls import include, path
 from django.views.defaults import bad_request
 
-from clientes.views import area_restrita, exportar_sharepoint, historico, painel
+from clientes.views import area_restrita, exportar_alertas_emissao, exportar_sharepoint, historico, painel
 from sentinela.forms import FormularioEntrada
 
 
@@ -37,6 +37,7 @@ urlpatterns = [
     path("sair/", auth_views.LogoutView.as_view(), name="sair"),
     path("", inicio, name="inicio"),
     path("painel/", painel, name="painel"),
+    path("painel/alertas-emissao.xlsx", exportar_alertas_emissao, name="exportar_alertas_emissao"),
     path("restrita/", area_restrita, name="area_restrita"),
     path("historico/", historico, name="historico"),
     path("historico/sharepoint/", exportar_sharepoint, name="exportar_sharepoint"),

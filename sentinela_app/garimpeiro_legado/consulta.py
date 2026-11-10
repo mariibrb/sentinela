@@ -70,8 +70,36 @@ def _vazio(mensagem: str = "") -> dict:
         "linhas_grade": [],
         "mostrando": 0,
         "total_aba": 0,
+        "pagina": 1,
+        "total_paginas": 1,
+        "inicio": 0,
+        "fim": 0,
+        "tamanho_pagina": LIMITE_TELA,
         "xml_no_disco": 0,
         "pasta": "",
+    }
+
+
+def _paginar(itens: list, pagina, tamanho: int = LIMITE_TELA) -> tuple[list, dict]:
+    """Corta a lista em páginas de `tamanho` (padrão 3000) para o painel percorrer tudo."""
+    total = len(itens)
+    total_paginas = max(1, (total + tamanho - 1) // tamanho) if total else 1
+    try:
+        pagina_n = int(pagina or 1)
+    except (TypeError, ValueError):
+        pagina_n = 1
+    pagina_n = max(1, min(pagina_n, total_paginas))
+    ini = (pagina_n - 1) * tamanho
+    fim = ini + tamanho
+    fatia = itens[ini:fim]
+    return fatia, {
+        "pagina": pagina_n,
+        "total_paginas": total_paginas,
+        "total_aba": total,
+        "mostrando": len(fatia),
+        "inicio": (ini + 1) if fatia else 0,
+        "fim": ini + len(fatia),
+        "tamanho_pagina": tamanho,
     }
 
 
@@ -350,7 +378,7 @@ def _montar_grade_excel(aba: str, series: list[dict], buracos: list[dict], falso
     return colunas, linhas
 
 
-def montar(empresa, competencia: str, aba: str) -> dict:
+def montar(empresa, competencia: str, aba: str, pagina=1) -> dict:
     notas = list(_consulta(empresa, competencia))
     painel = _vazio()
     if not notas:
@@ -387,7 +415,6 @@ def montar(empresa, competencia: str, aba: str) -> dict:
     painel["series"] = series
     painel["buracos_reais"] = len(buracos_reais)
     painel["buracos_falsos"] = len(buracos_falsos)
-    painel["linhas_falsas"] = buracos_falsos
 
     escolhidas = notas
     status = STATUS_DA_ABA.get(aba)
@@ -396,24 +423,26 @@ def montar(empresa, competencia: str, aba: str) -> dict:
     linhas_notas = [_linha(nota) for nota in escolhidas]
 
     if aba == "buracos":
-        painel["linhas"] = buracos_reais[:LIMITE_TELA]
-        painel["total_aba"] = len(buracos_reais) + len(buracos_falsos)
-        painel["mostrando"] = len(painel["linhas"]) + len(buracos_falsos)
+        # Pagina o conjunto completo (reais + já encontrados) para percorrer tudo no painel
+        combinados = [("real", item) for item in buracos_reais] + [("falso", item) for item in buracos_falsos]
+        fatia, meta = _paginar(combinados, pagina)
+        fatia_reais = [item for tipo, item in fatia if tipo == "real"]
+        fatia_falsos = [item for tipo, item in fatia if tipo == "falso"]
+        painel["linhas"] = fatia_reais
+        painel["linhas_falsas"] = fatia_falsos
+        painel.update(meta)
+        colunas, linhas_grade = _montar_grade_excel(aba, series, fatia_reais, fatia_falsos, [])
     elif aba == "series":
-        painel["total_aba"] = len(series)
-        painel["mostrando"] = len(series)
+        fatia_series, meta = _paginar(series, pagina)
+        painel["series"] = fatia_series
+        painel.update(meta)
+        colunas, linhas_grade = _montar_grade_excel(aba, fatia_series, [], [], [])
     else:
-        painel["total_aba"] = len(linhas_notas)
-        painel["linhas"] = linhas_notas[:LIMITE_TELA]
-        painel["mostrando"] = len(painel["linhas"])
+        fatia_notas, meta = _paginar(linhas_notas, pagina)
+        painel["linhas"] = fatia_notas
+        painel.update(meta)
+        colunas, linhas_grade = _montar_grade_excel(aba, series, [], [], fatia_notas)
 
-    colunas, linhas_grade = _montar_grade_excel(
-        aba,
-        series,
-        buracos_reais[:LIMITE_TELA],
-        buracos_falsos[:LIMITE_TELA],
-        linhas_notas[:LIMITE_TELA],
-    )
     painel["colunas"] = colunas
     painel["linhas_grade"] = linhas_grade
     return painel

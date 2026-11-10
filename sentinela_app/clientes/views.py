@@ -60,6 +60,62 @@ def painel(request):
 
 
 @login_required
+def exportar_alertas_emissao(request):
+    """Extrai o relatório de erros de emissão (base ICMS > 0 e ICMS zerado) da empresa ativa."""
+    from io import BytesIO
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Alignment, Font, PatternFill
+
+    empresa_id = request.session.get("empresa_id")
+    competencia = request.session.get("competencia", "")
+    empresa = Empresa.objects.filter(pk=empresa_id).first() if empresa_id else None
+    if not empresa or not competencia:
+        messages.error(request, "Escolha a empresa e a competência antes de extrair os alertas de emissão.")
+        return redirect("painel")
+    try:
+        validar_cadastro_para_apuracao(empresa)
+        resumo = MotorApuracaoSentinela(empresa, competencia).calcular_apuracao_icms()
+    except CadastroIncompleto as erro:
+        messages.error(request, str(erro))
+        return redirect("painel")
+    alertas = resumo.get("alertas_encontrados") or []
+    if not alertas:
+        messages.success(request, "Nenhum alerta de emissão nesta competência.")
+        return redirect("painel")
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Alertas_Emissao"
+    cab = ["Número", "Tipo", "Chave de Acesso", "Descrição", "Sugestão"]
+    for idx, titulo in enumerate(cab, start=1):
+        cel = ws.cell(row=1, column=idx, value=titulo)
+        cel.font = Font(bold=True, color="FFFFFF")
+        cel.fill = PatternFill("solid", fgColor="BE185D")
+        cel.alignment = Alignment(horizontal="center", wrap_text=True)
+    for linha, alerta in enumerate(alertas, start=2):
+        ws.cell(row=linha, column=1, value=alerta.get("numero") or "")
+        ws.cell(row=linha, column=2, value=alerta.get("tipo") or "")
+        ws.cell(row=linha, column=3, value=alerta.get("chave") or "")
+        ws.cell(row=linha, column=4, value=alerta.get("descricao") or "")
+        ws.cell(row=linha, column=5, value=alerta.get("sugestao") or "")
+    ws.column_dimensions["A"].width = 12
+    ws.column_dimensions["B"].width = 18
+    ws.column_dimensions["C"].width = 48
+    ws.column_dimensions["D"].width = 60
+    ws.column_dimensions["E"].width = 40
+    buffer = BytesIO()
+    wb.save(buffer)
+    nome = f"alertas_emissao_{empresa.codigo_dominio}_{competencia}.xlsx"
+    resposta = HttpResponse(
+        buffer.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    resposta["Content-Disposition"] = f'attachment; filename="{nome}"'
+    return resposta
+
+
+@login_required
 @require_POST
 def definir_empresa(request, empresa_id):
     empresa = get_object_or_404(Empresa, pk=empresa_id)

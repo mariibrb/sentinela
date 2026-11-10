@@ -43,10 +43,39 @@
 </section>
 {% if resumo_icms.alertas_encontrados %}
 <section class="mb-4 rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
-  <h2 class="mb-2 text-lg font-bold text-red-700">Alertas de emissão</h2>
-  {% for alerta in resumo_icms.alertas_encontrados %}
-  <p class="text-red-800">{{ alerta.numero }} · {{ alerta.descricao }} {{ alerta.sugestao }}</p>
-  {% endfor %}
+  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+    <div>
+      <h2 class="text-lg font-bold text-red-700">Alertas de emissão</h2>
+      <p class="text-sm text-red-800">{{ resumo_icms.alertas_encontrados|length }} nota(s) de saída com base de ICMS e valor de ICMS zerado (erro de emissão).</p>
+    </div>
+    <a class="rounded-xl bg-red-700 px-3.5 py-2 text-xs font-bold text-white shadow-sm hover:bg-red-800" href="{% url 'exportar_alertas_emissao' %}" title="Baixa a planilha com número, chave, descrição e sugestão de cada alerta">
+      Extrair relatório de erros de emissão (.xlsx)
+    </a>
+  </div>
+  <div class="overflow-auto rounded-2xl border border-red-100 bg-white">
+    <table class="w-full text-left text-sm">
+      <thead class="bg-red-100 text-xs uppercase tracking-wide text-red-900">
+        <tr>
+          <th class="px-3 py-3">Nota</th>
+          <th class="px-3 py-3">Tipo</th>
+          <th class="px-3 py-3">Diagnóstico</th>
+          <th class="px-3 py-3">Sugestão</th>
+          <th class="px-3 py-3">Chave</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for alerta in resumo_icms.alertas_encontrados %}
+        <tr class="border-t border-red-50">
+          <td class="px-3 py-3 font-semibold">{{ alerta.numero }}</td>
+          <td class="px-3 py-3">{{ alerta.tipo }}</td>
+          <td class="px-3 py-3">{{ alerta.descricao }}</td>
+          <td class="px-3 py-3">{{ alerta.sugestao }}</td>
+          <td class="px-3 py-3 font-mono text-xs">{{ alerta.chave }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
 </section>
 {% endif %}
 {% endif %}

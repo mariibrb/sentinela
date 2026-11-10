@@ -446,6 +446,11 @@ class FluxoSentinelaTest(TestCase):
         self.assertContains(tela, "Canceladas")
         self.assertContains(tela, "Extrair planilha")
         self.assertContains(tela, "Extrair XML")
+        self.assertContains(tela, "Página 1")
+        self.assertEqual(tela.context["painel"]["pagina"], 1)
+        self.assertEqual(tela.context["painel"]["total_paginas"], 1)
+        pagina2 = self.client.get("/triagem/garimpeiro/?aba=lidos&page=2")
+        self.assertEqual(pagina2.context["painel"]["pagina"], 1)  # só 1 página disponível
         canceladas = self.client.get("/triagem/garimpeiro/?aba=canceladas")
         self.assertContains(canceladas, chave_cancelada)
         buracos = self.client.get("/triagem/garimpeiro/?aba=buracos")
@@ -453,8 +458,41 @@ class FluxoSentinelaTest(TestCase):
         planilha = self.client.post("/triagem/garimpeiro/extrair/", {"aba": "lidos", "tipo": "planilha"})
         self.assertEqual(planilha.status_code, 200)
         self.assertIn("text/csv", planilha["Content-Type"])
+        hub = self.client.get("/triagem/")
+        self.assertContains(hub, "Módulos da leitura fiscal")
+        self.assertContains(hub, "Apanhador NFS-e")
+        self.assertContains(hub, "lote-xml")
         painel = self.client.get("/", follow=True)
         self.assertContains(painel, "Garimpeiro")
+        self.assertContains(painel, "▾")
+
+        # Relatório de erro de emissão no Painel (base ICMS > 0 e ICMS zerado)
+        from datetime import date
+        from decimal import Decimal
+
+        chave_erro = ("352007" + CNPJ + "550010000000015123456789012").ljust(44, "0")[:44]
+        DocumentoXML.objects.create(
+            empresa=empresa,
+            competencia="102026",
+            modelo="55",
+            chave_acesso=chave_erro,
+            numero_nota="15",
+            serie="1",
+            data_emissao=date(2026, 10, 20),
+            tipo_operacao="SAIDA_PROPRIA",
+            status_sefa="AUTORIZADA",
+            base_icms=Decimal("100.00"),
+            valor_icms=Decimal("0.00"),
+        )
+        painel_alertas = self.client.get("/painel/")
+        self.assertContains(painel_alertas, "Alertas de emissão")
+        self.assertContains(painel_alertas, "Extrair relatório de erros de emissão")
+        xlsx = self.client.get("/painel/alertas-emissao.xlsx")
+        self.assertEqual(xlsx.status_code, 200)
+        self.assertIn(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            xlsx["Content-Type"],
+        )
 
     def test_planilha_lote_tabela_unica_apenas_desenvolvedor(self):
         from openpyxl import load_workbook

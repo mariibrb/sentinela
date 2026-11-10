@@ -136,12 +136,16 @@ def garimpeiro(request):
     request.modulo = "garimpeiro"
     empresa = _empresa_ativa(request)
     aba = _aba(request.GET.get("aba", ""))
+    try:
+        pagina = int(request.GET.get("page") or 1)
+    except (TypeError, ValueError):
+        pagina = 1
     painel_dados = None
     periodo = _periodo(request)
     grade_json = "[]"
     colunas_json = "[]"
     if empresa is not None and periodo is not None:
-        painel_dados = montar(empresa, request.session.get("competencia", ""), aba)
+        painel_dados = montar(empresa, request.session.get("competencia", ""), aba, pagina=pagina)
         grade_json = json.dumps(painel_dados.get("linhas_grade", []), ensure_ascii=False)
         colunas_json = json.dumps(painel_dados.get("colunas", []), ensure_ascii=False)
     return render(request, "triagem/garimpeiro.html", {
