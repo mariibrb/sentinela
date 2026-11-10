@@ -640,6 +640,65 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(emp.status, "Inativo")
         self.assertEqual(emp.data_saida_cliente, "11/2026")
 
+    def test_importa_carteira_fiscal_so_cod_cnpj_e_responsaveis(self):
+        from unittest.mock import patch
+
+        from openpyxl import Workbook
+
+        from clientes.carteira_fiscal import importar_carteira_fiscal
+
+        Colaborador.objects.create(nome="Joana", cargo="Auxiliar Fiscal")
+        Colaborador.objects.create(nome="Clayton Bueno", cargo="Analista Fiscal Júnior")
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "EMPRESAS"
+        ws.append(["CÓD", "RAZÃO SOCIAL", "RT", "ATIVIDADE", "CNPJ", "IE", "IM", "CIDADE", "UF", "REINF", "MIT", "OBS", "RESPONSAVEL", "REVISADO", "RET-MG"])
+        ws.append([465, "EMPRESA A", "LP", "SERVIÇO", "12.345.678/0001-95", "", "", "BH", "MG", "", "", "", "JOANA", "MARIANA", "NÃO"])
+        ws.append([483, "EMPRESA B", "SN", "SERVIÇO", "11.222.333/0001-81", "", "", "SP", "SP", "", "", "", "CLAYTON", "CLAYTON", "NÃO"])
+        buf = BytesIO()
+        wb.save(buf)
+
+        retorno = {
+            "razao_social": "EMPRESA API LTDA",
+            "nome_fantasia": "API",
+            "tipo_estabelecimento": "Matriz",
+            "status": "Ativo",
+            "data_abertura": "01/01/2020",
+            "cep": "30140071",
+            "logradouro": "Rua Teste",
+            "numero": "100",
+            "complemento": "",
+            "bairro": "Centro",
+            "municipio": "Belo Horizonte",
+            "uf": "MG",
+            "codigo_ibge": "3106200",
+            "cnae_principal": "6201501",
+            "cnae_descricao": "Desenvolvimento",
+            "ramo_atividade": "Prestação de Serviços",
+            "inscricao_estadual": "123",
+            "substituicoes": {},
+        }
+        with patch.object(ServicoConsultaCNPJ, "dados_cadastrais", side_effect=lambda _c: dict(retorno)):
+            resultado = importar_carteira_fiscal(buf.getvalue(), usuario=self.usuario, pausa_s=0)
+
+        self.assertTrue(resultado["ok"])
+        self.assertEqual(resultado["criados"], 2)
+        self.assertEqual(resultado["erros"], [])
+        a = Empresa.objects.get(codigo_dominio="0465")
+        self.assertEqual(a.cnpj, "12345678000195")
+        self.assertEqual(a.responsavel_apuracao.nome, "Joana")
+        self.assertEqual(a.responsavel_revisao.nome, "Mariana Barbosa")
+        self.assertEqual(a.razao_social, "EMPRESA API LTDA")
+        b = Empresa.objects.get(codigo_dominio="0483")
+        self.assertEqual(b.responsavel_apuracao.nome, "Clayton Bueno")
+        self.assertEqual(b.responsavel_revisao.nome, "Clayton Bueno")
+
+        User.objects.create_user("dev_carteira", password="senha-dev-123", is_staff=True)
+        self.client.login(username="dev_carteira", password="senha-dev-123")
+        lista = self.client.get("/clientes/")
+        self.assertContains(lista, "Subir Carteira Fiscal")
+
 
 class MatrioscaZipTest(SimpleTestCase):
     def test_abre_oito_zips_dentro_de_pastas(self):

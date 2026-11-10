@@ -680,3 +680,34 @@ def importar_lote_clientes(request):
     if len(erros) > 15:
         messages.error(request, f"E mais {len(erros) - 15} linha(s) com aviso.")
     return redirect("lista_empresas")
+
+
+@require_POST
+@apenas_administrador
+def importar_carteira_fiscal(request):
+    from clientes.carteira_fiscal import importar_carteira_fiscal as rodar_import
+
+    arquivo = request.FILES.get("planilha_carteira_fiscal")
+    if not arquivo:
+        messages.error(request, "Selecione a planilha Fiscal (.xlsx) com a aba EMPRESAS.")
+        return redirect("lista_empresas")
+    if not (arquivo.name or "").lower().endswith(".xlsx"):
+        messages.error(request, "Envie um arquivo no formato Excel (.xlsx).")
+        return redirect("lista_empresas")
+
+    resultado = rodar_import(arquivo.read(), usuario=request.user, buscar_cnpj=True)
+    criados = resultado.get("criados", 0)
+    atualizados = resultado.get("atualizados", 0)
+    erros = resultado.get("erros") or []
+
+    if criados or atualizados:
+        messages.success(
+            request,
+            f"Carteira Fiscal: {criados} cliente(s) criado(s) e {atualizados} atualizado(s) "
+            f"(só CÓD, CNPJ, quem executa e revisador).",
+        )
+    for err in erros[:20]:
+        messages.error(request, err)
+    if len(erros) > 20:
+        messages.error(request, f"E mais {len(erros) - 20} linha(s) com aviso.")
+    return redirect("lista_empresas")

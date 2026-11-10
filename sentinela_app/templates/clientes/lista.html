@@ -58,6 +58,19 @@
         Subir Planilha em Lote Único
       </button>
     </form>
+    <div class="mt-4 border-t border-pink-100 pt-4">
+      <strong class="block text-sm font-bold text-stone-900">Carteira Fiscal (CÓD + CNPJ + executa + revisador)</strong>
+      <p class="mb-2 text-xs text-stone-600">
+        Sobe a planilha <strong>FISCAL - EMPRESAS E RESUMO.xlsx</strong> (aba EMPRESAS). O Sentinela usa só código Domínio, CNPJ, RESPONSAVEL e REVISADO; em cliente novo dispara o Buscar CNPJ.
+      </p>
+      <form method="post" action="{% url 'importar_carteira_fiscal' %}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
+        {% csrf_token %}
+        <input type="file" name="planilha_carteira_fiscal" accept=".xlsx" required class="rounded-xl border border-stone-300 bg-white px-3 py-1.5 text-xs">
+        <button type="submit" class="whitespace-nowrap rounded-xl bg-violet-700 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-800">
+          Subir Carteira Fiscal
+        </button>
+      </form>
+    </div>
   </div>
   {% endif %}
 </section>
