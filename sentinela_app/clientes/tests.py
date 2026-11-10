@@ -592,7 +592,7 @@ class FluxoSentinelaTest(TestCase):
 
         # Lista limpa: sem colunas Notas/Escopo; filtros multi estilo Excel; exporta com filtros
         lista = self.client.get("/clientes/")
-        self.assertContains(lista, "Usar no Sentinela")
+        self.assertNotContains(lista, "Usar no Sentinela")
         self.assertContains(lista, "Busca livre")
         self.assertContains(lista, "Filtrar UF")
         self.assertContains(lista, "Filtrar Regime")

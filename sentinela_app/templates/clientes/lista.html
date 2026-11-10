@@ -119,7 +119,6 @@
         <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
         <td class="px-3 py-3">
           <div class="flex flex-wrap gap-2">
-            <form method="post" action="{% url 'definir_empresa' empresa.pk %}">{% csrf_token %}<input type="hidden" name="next" value="{{ request.path }}{% if query_filtros %}?{{ query_filtros }}{% endif %}"><button class="rounded-xl bg-pink-600 px-3 py-2 text-white shadow-sm" type="submit" title="Define esta empresa como a ativa nas telas do Sentinela (Garimpeiro, Apanhador, etc.)">Usar no Sentinela</button></form>
             {% if permissoes.pode_editar_cliente %}
               <a class="rounded-xl border border-stone-200 bg-white px-3 py-2 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}">Cadastro</a>
               <a class="rounded-xl border border-pink-200 bg-pink-50 px-3 py-2 font-semibold text-pink-800 shadow-sm" href="{% url 'editar_empresa' empresa.pk %}?aba=escopo">Escopo</a>
