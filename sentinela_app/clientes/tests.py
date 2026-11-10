@@ -640,64 +640,84 @@ class FluxoSentinelaTest(TestCase):
         self.assertEqual(emp.status, "Inativo")
         self.assertEqual(emp.data_saida_cliente, "11/2026")
 
-    def test_importa_carteira_fiscal_so_cod_cnpj_e_responsaveis(self):
+    def test_semente_carteira_fiscal_grava_cod_cnpj_e_responsaveis(self):
+        import json
+        from pathlib import Path
         from unittest.mock import patch
 
-        from openpyxl import Workbook
+        from clientes.carteira_fiscal import aplicar_semente_carteira_fiscal
 
-        from clientes.carteira_fiscal import importar_carteira_fiscal
-
-        Colaborador.objects.create(nome="Joana", cargo="Auxiliar Fiscal")
-        Colaborador.objects.create(nome="Clayton Bueno", cargo="Analista Fiscal Júnior")
-
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "EMPRESAS"
-        ws.append(["CÓD", "RAZÃO SOCIAL", "RT", "ATIVIDADE", "CNPJ", "IE", "IM", "CIDADE", "UF", "REINF", "MIT", "OBS", "RESPONSAVEL", "REVISADO", "RET-MG"])
-        ws.append([465, "EMPRESA A", "LP", "SERVIÇO", "12.345.678/0001-95", "", "", "BH", "MG", "", "", "", "JOANA", "MARIANA", "NÃO"])
-        ws.append([483, "EMPRESA B", "SN", "SERVIÇO", "11.222.333/0001-81", "", "", "SP", "SP", "", "", "", "CLAYTON", "CLAYTON", "NÃO"])
-        buf = BytesIO()
-        wb.save(buf)
-
-        retorno = {
-            "razao_social": "EMPRESA API LTDA",
-            "nome_fantasia": "API",
-            "tipo_estabelecimento": "Matriz",
-            "status": "Ativo",
-            "data_abertura": "01/01/2020",
-            "cep": "30140071",
-            "logradouro": "Rua Teste",
-            "numero": "100",
-            "complemento": "",
-            "bairro": "Centro",
-            "municipio": "Belo Horizonte",
-            "uf": "MG",
-            "codigo_ibge": "3106200",
-            "cnae_principal": "6201501",
-            "cnae_descricao": "Desenvolvimento",
-            "ramo_atividade": "Prestação de Serviços",
-            "inscricao_estadual": "123",
-            "substituicoes": {},
+        seed = {
+            "colaboradores": [
+                {"nome": "Joana", "cargo": "Auxiliar Fiscal", "email": "", "ativo": True},
+                {"nome": "Clayton Bueno", "cargo": "Analista", "email": "", "ativo": True},
+            ],
+            "empresas": [
+                {
+                    "codigo_dominio": "0465",
+                    "cnpj": "12345678000195",
+                    "razao_social": "EMPRESA A LTDA",
+                    "cep": "30140071",
+                    "logradouro": "Rua A",
+                    "numero": "1",
+                    "bairro": "Centro",
+                    "uf": "MG",
+                    "municipio": "Belo Horizonte",
+                    "codigo_ibge": "3106200",
+                    "cnae_principal": "6201501",
+                    "regime_tributario": "Lucro Presumido",
+                    "regime_pis_cofins": "Cumulativo",
+                    "executa": "JOANA",
+                    "revisa": "MARIANA",
+                    "ies_st": [],
+                },
+                {
+                    "codigo_dominio": "0483",
+                    "cnpj": "11222333000181",
+                    "razao_social": "EMPRESA B LTDA",
+                    "cep": "01001000",
+                    "logradouro": "Rua B",
+                    "numero": "2",
+                    "bairro": "Sé",
+                    "uf": "SP",
+                    "municipio": "São Paulo",
+                    "codigo_ibge": "3550308",
+                    "cnae_principal": "6201501",
+                    "regime_tributario": "Simples Nacional",
+                    "regime_pis_cofins": "Simples Nacional",
+                    "executa": "CLAYTON",
+                    "revisa": "CLAYTON",
+                    "ies_st": [],
+                },
+            ],
         }
-        with patch.object(ServicoConsultaCNPJ, "dados_cadastrais", side_effect=lambda _c: dict(retorno)):
-            resultado = importar_carteira_fiscal(buf.getvalue(), usuario=self.usuario, pausa_s=0)
+        with patch(
+            "clientes.carteira_fiscal._carregar_seed",
+            return_value=seed,
+        ):
+            resultado = aplicar_semente_carteira_fiscal()
 
-        self.assertTrue(resultado["ok"])
         self.assertEqual(resultado["criados"], 2)
-        self.assertEqual(resultado["erros"], [])
         a = Empresa.objects.get(codigo_dominio="0465")
         self.assertEqual(a.cnpj, "12345678000195")
         self.assertEqual(a.responsavel_apuracao.nome, "Joana")
         self.assertEqual(a.responsavel_revisao.nome, "Mariana Barbosa")
-        self.assertEqual(a.razao_social, "EMPRESA API LTDA")
         b = Empresa.objects.get(codigo_dominio="0483")
         self.assertEqual(b.responsavel_apuracao.nome, "Clayton Bueno")
         self.assertEqual(b.responsavel_revisao.nome, "Clayton Bueno")
 
-        User.objects.create_user("dev_carteira", password="senha-dev-123", is_staff=True)
-        self.client.login(username="dev_carteira", password="senha-dev-123")
-        lista = self.client.get("/clientes/")
-        self.assertContains(lista, "Subir Carteira Fiscal")
+        # Idempotente: segunda aplicação só atualiza
+        with patch("clientes.carteira_fiscal._carregar_seed", return_value=seed):
+            de_novo = aplicar_semente_carteira_fiscal()
+        self.assertEqual(de_novo["criados"], 0)
+        self.assertEqual(de_novo["atualizados"], 2)
+        self.assertEqual(Empresa.objects.filter(codigo_dominio__in=["0465", "0483"]).count(), 2)
+
+        # Seed real do repositório existe e tem a carteira Fiscal
+        caminho = Path(__file__).resolve().parent / "fixtures" / "carteira_fiscal_seed.json"
+        self.assertTrue(caminho.is_file())
+        bruto = json.loads(caminho.read_text(encoding="utf-8"))
+        self.assertGreaterEqual(len(bruto.get("empresas") or []), 200)
 
 
 class MatrioscaZipTest(SimpleTestCase):

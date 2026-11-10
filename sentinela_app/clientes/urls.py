@@ -14,5 +14,4 @@ urlpatterns = [
     path("planilha-modelo/", views.baixar_planilha_clientes, name="baixar_planilha_clientes"),
     path("exportar-relatorio/", views.exportar_relatorio_clientes, name="exportar_relatorio_clientes"),
     path("importar-lote/", views.importar_lote_clientes, name="importar_lote_clientes"),
-    path("importar-carteira-fiscal/", views.importar_carteira_fiscal, name="importar_carteira_fiscal"),
 ]

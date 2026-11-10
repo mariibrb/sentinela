@@ -47,6 +47,18 @@ class Command(BaseCommand):
             "Bueno",
         )
 
+        # Carteira Fiscal já cadastrada (CÓD + CNPJ + ops + revisador) a partir da planilha do Fiscal.
+        from clientes.carteira_fiscal import aplicar_semente_carteira_fiscal
+
+        resultado = aplicar_semente_carteira_fiscal(criar_pastas_clientes=False)
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Carteira Fiscal: {resultado['criados']} criados, "
+                f"{resultado['atualizados']} atualizados "
+                f"(seed {resultado['total_seed']})."
+            )
+        )
+
     def _garantir_analista(self, User, username, senha, email, nome, sobrenome):
         if not username or not senha:
             return
