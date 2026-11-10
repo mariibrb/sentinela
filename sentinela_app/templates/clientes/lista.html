@@ -8,7 +8,7 @@
       <p class="text-sm font-semibold text-pink-700">Módulo de clientes e escopo contratado</p>
       <h1 class="text-3xl font-extrabold">Clientes</h1>
       <p class="mt-1 text-stone-500">
-        Funciona como planilha: use a <strong>busca livre</strong> para achar qualquer texto e os <strong>filtros de cada coluna</strong> para cruzar (UF + Regime + Regime Especial + responsável…).
+        Clique no <strong>▾</strong> do cabeçalho para filtrar a coluna (várias opções, como no Excel). Fora da tabela ficam só a busca livre e o checklist.
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
@@ -19,152 +19,18 @@
     </div>
   </div>
 
-  <form method="get" id="form-filtros-clientes" class="space-y-3">
-    <div class="rounded-2xl border border-stone-200 bg-stone-50/80 p-4">
-      <div class="mb-2 flex flex-wrap items-center gap-2">
-        <strong class="text-sm font-bold text-stone-800">Busca livre (qualquer coisa digitada)</strong>
-        <span class="group relative inline-flex h-5 w-5 cursor-help items-center justify-center rounded-lg border border-pink-300 bg-white text-xs font-extrabold text-pink-700 shadow-sm">
-          ?
-          <span class="pointer-events-none absolute left-0 top-full z-30 mt-2 hidden w-96 rounded-xl border border-stone-800 bg-stone-900 p-3 text-[11px] font-normal leading-relaxed text-white shadow-xl group-hover:block">
-            Digite um pedaço de qualquer informação cadastral. O Sentinela procura em:<br>
-            • Código Domínio, Razão Social, Fantasia, CNPJ<br>
-            • CNAE, descrição do CNAE, município, IE<br>
-            • Nomes dos responsáveis (operacional/revisador Fiscal, Contábil e DP)<br>
-            • Resumo do cliente e <strong>qualquer item marcado no checklist</strong> (ex.: DCTFWeb, Folha, ECD)<br><br>
-            Depois você ainda pode cruzar com os filtros das colunas abaixo (como AutoFiltro do Excel). Os dois trabalham juntos.
-          </span>
-        </span>
-      </div>
-      <div class="flex flex-wrap items-center gap-2">
-        <input class="w-full max-w-xl rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Ex.: 0578 · AFFONSO · 45785442 · DCTFWeb · Extrema · Ismael…">
-        <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
-        {% if tem_filtro %}
-        <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-600 shadow-sm">Limpar tudo</a>
-        {% endif %}
-        <span class="text-xs text-stone-500">{{ total_empresas }} cliente{{ total_empresas|pluralize:"s" }} na tela</span>
-      </div>
-    </div>
-
-    <div class="flex flex-wrap items-end gap-2 rounded-2xl border border-pink-100 bg-pink-50/40 p-3">
-      <p class="w-full text-xs font-semibold uppercase tracking-wide text-pink-800">Filtros das colunas (estilo planilha — mudam sozinhos ao escolher)</p>
-      <label class="text-xs font-semibold text-stone-600">UF
-        <select name="uf" onchange="this.form.submit()" class="mt-1 block min-w-[5rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todas</option>
-          {% for uf in ufs %}
-          <option value="{{ uf }}" {% if filtro_uf == uf %}selected{% endif %}>{{ uf }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Regime de apuração
-        <select name="regime" onchange="this.form.submit()" class="mt-1 block min-w-[10rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for regime in regimes_tributarios %}
-          <option value="{{ regime }}" {% if filtro_regime == regime %}selected{% endif %}>{{ regime }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Ramo
-        <select name="ramo" onchange="this.form.submit()" class="mt-1 block min-w-[10rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for ramo in ramos_atividade %}
-          <option value="{{ ramo }}" {% if filtro_ramo == ramo %}selected{% endif %}>{{ ramo }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Situação
-        <select name="situacao" onchange="this.form.submit()" class="mt-1 block min-w-[7rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todas</option>
-          <option value="Ativo" {% if filtro_situacao == "Ativo" %}selected{% endif %}>Ativo</option>
-          <option value="Inativo" {% if filtro_situacao == "Inativo" %}selected{% endif %}>Inativo</option>
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Matriz / Filial
-        <select name="tipo" onchange="this.form.submit()" class="mt-1 block min-w-[7rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todas</option>
-          <option value="Matriz" {% if filtro_tipo == "Matriz" %}selected{% endif %}>Matriz</option>
-          <option value="Filial" {% if filtro_tipo == "Filial" %}selected{% endif %}>Filial</option>
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Tem regime especial?
-        <select name="especial" onchange="this.form.submit()" class="mt-1 block min-w-[7rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          <option value="sim" {% if filtro_especial == "sim" %}selected{% endif %}>Sim</option>
-          <option value="nao" {% if filtro_especial == "nao" %}selected{% endif %}>Não</option>
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Perfil / regime especial
-        <select name="perfil" onchange="this.form.submit()" class="mt-1 block max-w-[14rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for codigo, rotulo in perfis_estabelecimento %}
-          <option value="{{ codigo }}" {% if filtro_perfil == codigo %}selected{% endif %}>{{ rotulo }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Operacional Fiscal
-        <select name="op_fiscal" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_op_fiscal == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Revisador Fiscal
-        <select name="rev_fiscal" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_rev_fiscal == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Operacional Contábil
-        <select name="op_contabil" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_op_contabil == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Revisador Contábil
-        <select name="rev_contabil" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_rev_contabil == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Operacional DP
-        <select name="op_dp" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_op_dp == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Revisador DP
-        <select name="rev_dp" onchange="this.form.submit()" class="mt-1 block min-w-[9rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for col in colaboradores_filtro %}
-          <option value="{{ col.pk }}" {% if filtro_rev_dp == col.pk|stringformat:"s" %}selected{% endif %}>{{ col.nome }}</option>
-          {% endfor %}
-        </select>
-      </label>
-      <label class="text-xs font-semibold text-stone-600">Item do checklist
-        <select name="escopo" onchange="this.form.submit()" class="mt-1 block max-w-[16rem] rounded-lg border border-stone-200 bg-white px-2 py-1.5 text-sm">
-          <option value="">Todos</option>
-          {% for grupo, itens in opcoes_filtro_escopo %}
-          <optgroup label="{{ grupo }}">
-            {% for item in itens %}
-            <option value="{{ item }}" {% if filtro_escopo == item %}selected{% endif %}>{{ item }}</option>
-            {% endfor %}
-          </optgroup>
-          {% endfor %}
-        </select>
-      </label>
-    </div>
+  <form method="get" id="form-filtros-clientes" class="mb-3 flex flex-wrap items-center gap-2">
+    <input class="w-full max-w-xl rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Busca livre: código, nome, CNPJ, CNAE, contato, DCTFWeb…">
+    {% include "clientes/_filtro_excel.html" with nome="escopo" rotulo="Checklist" opcoes=opcoes_escopo_pares selecionados=filtro_escopo %}
+    <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
+    {% if tem_filtro %}
+    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm text-stone-600 shadow-sm">Limpar tudo</a>
+    {% endif %}
+    <span class="text-xs text-stone-500">{{ total_empresas }} cliente{{ total_empresas|pluralize:"s" }} na tela</span>
   </form>
 
   {% if eh_administrador %}
-  <div class="mt-4 rounded-2xl border border-pink-200 bg-pink-50/50 p-4">
+  <div class="mb-4 rounded-2xl border border-pink-200 bg-pink-50/50 p-4">
     <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
       <div class="flex items-center gap-2">
         <span class="rounded-lg bg-pink-600 px-2 py-0.5 text-[10px] font-bold uppercase text-white">Somente Desenvolvedor</span>
@@ -173,9 +39,10 @@
           ?
           <span class="pointer-events-none absolute bottom-full left-0 z-30 mb-2 hidden w-80 rounded-xl border border-stone-800 bg-stone-900 p-3 text-[11px] font-normal leading-relaxed text-white shadow-xl group-hover:block">
             <strong>Como funciona a planilha de lote:</strong><br>
-            • Traz <strong>apenas dados manuais</strong> (Código Domínio, CNPJ, Regime, Responsáveis Operacionais/Revisadores de Fiscal/Contábil/DP, Contatos e Checklist colorido por setor).<br>
-            • Ao subir, o Sentinela dispara sozinho o <strong>Buscar CNPJ</strong> e preenche Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Ramo, Endereço, IBGE, IE e IEs ST!<br>
-            • Cada coluna no Excel tem um balão <strong>(?)</strong> que aparece ao passar o mouse.
+            • Traz <strong>apenas dados manuais</strong>.<br>
+            • <strong>Regime Especial</strong> = coluna Perfil (GERAL, ECOMMERCE, INDUSTRIA, CD, REGIME_ESPECIAL_MG/SP).<br>
+            • <strong>TTS</strong> = outra coluna, só para ICMS Incentivado (não é regime especial).<br>
+            • Ao subir, o Sentinela dispara o Buscar CNPJ sozinho.
           </span>
         </span>
       </div>
@@ -189,7 +56,7 @@
       </div>
     </div>
     <p class="mb-3 text-xs text-stone-600">
-      A planilha de upload traz <strong>apenas os dados manuais</strong>, 1ª linha de exemplo com 100% das colunas preenchidas, balões de ajuda <strong>(?)</strong> ao passar o mouse no Excel e cores separadas por departamento. Ao enviar, o <strong>Buscar CNPJ</strong> roda automaticamente para cada linha!
+      Regime Especial fica em <strong>Perfil / Regime Especial</strong>. A coluna TTS é só do ICMS Incentivado.
     </p>
     <form method="post" action="{% url 'importar_lote_clientes' %}" enctype="multipart/form-data" class="flex flex-wrap items-center gap-3">
       {% csrf_token %}
@@ -209,13 +76,14 @@
         <th class="px-3 py-3">Código</th>
         <th class="px-3 py-3">Razão social / Contatos</th>
         <th class="px-3 py-3">CNPJ</th>
-        <th class="px-3 py-3">UF</th>
-        <th class="px-3 py-3">Tipo</th>
-        <th class="px-3 py-3">Regime</th>
-        <th class="px-3 py-3">Ramo</th>
-        <th class="px-3 py-3">Regime especial</th>
-        <th class="px-3 py-3">Operacional Fiscal</th>
-        <th class="px-3 py-3">Situação</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="uf" rotulo="UF" opcoes=opcoes_uf selecionados=filtro_uf %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="tipo" rotulo="Tipo" opcoes=opcoes_tipo selecionados=filtro_tipo %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="regime" rotulo="Regime" opcoes=opcoes_regime selecionados=filtro_regime %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="ramo" rotulo="Ramo" opcoes=opcoes_ramo selecionados=filtro_ramo %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="especial" rotulo="Regime especial" opcoes=opcoes_especial selecionados=filtro_especial %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="perfil" rotulo="Perfil" opcoes=opcoes_perfil selecionados=filtro_perfil %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="op_fiscal" rotulo="Operacional Fiscal" opcoes=opcoes_colaboradores selecionados=filtro_op_fiscal %}</th>
+        <th class="px-3 py-3 whitespace-nowrap">{% include "clientes/_filtro_excel.html" with nome="situacao" rotulo="Situação" opcoes=opcoes_situacao selecionados=filtro_situacao %}</th>
         <th class="px-3 py-3">Ações</th>
       </tr>
     </thead>
@@ -242,11 +110,11 @@
         <td class="px-3 py-3">
           {% if empresa.possui_regime_especial or empresa.perfil_estabelecimento == "REGIME_ESPECIAL_MG" or empresa.perfil_estabelecimento == "REGIME_ESPECIAL_SP" %}
           <span class="rounded-lg bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-900">Sim</span>
-          <span class="mt-1 block text-[11px] text-stone-500">{{ empresa.get_perfil_estabelecimento_display }}</span>
           {% else %}
           <span class="text-stone-400">Não</span>
           {% endif %}
         </td>
+        <td class="px-3 py-3 text-xs">{{ empresa.get_perfil_estabelecimento_display }}</td>
         <td class="px-3 py-3">{{ empresa.responsavel_apuracao.nome|default:"—" }}</td>
         <td class="px-3 py-3">{% if empresa.status == "Ativo" %}Ativo{% else %}Inativo{% endif %}</td>
         <td class="px-3 py-3">
@@ -268,9 +136,26 @@
         </td>
       </tr>
       {% empty %}
-      <tr><td class="px-3 py-4 text-stone-500" colspan="11">Nenhum cliente encontrado com esses filtros.</td></tr>
+      <tr><td class="px-3 py-4 text-stone-500" colspan="12">Nenhum cliente encontrado com esses filtros.</td></tr>
       {% endfor %}
     </tbody>
   </table>
 </section>
+<script>
+  function alternarFiltroExcel(botao) {
+    const painel = botao.parentElement.querySelector(".painel-filtro-excel");
+    const aberto = !painel.classList.contains("hidden");
+    document.querySelectorAll(".painel-filtro-excel").forEach((el) => el.classList.add("hidden"));
+    if (!aberto) painel.classList.remove("hidden");
+  }
+  function limparGrupoFiltroExcel(botao) {
+    botao.closest(".painel-filtro-excel").querySelectorAll('input[type="checkbox"]').forEach((el) => { el.checked = false; });
+    document.getElementById("form-filtros-clientes").submit();
+  }
+  document.addEventListener("click", (evento) => {
+    if (!evento.target.closest("[data-filtro-excel]")) {
+      document.querySelectorAll(".painel-filtro-excel").forEach((el) => el.classList.add("hidden"));
+    }
+  });
+</script>
 {% endblock %}

@@ -143,24 +143,46 @@ def definir_competencia(request):
     return redirect(destino)
 
 
+def _lista_parametros(get, chave: str) -> list[str]:
+    """Lê um filtro multi-seleção estilo Excel (vários checkboxes com o mesmo name)."""
+    valores = []
+    vistos = set()
+    for bruto in get.getlist(chave):
+        for parte in str(bruto or "").replace("|", ",").split(","):
+            limpo = parte.strip()
+            if not limpo or limpo in vistos:
+                continue
+            vistos.add(limpo)
+            valores.append(limpo)
+    return valores
+
+
+def _ids_parametros(valores: list[str]) -> list[int]:
+    ids = []
+    for valor in valores:
+        if valor.isdigit():
+            ids.append(int(valor))
+    return ids
+
+
 def _filtrar_empresas_request(request):
-    """Filtros estilo planilha: busca livre (q) + 1 filtro por coluna."""
+    """Filtros estilo planilha Excel: busca livre + multi-seleção por coluna."""
     get = request.GET
     termo = get.get("q", "").strip()
-    filtro_uf = get.get("uf", "").strip().upper()
-    filtro_regime = get.get("regime", "").strip()
-    filtro_ramo = get.get("ramo", "").strip()
-    filtro_situacao = get.get("situacao", "").strip()
-    filtro_perfil = get.get("perfil", "").strip()
-    filtro_tipo = get.get("tipo", "").strip()
-    filtro_especial = get.get("especial", "").strip()
-    filtro_op_fiscal = get.get("op_fiscal", "").strip()
-    filtro_rev_fiscal = get.get("rev_fiscal", "").strip()
-    filtro_op_contabil = get.get("op_contabil", "").strip()
-    filtro_rev_contabil = get.get("rev_contabil", "").strip()
-    filtro_op_dp = get.get("op_dp", "").strip()
-    filtro_rev_dp = get.get("rev_dp", "").strip()
-    filtro_escopo = get.get("escopo", "").strip()
+    filtro_uf = [v.upper() for v in _lista_parametros(get, "uf")]
+    filtro_regime = _lista_parametros(get, "regime")
+    filtro_ramo = _lista_parametros(get, "ramo")
+    filtro_situacao = [v for v in _lista_parametros(get, "situacao") if v in {"Ativo", "Inativo"}]
+    filtro_perfil = _lista_parametros(get, "perfil")
+    filtro_tipo = [v for v in _lista_parametros(get, "tipo") if v in {"Matriz", "Filial"}]
+    filtro_especial = [v.lower() for v in _lista_parametros(get, "especial") if v.lower() in {"sim", "nao"}]
+    filtro_op_fiscal = _lista_parametros(get, "op_fiscal")
+    filtro_rev_fiscal = _lista_parametros(get, "rev_fiscal")
+    filtro_op_contabil = _lista_parametros(get, "op_contabil")
+    filtro_rev_contabil = _lista_parametros(get, "rev_contabil")
+    filtro_op_dp = _lista_parametros(get, "op_dp")
+    filtro_rev_dp = _lista_parametros(get, "rev_dp")
+    filtro_escopo = _lista_parametros(get, "escopo")
 
     empresas = Empresa.objects.select_related(
         "responsavel_apuracao",
@@ -192,40 +214,49 @@ def _filtrar_empresas_request(request):
             | Q(responsavel_revisador_dp__nome__icontains=termo)
         )
     if filtro_uf:
-        empresas = empresas.filter(uf=filtro_uf)
+        empresas = empresas.filter(uf__in=filtro_uf)
     if filtro_regime:
-        empresas = empresas.filter(regime_tributario=filtro_regime)
+        empresas = empresas.filter(regime_tributario__in=filtro_regime)
     if filtro_ramo:
-        empresas = empresas.filter(ramo_atividade=filtro_ramo)
-    if filtro_situacao in {"Ativo", "Inativo"}:
-        empresas = empresas.filter(status=filtro_situacao)
+        empresas = empresas.filter(ramo_atividade__in=filtro_ramo)
+    if filtro_situacao:
+        empresas = empresas.filter(status__in=filtro_situacao)
     if filtro_perfil:
-        empresas = empresas.filter(perfil_estabelecimento=filtro_perfil)
-    if filtro_tipo in {"Matriz", "Filial"}:
-        empresas = empresas.filter(tipo_estabelecimento=filtro_tipo)
-    if filtro_especial == "sim":
+        empresas = empresas.filter(perfil_estabelecimento__in=filtro_perfil)
+    if filtro_tipo:
+        empresas = empresas.filter(tipo_estabelecimento__in=filtro_tipo)
+    if filtro_especial == ["sim"]:
         empresas = empresas.filter(
             Q(possui_regime_especial=True)
             | Q(perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF))
         )
-    elif filtro_especial == "nao":
+    elif filtro_especial == ["nao"]:
         empresas = empresas.filter(possui_regime_especial=False).exclude(
             perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF)
         )
-    if filtro_op_fiscal.isdigit():
-        empresas = empresas.filter(responsavel_apuracao_id=int(filtro_op_fiscal))
-    if filtro_rev_fiscal.isdigit():
-        empresas = empresas.filter(responsavel_revisao_id=int(filtro_rev_fiscal))
-    if filtro_op_contabil.isdigit():
-        empresas = empresas.filter(responsavel_operacional_contabil_id=int(filtro_op_contabil))
-    if filtro_rev_contabil.isdigit():
-        empresas = empresas.filter(responsavel_revisador_contabil_id=int(filtro_rev_contabil))
-    if filtro_op_dp.isdigit():
-        empresas = empresas.filter(responsavel_operacional_dp_id=int(filtro_op_dp))
-    if filtro_rev_dp.isdigit():
-        empresas = empresas.filter(responsavel_revisador_dp_id=int(filtro_rev_dp))
+    ids_op_f = _ids_parametros(filtro_op_fiscal)
+    if ids_op_f:
+        empresas = empresas.filter(responsavel_apuracao_id__in=ids_op_f)
+    ids_rev_f = _ids_parametros(filtro_rev_fiscal)
+    if ids_rev_f:
+        empresas = empresas.filter(responsavel_revisao_id__in=ids_rev_f)
+    ids_op_c = _ids_parametros(filtro_op_contabil)
+    if ids_op_c:
+        empresas = empresas.filter(responsavel_operacional_contabil_id__in=ids_op_c)
+    ids_rev_c = _ids_parametros(filtro_rev_contabil)
+    if ids_rev_c:
+        empresas = empresas.filter(responsavel_revisador_contabil_id__in=ids_rev_c)
+    ids_op_dp = _ids_parametros(filtro_op_dp)
+    if ids_op_dp:
+        empresas = empresas.filter(responsavel_operacional_dp_id__in=ids_op_dp)
+    ids_rev_dp = _ids_parametros(filtro_rev_dp)
+    if ids_rev_dp:
+        empresas = empresas.filter(responsavel_revisador_dp_id__in=ids_rev_dp)
     if filtro_escopo:
-        empresas = empresas.filter(busca_escopo__icontains=filtro_escopo)
+        q_escopo = Q()
+        for item in filtro_escopo:
+            q_escopo |= Q(busca_escopo__icontains=item)
+        empresas = empresas.filter(q_escopo)
 
     filtros = {
         "termo": termo,
@@ -244,28 +275,33 @@ def _filtrar_empresas_request(request):
         "filtro_rev_dp": filtro_rev_dp,
         "filtro_escopo": filtro_escopo,
     }
-    filtros["tem_filtro"] = any(filtros.values())
-    filtros["query_filtros"] = "&".join(
-        f"{chave}={valor}"
-        for chave, valor in {
-            "q": termo,
-            "uf": filtro_uf,
-            "regime": filtro_regime,
-            "ramo": filtro_ramo,
-            "situacao": filtro_situacao,
-            "perfil": filtro_perfil,
-            "tipo": filtro_tipo,
-            "especial": filtro_especial,
-            "op_fiscal": filtro_op_fiscal,
-            "rev_fiscal": filtro_rev_fiscal,
-            "op_contabil": filtro_op_contabil,
-            "rev_contabil": filtro_rev_contabil,
-            "op_dp": filtro_op_dp,
-            "rev_dp": filtro_rev_dp,
-            "escopo": filtro_escopo,
-        }.items()
-        if valor
+    filtros["tem_filtro"] = bool(termo) or any(
+        isinstance(v, list) and v for k, v in filtros.items() if k.startswith("filtro_")
     )
+    pares = []
+    if termo:
+        pares.append(("q", termo))
+    for chave, valores in (
+        ("uf", filtro_uf),
+        ("regime", filtro_regime),
+        ("ramo", filtro_ramo),
+        ("situacao", filtro_situacao),
+        ("perfil", filtro_perfil),
+        ("tipo", filtro_tipo),
+        ("especial", filtro_especial),
+        ("op_fiscal", filtro_op_fiscal),
+        ("rev_fiscal", filtro_rev_fiscal),
+        ("op_contabil", filtro_op_contabil),
+        ("rev_contabil", filtro_rev_contabil),
+        ("op_dp", filtro_op_dp),
+        ("rev_dp", filtro_rev_dp),
+        ("escopo", filtro_escopo),
+    ):
+        for valor in valores:
+            pares.append((chave, valor))
+    from urllib.parse import urlencode
+
+    filtros["query_filtros"] = urlencode(pares)
     return empresas, filtros
 
 
@@ -275,13 +311,16 @@ def lista_empresas(request):
     empresas, filtros = _filtrar_empresas_request(request)
     from clientes.escopo import ESTADOS_BR, ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
 
-    opcoes_filtro_escopo = [
-        ("Departamento Fiscal", ITENS_FISCAIS),
-        ("Departamento Contábil", ITENS_CONTABEIS),
-        ("Departamento Pessoal (DP)", ITENS_DP),
-        ("Regularização / Abertura", ITENS_REGULARIZACAO),
-    ]
     colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome"))
+    opcoes_escopo_pares = []
+    for grupo, itens in (
+        ("Fiscal", ITENS_FISCAIS),
+        ("Contábil", ITENS_CONTABEIS),
+        ("DP", ITENS_DP),
+        ("Regularização", ITENS_REGULARIZACAO),
+    ):
+        for item in itens:
+            opcoes_escopo_pares.append((item, f"[{grupo}] {item}"))
     return render(
         request,
         "clientes/lista.html",
@@ -289,12 +328,15 @@ def lista_empresas(request):
             "empresas": empresas,
             "total_empresas": empresas.count(),
             **filtros,
-            "ufs": ESTADOS_BR,
-            "ramos_atividade": [r[0] for r in Empresa.RAMOS_ATIVIDADE],
-            "regimes_tributarios": [r[0] for r in Empresa.REGIMES_TRIBUTARIOS],
-            "perfis_estabelecimento": Empresa.PERFIS_ESTABELECIMENTO,
-            "colaboradores_filtro": colaboradores,
-            "opcoes_filtro_escopo": opcoes_filtro_escopo,
+            "opcoes_uf": [(uf, uf) for uf in ESTADOS_BR],
+            "opcoes_regime": [(r, r) for r, _ in Empresa.REGIMES_TRIBUTARIOS],
+            "opcoes_ramo": [(r, r) for r, _ in Empresa.RAMOS_ATIVIDADE],
+            "opcoes_situacao": [("Ativo", "Ativo"), ("Inativo", "Inativo")],
+            "opcoes_tipo": [("Matriz", "Matriz"), ("Filial", "Filial")],
+            "opcoes_especial": [("sim", "Sim"), ("nao", "Não")],
+            "opcoes_perfil": list(Empresa.PERFIS_ESTABELECIMENTO),
+            "opcoes_colaboradores": [(str(c.pk), c.nome) for c in colaboradores],
+            "opcoes_escopo_pares": opcoes_escopo_pares,
         },
     )
 

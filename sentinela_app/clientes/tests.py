@@ -514,7 +514,8 @@ class FluxoSentinelaTest(TestCase):
         down = self.client.get("/clientes/planilha-modelo/?vazia=1")
         self.assertEqual(down.status_code, 200)
         wb = load_workbook(BytesIO(down.content))
-        self.assertEqual(wb.sheetnames, ["Clientes_Escritorio"])
+        self.assertIn("Clientes_Escritorio", wb.sheetnames)
+        self.assertIn("Listas_Ajuda", wb.sheetnames)
         ws = wb["Clientes_Escritorio"]
         cabecalhos = [str(c or "") for c in next(ws.iter_rows(min_row=3, max_row=3, values_only=True))]
         texto_cab = " | ".join(cabecalhos)
@@ -529,10 +530,16 @@ class FluxoSentinelaTest(TestCase):
         self.assertIn("Responsável Revisador DP", texto_cab)
         self.assertIn("Ramo de Atividade", texto_cab)
         self.assertIn("Data de Saída", texto_cab)
+        self.assertIn("Perfil / Regime Especial", texto_cab)
+        self.assertIn("TTS do ICMS Incentivado", texto_cab)
+        self.assertIn("não é Regime Especial", texto_cab)
         # Confirma que NÃO tem colunas que o botão Buscar CNPJ já traz automaticamente
         self.assertNotIn("Razão Social *", texto_cab)
         self.assertNotIn("Logradouro *", texto_cab)
         self.assertNotIn("Código IBGE (7 dígitos) *", texto_cab)
+        listas = wb["Listas_Ajuda"]
+        self.assertEqual(listas["A1"].value, "Perfil / Regime Especial")
+        self.assertIn("TTS", str(listas["D1"].value or ""))
 
         from unittest.mock import patch
 
@@ -583,19 +590,22 @@ class FluxoSentinelaTest(TestCase):
         self.assertTrue(emp.substituicoes.filter(uf="SP", numero="813035560114").exists())
         self.assertTrue(emp.escopo_fiscal.get("Escrituração de Notas Fiscais de Entrada"))
 
-        # Lista limpa: sem colunas Notas/Escopo; filtros estilo planilha; exporta com filtros
+        # Lista limpa: sem colunas Notas/Escopo; filtros multi estilo Excel; exporta com filtros
         lista = self.client.get("/clientes/")
         self.assertContains(lista, "Usar no Sentinela")
         self.assertContains(lista, "Busca livre")
-        self.assertContains(lista, "Filtros das colunas")
-        self.assertContains(lista, "Tem regime especial?")
-        self.assertContains(lista, "Regime de apuração")
+        self.assertContains(lista, "Filtrar UF")
+        self.assertContains(lista, "Filtrar Regime")
+        self.assertContains(lista, "Filtrar Regime especial")
+        self.assertContains(lista, "Checklist")
+        self.assertContains(lista, "do cabeçalho para filtrar")
         self.assertNotContains(lista, ">Notas</th>")
         self.assertNotContains(lista, ">Escopo de Trabalho</th>")
         self.assertContains(lista, "Extrair Planilha dos Filtros")
-        filtrada = self.client.get("/clientes/?uf=MG&regime=Lucro Presumido&especial=nao")
+        filtrada = self.client.get("/clientes/?uf=MG&uf=SP&regime=Lucro Presumido&especial=nao")
         self.assertContains(filtrada, "AFFONSO DESCARTAVEIS LTDA")
         self.assertEqual(filtrada.context["total_empresas"], 1)
+        self.assertEqual(filtrada.context["filtro_uf"], ["MG", "SP"])
         vazia = self.client.get("/clientes/?uf=SP")
         self.assertEqual(vazia.context["total_empresas"], 0)
         rel = self.client.get("/clientes/exportar-relatorio/?uf=MG&ramo=Comércio e Indústria")

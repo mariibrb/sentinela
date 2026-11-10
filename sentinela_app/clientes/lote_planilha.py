@@ -38,7 +38,7 @@ COLUNAS_MANUAIS: list[tuple[str, str, int, str]] = [
     ("cnpj", "CNPJ (14 dígitos) *", 22, "obrig"),
     ("regime_tributario", "Regime Tributário *", 24, "obrig"),
     ("anexo_simples", "Anexo Simples (I a V)", 20, "cad"),
-    ("perfil_estabelecimento", "Perfil / Regime Especial", 26, "cad"),
+    ("perfil_estabelecimento", "Perfil / Regime Especial (lista)", 32, "cad"),
     ("responsavel_apuracao", "Responsável Operacional Fiscal *", 28, "obrig"),
     ("responsavel_revisao", "Responsável Revisador Fiscal *", 28, "obrig"),
     ("responsavel_operacional_contabil", "Responsável Operacional Contábil", 28, "cad"),
@@ -53,14 +53,14 @@ COLUNAS_MANUAIS: list[tuple[str, str, int, str]] = [
     ("inscricao_estadual_manual", "IE Manual / ISENTO (se não vier na busca)", 30, "cad"),
     ("contribuinte_icms", "Contribuinte ICMS (Sim/Não)", 24, "cad"),
     ("contribuinte_ipi", "Contribuinte IPI (Sim/Não)", 24, "cad"),
-    ("possui_regime_especial", "Regime Especial (Sim/Não)", 24, "cad"),
+    ("possui_regime_especial", "Tem Regime Especial MG/SP? (Sim/Não)", 30, "cad"),
     ("contatos_texto", "Contatos (Nome | Setor | E-mail | Telefone | WhatsApp)", 50, "cad"),
     ("resumo_cliente", "Resumo / Histórico do Cliente", 40, "cad"),
     ("qtd_notas_entrada", "Qtd média Entradas / mês", 22, "escopo"),
     ("qtd_notas_saida", "Qtd média Saídas / mês", 22, "escopo"),
     ("qtd_emissao_notas_servico", "Qtd Emissão Serviços / mês", 22, "escopo"),
     ("qtd_emissao_notas_produto", "Qtd Emissão Produtos / mês", 22, "escopo"),
-    ("tipos_icms_incentivado", "Incentivos TTS (separados por ;)", 34, "escopo"),
+    ("tipos_icms_incentivado", "TTS do ICMS Incentivado (não é Regime Especial)", 40, "escopo"),
     ("estados_icms_st", "UFs Apuração ICMS-ST (ex: MG;SP)", 26, "escopo"),
     ("estados_st", "UFs Inscrição ST (ex: MG;SP;BA)", 26, "escopo"),
 ]
@@ -78,7 +78,15 @@ AJUDA_COLUNAS_MANUAIS: dict[str, str] = {
     "cnpj": "Informe os 14 dígitos do CNPJ. Ao subir a planilha, o Sentinela dispara sozinho o 'Buscar CNPJ' e traz Razão Social, Fantasia, Matriz/Filial, Abertura, CNAE, Endereço, IBGE, IE e IEs ST!",
     "regime_tributario": "Escolha na lista: Simples Nacional, Lucro Presumido, Lucro Real, MEI ou Imune/Isenta. O PIS/COFINS é preenchido sozinho pelo regime.",
     "anexo_simples": "Obrigatório quando Simples Nacional. Opções: I, II, III, IV ou V.",
-    "perfil_estabelecimento": "Opções: GERAL, ECOMMERCE, INDUSTRIA, CD, REGIME_ESPECIAL_MG, REGIME_ESPECIAL_SP.",
+    "perfil_estabelecimento": (
+        "AQUI fica o Regime Especial / perfil do estabelecimento. Use a lista:\n"
+        "- GERAL = Regime Normal / Operação Padrão\n"
+        "- ECOMMERCE = E-commerce / Venda à Distância\n"
+        "- INDUSTRIA = Indústria\n"
+        "- CD = Centro de Distribuição / Armazém Geral\n"
+        "- REGIME_ESPECIAL_MG = Regime Especial concedido por MG (pede PDF do PTA)\n"
+        "- REGIME_ESPECIAL_SP = Regime Especial concedido por SP (pede PDF)"
+    ),
     "responsavel_apuracao": "Nome do colaborador responsável pelo operacional do Departamento Fiscal (ex.: Ismael).",
     "responsavel_revisao": "Nome do colaborador responsável pela revisão do Departamento Fiscal (ex.: Mariana Barbosa).",
     "responsavel_operacional_contabil": "Nome do colaborador responsável pelo operacional do Departamento Contábil.",
@@ -93,14 +101,19 @@ AJUDA_COLUNAS_MANUAIS: dict[str, str] = {
     "inscricao_estadual_manual": "Deixe em branco para usar a IE buscada automaticamente na Sefaz, ou escreva ISENTO (ou o nº manual).",
     "contribuinte_icms": "Escolha Sim ou Não.",
     "contribuinte_ipi": "Escolha Sim ou Não.",
-    "possui_regime_especial": "Escolha Sim ou Não.",
+    "possui_regime_especial": "Sim/Não se o cliente tem Regime Especial (MG/SP). Se o Perfil for REGIME_ESPECIAL_MG ou REGIME_ESPECIAL_SP, o Sentinela marca Sim sozinho. NÃO confundir com a coluna TTS.",
     "contatos_texto": "Formato: Nome | Setor | E-mail | Telefone | WhatsApp(Sim/Não). Para mais de um contato, separe por ponto e vírgula (;).",
     "resumo_cliente": "Breve histórico, particularidades da operação ou observações importantes para a equipe.",
     "qtd_notas_entrada": "Média mensal de notas de entrada. Ex.: 80.",
     "qtd_notas_saida": "Média mensal de notas de saída. Ex.: 200.",
     "qtd_emissao_notas_servico": "Média mensal de emissão de NFS-e pelo escritório. Ex.: 15.",
     "qtd_emissao_notas_produto": "Média mensal de emissão de NF-e de produtos pelo escritório. Ex.: 40.",
-    "tipos_icms_incentivado": "Opções válidas de TTS (separe por ; se tiver mais de uma):\n- " + "\n- ".join(OPCOES_TTS),
+    "tipos_icms_incentivado": (
+        "NÃO é Regime Especial!\n"
+        "Só preencha se o checklist 'ICMS Incentivado' estiver Sim.\n"
+        "São os incentivos TTS (pode marcar vários, separados por ;):\n- "
+        + "\n- ".join(OPCOES_TTS)
+    ),
     "estados_icms_st": "Siglas das UFs onde possui apuração de ICMS-ST separadas por ; (ex.: MG; SP; BA).",
     "estados_st": "Siglas das UFs para controle de Inscrição de Substituto Tributário separadas por ; (ex.: SP; RJ; PR).",
 }
@@ -233,8 +246,9 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         row=2,
         column=1,
         value=(
-            "Ao subir esta planilha, o Sentinela executa a busca automática de cada CNPJ (igual ao botão 'Buscar CNPJ') "
-            "e junta com os dados manuais abaixo (Código Domínio, Regime Tributário, Responsáveis, Contatos e Checklist de Escopo)."
+            "Ao subir, o Sentinela busca cada CNPJ sozinho. "
+            "REGIME ESPECIAL = coluna 'Perfil / Regime Especial' (GERAL, ECOMMERCE, INDUSTRIA, CD, REGIME_ESPECIAL_MG, REGIME_ESPECIAL_SP). "
+            "TTS = outra coluna, só para ICMS Incentivado (não é regime especial)."
         ),
     )
     cel_dica.font = fonte_dica
@@ -262,8 +276,8 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
         texto_ajuda = AJUDA_COLUNAS_MANUAIS.get(chave)
         if texto_ajuda:
             comentario = Comment(f"❓ COMO PREENCHER:\n{texto_ajuda}", "Sentinela")
-            comentario.width = 320
-            comentario.height = 130
+            comentario.width = 360
+            comentario.height = 200 if chave in {"perfil_estabelecimento", "tipos_icms_incentivado"} else 130
             c.comment = comentario
 
     offset_check = len(COLUNAS_MANUAIS)
@@ -407,10 +421,26 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
     ws.freeze_panes = "C4"
     ws.auto_filter.ref = f"A3:{get_column_letter(total_cols)}{max(linha_atual, 50)}"
 
-    def _adicionar_validacao(col_idx: int, opcoes_lista: list[str]) -> None:
-        formula = '"' + ",".join(opcoes_lista) + '"'
-        if len(formula) > 250:
-            return
+    # Aba auxiliar com as listas longas (perfil, TTS) para o Excel usar no ▾
+    ws_listas = wb.create_sheet("Listas_Ajuda")
+    ws_listas["A1"] = "Perfil / Regime Especial"
+    for idx, (codigo, rotulo) in enumerate(Empresa.PERFIS_ESTABELECIMENTO, start=2):
+        ws_listas.cell(row=idx, column=1, value=codigo)
+        ws_listas.cell(row=idx, column=2, value=rotulo)
+    ws_listas["D1"] = "TTS do ICMS Incentivado (NÃO é Regime Especial)"
+    for idx, opcao in enumerate(OPCOES_TTS, start=2):
+        ws_listas.cell(row=idx, column=4, value=opcao)
+    ws_listas.column_dimensions["A"].width = 22
+    ws_listas.column_dimensions["B"].width = 55
+    ws_listas.column_dimensions["D"].width = 40
+
+    def _adicionar_validacao(col_idx: int, opcoes_lista: list[str] | None = None, formula_ref: str | None = None) -> None:
+        if formula_ref:
+            formula = formula_ref
+        else:
+            formula = '"' + ",".join(opcoes_lista or []) + '"'
+            if len(formula) > 250:
+                return
         dv = DataValidation(type="list", formula1=formula, allow_blank=True)
         letra = get_column_letter(col_idx)
         dv.add(f"{letra}4:{letra}300")
@@ -418,11 +448,13 @@ def gerar_planilha_modelo_clientes(incluir_existentes: bool = True) -> bytes:
 
     _adicionar_validacao(3, [r[0] for r in Empresa.REGIMES_TRIBUTARIOS])
     _adicionar_validacao(4, ["I", "II", "III", "IV", "V"])
-    _adicionar_validacao(5, [p[0] for p in Empresa.PERFIS_ESTABELECIMENTO])
+    _adicionar_validacao(5, formula_ref=f"Listas_Ajuda!$A$2:$A${1 + len(Empresa.PERFIS_ESTABELECIMENTO)}")
     _adicionar_validacao(14, [r[0] for r in Empresa.RAMOS_ATIVIDADE])
     _adicionar_validacao(18, ["Sim", "Não"])
     _adicionar_validacao(19, ["Sim", "Não"])
     _adicionar_validacao(20, ["Sim", "Não"])
+    # Coluna TTS = 27ª nas COLUNAS_MANUAIS — lista única; vários TTS ainda vão separados por ;
+    _adicionar_validacao(27, formula_ref=f"Listas_Ajuda!$D$2:$D${1 + len(OPCOES_TTS)}")
 
     nomes_colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome").values_list("nome", flat=True))
     if nomes_colaboradores:
