@@ -1,7 +1,7 @@
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
-from django.db.models import Count, ProtectedError, Q
+from django.db.models import ProtectedError, Q
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
@@ -88,12 +88,32 @@ def definir_competencia(request):
 
 
 def _filtrar_empresas_request(request):
-    termo = request.GET.get("q", "").strip()
-    filtro_ramo = request.GET.get("ramo", "").strip()
-    filtro_regime = request.GET.get("regime", "").strip()
-    filtro_situacao = request.GET.get("situacao", "").strip()
-    filtro_escopo = request.GET.get("escopo", "").strip()
-    empresas = Empresa.objects.annotate(notas=Count("documentos"))
+    """Filtros estilo planilha: busca livre (q) + 1 filtro por coluna."""
+    get = request.GET
+    termo = get.get("q", "").strip()
+    filtro_uf = get.get("uf", "").strip().upper()
+    filtro_regime = get.get("regime", "").strip()
+    filtro_ramo = get.get("ramo", "").strip()
+    filtro_situacao = get.get("situacao", "").strip()
+    filtro_perfil = get.get("perfil", "").strip()
+    filtro_tipo = get.get("tipo", "").strip()
+    filtro_especial = get.get("especial", "").strip()
+    filtro_op_fiscal = get.get("op_fiscal", "").strip()
+    filtro_rev_fiscal = get.get("rev_fiscal", "").strip()
+    filtro_op_contabil = get.get("op_contabil", "").strip()
+    filtro_rev_contabil = get.get("rev_contabil", "").strip()
+    filtro_op_dp = get.get("op_dp", "").strip()
+    filtro_rev_dp = get.get("rev_dp", "").strip()
+    filtro_escopo = get.get("escopo", "").strip()
+
+    empresas = Empresa.objects.select_related(
+        "responsavel_apuracao",
+        "responsavel_revisao",
+        "responsavel_operacional_contabil",
+        "responsavel_revisador_contabil",
+        "responsavel_operacional_dp",
+        "responsavel_revisador_dp",
+    )
     if termo:
         digitos = "".join(caractere for caractere in termo if caractere.isdigit())
         empresas = empresas.filter(
@@ -106,29 +126,98 @@ def _filtrar_empresas_request(request):
             | Q(cnae_principal__icontains=termo)
             | Q(cnae_descricao__icontains=termo)
             | Q(ramo_atividade__icontains=termo)
+            | Q(municipio__icontains=termo)
+            | Q(inscricao_estadual__icontains=termo)
+            | Q(responsavel_apuracao__nome__icontains=termo)
+            | Q(responsavel_revisao__nome__icontains=termo)
+            | Q(responsavel_operacional_contabil__nome__icontains=termo)
+            | Q(responsavel_revisador_contabil__nome__icontains=termo)
+            | Q(responsavel_operacional_dp__nome__icontains=termo)
+            | Q(responsavel_revisador_dp__nome__icontains=termo)
         )
-    if filtro_ramo:
-        empresas = empresas.filter(ramo_atividade=filtro_ramo)
+    if filtro_uf:
+        empresas = empresas.filter(uf=filtro_uf)
     if filtro_regime:
         empresas = empresas.filter(regime_tributario=filtro_regime)
+    if filtro_ramo:
+        empresas = empresas.filter(ramo_atividade=filtro_ramo)
     if filtro_situacao in {"Ativo", "Inativo"}:
         empresas = empresas.filter(status=filtro_situacao)
+    if filtro_perfil:
+        empresas = empresas.filter(perfil_estabelecimento=filtro_perfil)
+    if filtro_tipo in {"Matriz", "Filial"}:
+        empresas = empresas.filter(tipo_estabelecimento=filtro_tipo)
+    if filtro_especial == "sim":
+        empresas = empresas.filter(
+            Q(possui_regime_especial=True)
+            | Q(perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF))
+        )
+    elif filtro_especial == "nao":
+        empresas = empresas.filter(possui_regime_especial=False).exclude(
+            perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF)
+        )
+    if filtro_op_fiscal.isdigit():
+        empresas = empresas.filter(responsavel_apuracao_id=int(filtro_op_fiscal))
+    if filtro_rev_fiscal.isdigit():
+        empresas = empresas.filter(responsavel_revisao_id=int(filtro_rev_fiscal))
+    if filtro_op_contabil.isdigit():
+        empresas = empresas.filter(responsavel_operacional_contabil_id=int(filtro_op_contabil))
+    if filtro_rev_contabil.isdigit():
+        empresas = empresas.filter(responsavel_revisador_contabil_id=int(filtro_rev_contabil))
+    if filtro_op_dp.isdigit():
+        empresas = empresas.filter(responsavel_operacional_dp_id=int(filtro_op_dp))
+    if filtro_rev_dp.isdigit():
+        empresas = empresas.filter(responsavel_revisador_dp_id=int(filtro_rev_dp))
     if filtro_escopo:
         empresas = empresas.filter(busca_escopo__icontains=filtro_escopo)
-    return empresas, {
+
+    filtros = {
         "termo": termo,
-        "filtro_ramo": filtro_ramo,
+        "filtro_uf": filtro_uf,
         "filtro_regime": filtro_regime,
+        "filtro_ramo": filtro_ramo,
         "filtro_situacao": filtro_situacao,
+        "filtro_perfil": filtro_perfil,
+        "filtro_tipo": filtro_tipo,
+        "filtro_especial": filtro_especial,
+        "filtro_op_fiscal": filtro_op_fiscal,
+        "filtro_rev_fiscal": filtro_rev_fiscal,
+        "filtro_op_contabil": filtro_op_contabil,
+        "filtro_rev_contabil": filtro_rev_contabil,
+        "filtro_op_dp": filtro_op_dp,
+        "filtro_rev_dp": filtro_rev_dp,
         "filtro_escopo": filtro_escopo,
     }
+    filtros["tem_filtro"] = any(filtros.values())
+    filtros["query_filtros"] = "&".join(
+        f"{chave}={valor}"
+        for chave, valor in {
+            "q": termo,
+            "uf": filtro_uf,
+            "regime": filtro_regime,
+            "ramo": filtro_ramo,
+            "situacao": filtro_situacao,
+            "perfil": filtro_perfil,
+            "tipo": filtro_tipo,
+            "especial": filtro_especial,
+            "op_fiscal": filtro_op_fiscal,
+            "rev_fiscal": filtro_rev_fiscal,
+            "op_contabil": filtro_op_contabil,
+            "rev_contabil": filtro_rev_contabil,
+            "op_dp": filtro_op_dp,
+            "rev_dp": filtro_rev_dp,
+            "escopo": filtro_escopo,
+        }.items()
+        if valor
+    )
+    return empresas, filtros
 
 
 @login_required
 def lista_empresas(request):
     request.modulo = "clientes"
     empresas, filtros = _filtrar_empresas_request(request)
-    from clientes.escopo import ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
+    from clientes.escopo import ESTADOS_BR, ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
 
     opcoes_filtro_escopo = [
         ("Departamento Fiscal", ITENS_FISCAIS),
@@ -136,14 +225,19 @@ def lista_empresas(request):
         ("Departamento Pessoal (DP)", ITENS_DP),
         ("Regularização / Abertura", ITENS_REGULARIZACAO),
     ]
+    colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome"))
     return render(
         request,
         "clientes/lista.html",
         {
             "empresas": empresas,
+            "total_empresas": empresas.count(),
             **filtros,
+            "ufs": ESTADOS_BR,
             "ramos_atividade": [r[0] for r in Empresa.RAMOS_ATIVIDADE],
             "regimes_tributarios": [r[0] for r in Empresa.REGIMES_TRIBUTARIOS],
+            "perfis_estabelecimento": Empresa.PERFIS_ESTABELECIMENTO,
+            "colaboradores_filtro": colaboradores,
             "opcoes_filtro_escopo": opcoes_filtro_escopo,
         },
     )

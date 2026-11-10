@@ -545,13 +545,22 @@ class FluxoSentinelaTest(TestCase):
         self.assertTrue(emp.substituicoes.filter(uf="SP", numero="813035560114").exists())
         self.assertTrue(emp.escopo_fiscal.get("Escrituração de Notas Fiscais de Entrada"))
 
-        # Lista limpa: sem colunas Notas/Escopo; botão claro; exporta com filtros
+        # Lista limpa: sem colunas Notas/Escopo; filtros estilo planilha; exporta com filtros
         lista = self.client.get("/clientes/")
         self.assertContains(lista, "Usar no Sentinela")
+        self.assertContains(lista, "Busca livre")
+        self.assertContains(lista, "Filtros das colunas")
+        self.assertContains(lista, "Tem regime especial?")
+        self.assertContains(lista, "Regime de apuração")
         self.assertNotContains(lista, ">Notas</th>")
         self.assertNotContains(lista, ">Escopo de Trabalho</th>")
         self.assertContains(lista, "Extrair Planilha dos Filtros")
-        rel = self.client.get("/clientes/exportar-relatorio/?ramo=Comércio")
+        filtrada = self.client.get("/clientes/?uf=MG&regime=Lucro Presumido&especial=nao")
+        self.assertContains(filtrada, "AFFONSO DESCARTAVEIS LTDA")
+        self.assertEqual(filtrada.context["total_empresas"], 1)
+        vazia = self.client.get("/clientes/?uf=SP")
+        self.assertEqual(vazia.context["total_empresas"], 0)
+        rel = self.client.get("/clientes/exportar-relatorio/?uf=MG&ramo=Comércio e Indústria")
         self.assertEqual(rel.status_code, 200)
         self.assertIn(
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
