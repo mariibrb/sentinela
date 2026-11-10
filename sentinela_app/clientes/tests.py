@@ -505,11 +505,13 @@ class FluxoSentinelaTest(TestCase):
         recusa_up = self.client.post("/clientes/importar-lote/", follow=True)
         self.assertContains(recusa_up, "Essa área é restrita ao administrador.")
 
-        # 2. Desenvolvedora (is_staff) baixa a planilha em TABELA ÚNICA (1 única aba) e sobe o lote
+        # 2. Desenvolvedora (is_staff): sem caixa de upload na lista; API de planilha/lote segue disponível
         User.objects.create_user("desenvolvedora_lote", password="senha-dev-123", is_staff=True)
         self.client.login(username="desenvolvedora_lote", password="senha-dev-123")
         lista_dev = self.client.get("/clientes/")
-        self.assertContains(lista_dev, "Subir Planilha em Lote Único")
+        self.assertNotContains(lista_dev, "Subir Planilha em Lote Único")
+        self.assertNotContains(lista_dev, "Subir Carteira Fiscal")
+        self.assertNotContains(lista_dev, "Cadastro e Atualização de Clientes em Lote Único")
 
         down = self.client.get("/clientes/planilha-modelo/?vazia=1")
         self.assertEqual(down.status_code, 200)
