@@ -305,13 +305,38 @@ def _filtrar_empresas_request(request):
     return empresas, filtros
 
 
-@login_required
-def lista_empresas(request):
-    request.modulo = "clientes"
-    empresas, filtros = _filtrar_empresas_request(request)
-    from clientes.escopo import ESTADOS_BR, ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
+def _opcoes_filtros_dos_cadastros():
+    """Monta as listas dos ▾ só com o que já existe nos clientes cadastrados."""
+    from clientes.escopo import ITENS_CONTABEIS, ITENS_DP, ITENS_FISCAIS, ITENS_REGULARIZACAO
 
-    colaboradores = list(Colaborador.objects.filter(ativo=True).order_by("nome"))
+    base = Empresa.objects.all()
+    ufs = sorted({(u or "").strip().upper() for u in base.values_list("uf", flat=True) if (u or "").strip()})
+    regimes = sorted({(r or "").strip() for r in base.values_list("regime_tributario", flat=True) if (r or "").strip()})
+    ramos = sorted({(r or "").strip() for r in base.values_list("ramo_atividade", flat=True) if (r or "").strip()})
+    situacoes = sorted({(s or "").strip() for s in base.values_list("status", flat=True) if (s or "").strip() in {"Ativo", "Inativo"}})
+    tipos = sorted({(t or "").strip() for t in base.values_list("tipo_estabelecimento", flat=True) if (t or "").strip() in {"Matriz", "Filial"}})
+    perfis_codigos = {(p or "").strip() for p in base.values_list("perfil_estabelecimento", flat=True) if (p or "").strip()}
+    mapa_perfil = dict(Empresa.PERFIS_ESTABELECIMENTO)
+    opcoes_perfil = [(codigo, mapa_perfil.get(codigo, codigo)) for codigo in sorted(perfis_codigos)]
+
+    tem_especial = base.filter(
+        Q(possui_regime_especial=True) | Q(perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF))
+    ).exists()
+    tem_sem_especial = base.exclude(
+        Q(possui_regime_especial=True) | Q(perfil_estabelecimento__in=list(Empresa.PERFIS_COM_PDF))
+    ).exists()
+    opcoes_especial = []
+    if tem_especial:
+        opcoes_especial.append(("sim", "Sim"))
+    if tem_sem_especial:
+        opcoes_especial.append(("nao", "Não"))
+
+    ids_ops = set(base.exclude(responsavel_apuracao_id=None).values_list("responsavel_apuracao_id", flat=True))
+    colaboradores = list(Colaborador.objects.filter(pk__in=ids_ops).order_by("nome"))
+
+    # Checklist: só itens que algum cliente realmente marcou (via índice busca_escopo)
+    textos_busca = list(base.exclude(busca_escopo="").values_list("busca_escopo", flat=True))
+    blob = "\n".join(textos_busca).lower()
     opcoes_escopo_pares = []
     for grupo, itens in (
         ("Fiscal", ITENS_FISCAIS),
@@ -320,7 +345,26 @@ def lista_empresas(request):
         ("Regularização", ITENS_REGULARIZACAO),
     ):
         for item in itens:
-            opcoes_escopo_pares.append((item, f"[{grupo}] {item}"))
+            if item.lower() in blob:
+                opcoes_escopo_pares.append((item, f"[{grupo}] {item}"))
+
+    return {
+        "opcoes_uf": [(uf, uf) for uf in ufs],
+        "opcoes_regime": [(r, r) for r in regimes],
+        "opcoes_ramo": [(r, r) for r in ramos],
+        "opcoes_situacao": [(s, s) for s in situacoes],
+        "opcoes_tipo": [(t, t) for t in tipos],
+        "opcoes_especial": opcoes_especial,
+        "opcoes_perfil": opcoes_perfil,
+        "opcoes_colaboradores": [(str(c.pk), c.nome) for c in colaboradores],
+        "opcoes_escopo_pares": opcoes_escopo_pares,
+    }
+
+
+@login_required
+def lista_empresas(request):
+    request.modulo = "clientes"
+    empresas, filtros = _filtrar_empresas_request(request)
     return render(
         request,
         "clientes/lista.html",
@@ -328,15 +372,7 @@ def lista_empresas(request):
             "empresas": empresas,
             "total_empresas": empresas.count(),
             **filtros,
-            "opcoes_uf": [(uf, uf) for uf in ESTADOS_BR],
-            "opcoes_regime": [(r, r) for r, _ in Empresa.REGIMES_TRIBUTARIOS],
-            "opcoes_ramo": [(r, r) for r, _ in Empresa.RAMOS_ATIVIDADE],
-            "opcoes_situacao": [("Ativo", "Ativo"), ("Inativo", "Inativo")],
-            "opcoes_tipo": [("Matriz", "Matriz"), ("Filial", "Filial")],
-            "opcoes_especial": [("sim", "Sim"), ("nao", "Não")],
-            "opcoes_perfil": list(Empresa.PERFIS_ESTABELECIMENTO),
-            "opcoes_colaboradores": [(str(c.pk), c.nome) for c in colaboradores],
-            "opcoes_escopo_pares": opcoes_escopo_pares,
+            **_opcoes_filtros_dos_cadastros(),
         },
     )
 
