@@ -6,11 +6,16 @@
   <h1 class="text-3xl font-extrabold">Área restrita</h1>
   <p class="text-stone-500">Cadastro de colaboradores, painel administrativo e configurações do escritório.</p>
 </section>
-<section class="grid gap-4 md:grid-cols-2">
+<section class="grid gap-4 md:grid-cols-3">
   <a class="rounded-2xl border border-pink-100 bg-pink-50 p-5 shadow-sm" href="{% url 'lista_colaboradores' %}">
     <p class="text-sm text-pink-700">Pessoas do escritório</p>
     <strong class="mt-1 block text-xl">Colaboradores</strong>
     <p class="mt-2 text-stone-600">Nome, cargo, e-mail e quem apura ou revisa cada empresa.</p>
+  </a>
+  <a class="rounded-2xl border border-pink-200 bg-white p-5 shadow-sm" href="{% url 'baixar_planilha_clientes' %}">
+    <p class="text-sm font-semibold text-pink-700">Somente Desenvolvedor</p>
+    <strong class="mt-1 block text-xl">Planilha de Clientes em Lote (.xlsx)</strong>
+    <p class="mt-2 text-stone-600">Baixar planilha modelo/atualizada e subir todos os clientes e escopos de uma vez na tela de Clientes.</p>
   </a>
   <a class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" href="{% url 'admin:index' %}">
     <p class="text-sm text-stone-500">Django</p>

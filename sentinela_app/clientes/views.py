@@ -2,7 +2,7 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import ValidationError
 from django.db.models import Count, ProtectedError, Q
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
@@ -355,3 +355,52 @@ def excluir_colaborador(request, colaborador_id):
     registrar(request.user, None, "EXCLUSAO", "Colaborador", nome, "excluído")
     messages.success(request, f"Colaborador excluído: {nome}.")
     return redirect("lista_colaboradores")
+
+
+@apenas_administrador
+def baixar_planilha_clientes(request):
+    from clientes.lote_planilha import gerar_planilha_modelo_clientes
+
+    incluir = request.GET.get("vazia") != "1"
+    conteudo = gerar_planilha_modelo_clientes(incluir_existentes=incluir)
+    resposta = HttpResponse(
+        conteudo,
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    resposta["Content-Disposition"] = 'attachment; filename="Sentinela_Clientes_Lote.xlsx"'
+    return resposta
+
+
+@require_POST
+@apenas_administrador
+def importar_lote_clientes(request):
+    from clientes.lote_planilha import importar_planilha_clientes
+
+    arquivo = request.FILES.get("planilha_clientes")
+    if not arquivo:
+        messages.error(request, "Selecione a planilha Excel (.xlsx) com os clientes do escritório.")
+        return redirect("lista_empresas")
+    if not (arquivo.name or "").lower().endswith(".xlsx"):
+        messages.error(request, "Envie um arquivo no formato Excel (.xlsx).")
+        return redirect("lista_empresas")
+
+    consultar_api = request.POST.get("consultar_api_se_vazio") == "1"
+    resultado = importar_planilha_clientes(
+        arquivo.read(),
+        usuario=request.user,
+        consultar_api_se_vazio=consultar_api,
+    )
+    criados = resultado.get("criados", 0)
+    atualizados = resultado.get("atualizados", 0)
+    erros = resultado.get("erros") or []
+
+    if criados or atualizados:
+        messages.success(
+            request,
+            f"Importação em lote concluída: {criados} cliente(s) criado(s) e {atualizados} atualizado(s).",
+        )
+    for err in erros[:15]:
+        messages.error(request, err)
+    if len(erros) > 15:
+        messages.error(request, f"E mais {len(erros) - 15} linha(s) com aviso.")
+    return redirect("lista_empresas")

@@ -455,6 +455,43 @@ class FluxoSentinelaTest(TestCase):
         painel = self.client.get("/", follow=True)
         self.assertContains(painel, "Garimpeiro")
 
+    def test_planilha_lote_tabela_unica_apenas_desenvolvedor(self):
+        from openpyxl import load_workbook
+
+        # 1. Analista comum NÃO vê os botões nem consegue baixar/subir a planilha
+        lista_analista = self.client.get("/clientes/")
+        self.assertNotContains(lista_analista, "Subir Planilha em Lote Único")
+        recusa_down = self.client.get("/clientes/planilha-modelo/", follow=True)
+        self.assertContains(recusa_down, "Essa área é restrita ao administrador.")
+        recusa_up = self.client.post("/clientes/importar-lote/", follow=True)
+        self.assertContains(recusa_up, "Essa área é restrita ao administrador.")
+
+        # 2. Desenvolvedora (is_staff) baixa a planilha em TABELA ÚNICA (1 única aba) e sobe o lote
+        User.objects.create_user("desenvolvedora_lote", password="senha-dev-123", is_staff=True)
+        self.client.login(username="desenvolvedora_lote", password="senha-dev-123")
+        lista_dev = self.client.get("/clientes/")
+        self.assertContains(lista_dev, "Subir Planilha em Lote Único")
+
+        down = self.client.get("/clientes/planilha-modelo/?vazia=1")
+        self.assertEqual(down.status_code, 200)
+        wb = load_workbook(BytesIO(down.content))
+        self.assertEqual(wb.sheetnames, ["Clientes_Escritorio"])
+
+        up = self.client.post(
+            "/clientes/importar-lote/",
+            {"planilha_clientes": SimpleUploadedFile("clientes.xlsx", down.content)},
+            follow=True,
+        )
+        self.assertContains(up, "1 cliente(s) criado(s)")
+        emp = Empresa.objects.get(codigo_dominio="0578")
+        self.assertEqual(emp.cnpj, CNPJ)
+        self.assertEqual(emp.regime_tributario, "Lucro Presumido")
+        self.assertEqual(emp.regime_pis_cofins, "Cumulativo")
+        self.assertEqual(emp.responsavel_apuracao, self.apuracao)
+        self.assertEqual(emp.responsavel_revisao, self.revisao)
+        self.assertTrue(emp.substituicoes.filter(uf="SP", numero="813035560114").exists())
+        self.assertTrue(emp.escopo_fiscal.get("Escrituração de Notas Fiscais de Entrada"))
+
 
 class MatrioscaZipTest(SimpleTestCase):
     def test_abre_oito_zips_dentro_de_pastas(self):
