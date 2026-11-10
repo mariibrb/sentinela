@@ -31,4 +31,5 @@ def contexto_sentinela(request):
         "modulo": getattr(request, "modulo", "painel"),
         "eh_administrador": administrador(usuario),
         "permissoes": mapa_permissoes(usuario),
+        "cadastro_bloqueio_empresa_id": request.session.get("cadastro_bloqueio_empresa_id"),
     }

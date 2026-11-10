@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from auditoria.apuracao_motor import MotorApuracaoSentinela
 from auditoria.sped_motor import MotorSpedCruzamento
 from clientes.acesso import exige
-from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
+from clientes.governance import CadastroIncompleto, avisar_cadastro_incompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa
 from clientes.trilha import registrar
 
@@ -73,7 +73,7 @@ def cruzar(request):
     try:
         validar_cadastro_para_apuracao(empresa)
     except CadastroIncompleto as erro:
-        messages.error(request, str(erro))
+        avisar_cadastro_incompleto(request, erro)
         return redirect("auditoria")
     competencia = request.session.get("competencia", "")
     anteriores = {

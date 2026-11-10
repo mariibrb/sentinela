@@ -11,11 +11,28 @@ from django.views.decorators.http import require_POST
 from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.acesso import apenas_administrador, exige
 from clientes.competencia import deslocar, interpretar, rotulo
-from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
+from clientes.governance import CadastroIncompleto, avisar_cadastro_incompleto, validar_cadastro_para_apuracao
 from clientes.models import DocumentoXML, Empresa, NotaServico
 from clientes.trilha import registrar
 from clientes.utils_sharepoint import pasta_do_mes, pasta_relatorios
 from garimpeiro_legado.consulta import ABAS, ABAS_TELA, montar, planilha, planilha_xlsx_bytes, zip_xml
+from triagem_xml.adn_nfse import (
+    AdnIndisponivel,
+    ambiente_windows_local,
+    carregar_config_certificado,
+    listar_certificados_windows,
+    salvar_config_certificado,
+    sincronizar_empresa_adn,
+)
+from triagem_xml.baixar_nfse_bridge import (
+    baixar_nfse_instalado,
+    abrir_baixar_nfse,
+    importar_xmls_baixar_nfse,
+    localizar_pasta_empresa,
+    pasta_dados_existe,
+    pasta_xml_raiz,
+    script_atalho_bat,
+)
 from triagem_xml.coletor_nfse import (
     GERENCIADOR_COLETOR,
     VERSAO_COLETOR,
@@ -51,7 +68,10 @@ def _importar_em_partes(request, empresa):
     try:
         validar_cadastro_para_apuracao(empresa)
     except CadastroIncompleto as erro:
-        return JsonResponse({"ok": False, "mensagem": str(erro)}, status=400)
+        payload = {"ok": False, "mensagem": str(erro)}
+        if erro.empresa_id:
+            payload["url_cadastro"] = f"/clientes/{erro.empresa_id}/"
+        return JsonResponse(payload, status=400)
     token = (request.POST.get("token") or "").strip()
     arquivos = request.FILES.getlist("arquivos")
     if token and not token_valido(token):
@@ -101,7 +121,7 @@ def importar(request):
         total, garimpo_ok, texto_garimpo = importar_uploads(empresa, arquivos, competencia)
         registrar(request.user, empresa, "TRIAGEM", "Lote de XML", "", f"{total} XML na competência {competencia}")
     except CadastroIncompleto as erro:
-        messages.error(request, str(erro))
+        avisar_cadastro_incompleto(request, erro)
         return redirect("triagem")
     except Exception:
         messages.error(
@@ -284,8 +304,36 @@ def coletor_nfse(request):
             "resumo_nfse": resumo_nfse,
             "caminho_pasta_cliente": caminho_pasta_cliente,
             "proxima_competencia_rotulo": rotulo(deslocar(competencia, 1)) if partes else "Mês seguinte",
+            "adn_windows_local": ambiente_windows_local(),
+            "adn_config": carregar_config_certificado(),
+            "adn_certificados": _certificados_adn_seguros(),
+            "adn_ultimo_nsu": getattr(empresa, "nfse_ultimo_nsu", 0) if empresa else 0,
+            "baixar_nfse": _estado_baixar_nfse(empresa),
         },
     )
+
+
+def _estado_baixar_nfse(empresa):
+    """Status do app Microsoft Store Baixar NFS-e nesta máquina."""
+    windows = ambiente_windows_local()
+    pasta_raiz = pasta_xml_raiz()
+    pasta_emp = localizar_pasta_empresa(empresa) if empresa is not None and windows else None
+    return {
+        "windows_local": windows,
+        "instalado": baixar_nfse_instalado() if windows else False,
+        "pasta_existe": pasta_dados_existe() if windows else False,
+        "pasta_raiz": str(pasta_raiz),
+        "pasta_empresa": str(pasta_emp) if pasta_emp else "",
+    }
+
+
+def _certificados_adn_seguros():
+    if not ambiente_windows_local():
+        return []
+    try:
+        return listar_certificados_windows()
+    except Exception:
+        return []
 
 
 @require_POST
@@ -509,6 +557,150 @@ def abrir_pasta_nfse(request):
             messages.warning(request, f"Caminho da pasta: {pasta} ({e})")
     else:
         messages.info(request, f"Caminho da pasta do cliente: {pasta}")
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def abrir_app_baixar_nfse(request):
+    """Abre o app Baixar NFS-e da Microsoft Store no Windows local."""
+    ok, msg = abrir_baixar_nfse()
+    if ok:
+        messages.success(request, msg)
+    else:
+        messages.warning(request, msg)
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def importar_app_baixar_nfse(request):
+    """Importa XMLs que o app Baixar NFS-e gravou em C:\\Baixar NFSe\\XML."""
+    empresa = _empresa_ativa(request)
+    if empresa is None:
+        messages.error(request, "Escolha a empresa ativa antes de importar do Baixar NFS-e.")
+        return redirect("coletor_nfse")
+    competencia = request.session.get("competencia", "")
+    if interpretar(competencia) is None:
+        messages.error(request, "Escolha a competência antes de importar do Baixar NFS-e.")
+        return redirect("coletor_nfse")
+
+    resultado = importar_xmls_baixar_nfse(empresa, competencia)
+    if resultado.get("erro") and not resultado.get("importadas"):
+        messages.warning(request, resultado["erro"])
+        return redirect("coletor_nfse")
+
+    registrar(
+        request.user,
+        empresa,
+        "COLETOR",
+        "Importação Baixar NFS-e (Microsoft Store)",
+        "",
+        f"{resultado['importadas']} XML(s) de {resultado.get('pasta_empresa') or ''}",
+    )
+    if resultado["importadas"]:
+        messages.success(
+            request,
+            (
+                f"{resultado['importadas']} XML(s) importado(s) do Baixar NFS-e para "
+                f"{empresa.codigo_dominio} · {empresa.razao_social} "
+                f"(ignorados: {resultado['ignoradas']})."
+            ),
+        )
+    else:
+        messages.info(
+            request,
+            resultado.get("erro")
+            or f"Nenhum XML novo para importar de {resultado.get('pasta_empresa')}.",
+        )
+    return redirect("coletor_nfse")
+
+
+@exige("pode_triar")
+def atalho_baixar_nfse(request):
+    """Baixa um .bat que abre o app Baixar NFS-e no PC do usuário (útil com site no Render)."""
+    resposta = HttpResponse(script_atalho_bat(), content_type="application/octet-stream")
+    resposta["Content-Disposition"] = 'attachment; filename="Abrir_Baixar_NFSe.bat"'
+    return resposta
+
+
+@require_POST
+@exige("pode_triar")
+def salvar_certificado_adn(request):
+    """Grava o thumbprint do certificado do dono do escritório para mTLS ADN."""
+    thumb = (request.POST.get("thumbprint") or "").strip().upper()
+    subject = (request.POST.get("subject") or "").strip()
+    if not thumb:
+        messages.error(request, "Selecione o certificado do dono do escritório.")
+        return redirect("coletor_nfse")
+    salvar_config_certificado(thumbprint=thumb, subject=subject)
+    messages.success(request, "Certificado do escritório salvo para o Apanhador ADN.")
+    return redirect("coletor_nfse")
+
+
+@require_POST
+@exige("pode_triar")
+def sincronizar_adn_nfse(request):
+    """Baixa XMLs da empresa ativa via API ADN (procuração + certificado do escritório)."""
+    empresa = _empresa_ativa(request)
+    if empresa is None:
+        messages.error(request, "Escolha a empresa ativa antes de sincronizar XMLs no ADN.")
+        return redirect("coletor_nfse")
+    competencia = request.session.get("competencia", "")
+    if interpretar(competencia) is None:
+        messages.error(request, "Escolha a competência antes de sincronizar.")
+        return redirect("coletor_nfse")
+    if not ambiente_windows_local():
+        messages.warning(
+            request,
+            "A sincronização ADN com certificado só roda no Sentinela local Windows "
+            "(iniciar_escritorio.bat). No Render o servidor não tem o certificado da equipe.",
+        )
+        return redirect("coletor_nfse")
+
+    reiniciar = (request.POST.get("reiniciar_nsu") or "").strip() == "1"
+    nsu_inicial = 0 if reiniciar else None
+    try:
+        resultado = sincronizar_empresa_adn(
+            empresa,
+            competencia_filtro=competencia,
+            nsu_inicial=nsu_inicial,
+        )
+    except AdnIndisponivel as erro:
+        messages.error(request, str(erro))
+        return redirect("coletor_nfse")
+    except Exception as erro:
+        messages.error(request, f"Falha ao sincronizar ADN: {erro}")
+        return redirect("coletor_nfse")
+
+    registrar(
+        request.user,
+        empresa,
+        "COLETOR",
+        "Sincronização ADN NFS-e",
+        "",
+        f"{resultado['importadas']} XML(s); NSU {resultado['ultimo_nsu']}",
+    )
+    if resultado["importadas"]:
+        messages.success(
+            request,
+            (
+                f"{resultado['importadas']} XML(s) importado(s) via ADN para "
+                f"{empresa.codigo_dominio} · {empresa.razao_social}. "
+                f"Último NSU: {resultado['ultimo_nsu']}."
+            ),
+        )
+    else:
+        messages.info(
+            request,
+            (
+                f"Nenhum XML novo no ADN para {empresa.razao_social}. "
+                f"Último NSU: {resultado['ultimo_nsu']} "
+                f"(ignorados: {resultado['ignoradas']}, eventos: {resultado['eventos']})."
+            ),
+        )
+    for err in resultado.get("erros") or []:
+        messages.warning(request, err)
     return redirect("coletor_nfse")
 
 

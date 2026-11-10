@@ -234,6 +234,11 @@ class Empresa(models.Model):
     escopo_regularizacao = models.JSONField(default=dict, blank=True, verbose_name="Escopo: Regularização / Abertura")
     estados_st = models.JSONField(default=list, blank=True, verbose_name="Estados para Inscrição ST")
     busca_escopo = models.TextField(blank=True, default="", verbose_name="Índice de pesquisa do escopo")
+    nfse_ultimo_nsu = models.PositiveIntegerField(
+        default=0,
+        verbose_name="Último NSU ADN (NFS-e)",
+        help_text="Cursor da distribuição ADN para sincronizar XMLs novos deste cliente.",
+    )
 
     data_cadastro = models.DateTimeField(auto_now_add=True)
 

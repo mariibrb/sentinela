@@ -7,6 +7,12 @@ from django.urls import reverse
 
 from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.models import Empresa, NotaServico
+from triagem_xml.adn_nfse import (
+    competencia_do_xml,
+    decodificar_xml_dfe,
+    parse_lote,
+    sincronizar_empresa_adn,
+)
 from triagem_xml.coletor_nfse import (
     VERSAO_COLETOR,
     _carregar_modulos_coletor_145,
@@ -214,6 +220,14 @@ class ColetorNFSeSentinelaTests(TestCase):
         self.assertContains(resp_auditoria, "Etapas do Fechamento Mensal")
         self.assertContains(resp_auditoria, "Apanhador de NFS-e v1.4.5")
 
+        # App Microsoft Store Baixar NFS-e + ADN como alternativa
+        self.assertContains(resp_coletor, "App Microsoft Store · Baixar NFS-e")
+        self.assertContains(resp_coletor, "Importar XMLs do app")
+        self.assertContains(resp_coletor, "Baixar atalho .bat")
+        self.assertContains(resp_coletor, "Alternativa: Baixar XMLs (ADN Nacional)")
+        self.assertContains(resp_coletor, "Sincronizar XMLs ADN")
+        self.assertContains(resp_coletor, "Alternativa antiga: Robô Chrome")
+
         # Desenvolvedor/admin enxerga a opção de importar planilha/XMLs
         self.assertContains(resp_coletor, "Importar Planilha (.xlsx) / XMLs já baixados")
 
@@ -306,3 +320,123 @@ class ColetorNFSeSentinelaTests(TestCase):
         resp_filtro_combo = self.client.get(reverse("lista_empresas"), {"escopo": "Entrega: SPED Contribuições"})
         codigos_combo = [e.codigo_dominio for e in resp_filtro_combo.context["empresas"]]
         self.assertEqual(codigos_combo, ["0077"])
+
+    def test_adn_decode_lote_e_importa_xml(self):
+        import base64
+        import gzip
+        from unittest.mock import patch
+
+        xml = b"""<?xml version="1.0" encoding="utf-8"?>
+<NFSe versao="1.00" xmlns="http://www.sped.fazenda.gov.br/nfse">
+  <infNFSe Id="NFS31062002299999999000199000000000005526101234567890">
+    <nNFSe>55</nNFSe>
+    <emit><CNPJ>99999999000199</CNPJ><xNome>PRESTADOR XML LTDA</xNome></emit>
+    <toma><CNPJ>12345678000195</CNPJ><xNome>CLINICA EXEMPLO LTDA</xNome></toma>
+    <valores><vLiq>950.00</vLiq></valores>
+    <DPS versao="1.00" xmlns="http://www.sped.fazenda.gov.br/nfse">
+      <infDPS>
+        <dhEmi>2026-10-10T10:00:00-03:00</dhEmi>
+        <dCompet>2026-10-10</dCompet>
+        <prest><CNPJ>99999999000199</CNPJ></prest>
+        <toma><CNPJ>12345678000195</CNPJ></toma>
+        <serv><cServ><cTribNac>010101</cTribNac></cServ></serv>
+        <valores><vServPrest><vServ>1000.00</vServ></vServPrest></valores>
+      </infDPS>
+    </DPS>
+  </infNFSe>
+</NFSe>
+"""
+        xml_b64 = base64.b64encode(gzip.compress(xml)).decode()
+        self.assertEqual(competencia_do_xml(xml), "102026")
+        self.assertTrue(decodificar_xml_dfe(xml_b64).startswith(b"<?xml"))
+
+        lote = parse_lote(
+            {
+                "LoteDFe": [
+                    {
+                        "NSU": 7,
+                        "TipoDocumento": "NFSE",
+                        "ChaveAcesso": "31062002299999999000199000000000005526101234567890",
+                        "XmlDFe": xml_b64,
+                    }
+                ]
+            }
+        )
+        self.assertEqual(len(lote), 1)
+        self.assertEqual(lote[0].nsu, 7)
+
+        class _FakeResp:
+            status_code = 200
+            ok = True
+
+            def json(self):
+                return {
+                    "LoteDFe": [
+                        {
+                            "NSU": 7,
+                            "TipoDocumento": "NFSE",
+                            "ChaveAcesso": "31062002299999999000199000000000005526101234567890",
+                            "XmlDFe": xml_b64,
+                        }
+                    ]
+                }
+
+        class _FakeSession:
+            def get(self, *args, **kwargs):
+                return _FakeResp()
+
+        with patch("triagem_xml.adn_nfse._criar_sessao_mtls", return_value=_FakeSession()):
+            with patch("triagem_xml.adn_nfse.consultar_lote_dfe") as mock_consulta:
+                mock_consulta.side_effect = [
+                    {
+                        "LoteDFe": [
+                            {
+                                "NSU": 7,
+                                "TipoDocumento": "NFSE",
+                                "ChaveAcesso": "31062002299999999000199000000000005526101234567890",
+                                "XmlDFe": xml_b64,
+                            }
+                        ]
+                    },
+                    {"LoteDFe": []},
+                ]
+                resultado = sincronizar_empresa_adn(
+                    self.empresa,
+                    thumbprint="ABC",
+                    competencia_filtro="102026",
+                    nsu_inicial=0,
+                )
+        self.assertEqual(resultado["importadas"], 1)
+        self.empresa.refresh_from_db()
+        self.assertEqual(self.empresa.nfse_ultimo_nsu, 7)
+        self.assertTrue(NotaServico.objects.filter(empresa=self.empresa, numero="55", tipo="TOMADO").exists())
+
+    def test_importa_xmls_do_app_baixar_nfse_microsoft(self):
+        from triagem_xml.baixar_nfse_bridge import importar_xmls_baixar_nfse, script_atalho_bat
+
+        raiz = Path(self._pasta_temp.name) / "BaixarNFSeXML"
+        pasta = raiz / "CLINICA EXEMPLO LTDA" / "2026" / "10" / "Recebidas"
+        pasta.mkdir(parents=True)
+        xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+        <NFSe>
+          <infNFSe>
+            <nDPS>88</nDPS>
+            <dhEmi>2026-10-15T10:00:00-03:00</dhEmi>
+            <competencia>2026-10</competencia>
+            <prestador><CNPJ>99888777000166</CNPJ><xNome>FORNECEDOR</xNome></prestador>
+            <tomador><CNPJ>{self.empresa.cnpj}</CNPJ><xNome>CLINICA</xNome></tomador>
+            <valores><vServico>250,00</vServico><vISSQN>12,50</vISSQN></valores>
+            <status>Ativa</status>
+          </infNFSe>
+        </NFSe>""".encode()
+        (pasta / "nota88.xml").write_bytes(xml)
+
+        resultado = importar_xmls_baixar_nfse(self.empresa, "102026", raiz=raiz)
+        self.assertGreaterEqual(resultado["importadas"], 1)
+        self.assertTrue(NotaServico.objects.filter(empresa=self.empresa, numero="88").exists())
+
+        self.client.force_login(self.user)
+        bat = self.client.get(reverse("atalho_baixar_nfse"))
+        self.assertEqual(bat.status_code, 200)
+        self.assertIn(b"Baixar NFS-e", bat.content)
+        self.assertIn("explorer.exe", script_atalho_bat())

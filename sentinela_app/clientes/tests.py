@@ -145,6 +145,8 @@ class FluxoSentinelaTest(TestCase):
         self.client.post(f"/clientes/ativar/{empresa.pk}/", {"next": "/triagem/"})
         resposta = self.client.post("/triagem/importar/", {"arquivos": SimpleUploadedFile("nota.xml", xml_cancelada())}, follow=True)
         self.assertContains(resposta, "APURAÇÃO BLOQUEADA")
+        self.assertContains(resposta, "Atualizar cadastro")
+        self.assertContains(resposta, f"/clientes/{empresa.pk}/")
         self.assertEqual(DocumentoXML.objects.count(), 0)
 
     def test_regime_especial_pede_pdf_do_pta(self):

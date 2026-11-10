@@ -9,7 +9,7 @@ from django.views.decorators.http import require_POST
 from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.competencia import deslocar, montar
 from clientes.forms import EmpresaForm
-from clientes.governance import CadastroIncompleto, validar_cadastro_para_apuracao
+from clientes.governance import CadastroIncompleto, avisar_cadastro_incompleto, validar_cadastro_para_apuracao
 from clientes.acesso import administrador, apenas_administrador, exige, pode
 from clientes.backup import exportar_pacote
 from clientes.forms import ColaboradorForm
@@ -44,6 +44,8 @@ def painel(request):
             pis = motor_geral.calcular_pis_cofins()
         except CadastroIncompleto as erro:
             bloqueio = str(erro)
+            if erro.empresa_id:
+                request.session["cadastro_bloqueio_empresa_id"] = erro.empresa_id
     return render(
         request,
         "painel.html",
@@ -77,7 +79,7 @@ def exportar_alertas_emissao(request):
         validar_cadastro_para_apuracao(empresa)
         resumo = MotorApuracaoSentinela(empresa, competencia).calcular_apuracao_icms()
     except CadastroIncompleto as erro:
-        messages.error(request, str(erro))
+        avisar_cadastro_incompleto(request, erro)
         return redirect("painel")
     alertas = resumo.get("alertas_encontrados") or []
     if not alertas:
@@ -414,6 +416,8 @@ def editar_empresa(request, empresa_id=None):
             antes_substituicoes,
             empresa.texto_substituicoes(),
         )
+        if request.session.get("cadastro_bloqueio_empresa_id") == empresa.pk:
+            request.session.pop("cadastro_bloqueio_empresa_id", None)
         raiz = criar_pastas(empresa)
         messages.success(request, f"Cadastro e escopo de trabalho gravados. Pastas criadas em {raiz}.")
         return redirect("lista_empresas")

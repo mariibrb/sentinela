@@ -19,13 +19,95 @@
 
   {% if empresa_travada %}
   <p class="mt-3 text-sm text-stone-600">
-    Ao clicar em <strong>Iniciar Robô Apanhador {{ versao_coletor }}</strong>, o Google Chrome abre em <strong>guia anônima</strong> na tela de login do Emissor Nacional. Entre com o <strong>Certificado Digital</strong> ou <strong>usuário e senha</strong>: o robô confere se o CNPJ logado no Portal bate com <strong>{{ empresa_travada.razao_social }}</strong>, coleta primeiro os <strong>Serviços Prestados</strong> e depois os <strong>Serviços Tomados</strong>, baixa XML e PDF e grava os relatórios Excel identificados direto na pasta deste cliente.
+    Fluxo principal: <strong>Abrir Baixar NFS-e</strong> (Microsoft Store), baixar Emitidas/Recebidas no app e depois <strong>Importar XMLs do app</strong> para
+    <strong>{{ empresa_travada.razao_social }}</strong>. ADN e robô Chrome ficam como alternativas.
   </p>
+
+  <div class="mt-4 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-base font-bold text-indigo-950">App Microsoft Store · Baixar NFS-e</h2>
+        <p class="mt-1 text-sm text-indigo-900/80">
+          Mesmas ações do app da Microsoft: abrir o <strong>Baixar NFS-e</strong>, baixar as notas no app e <strong>importar os XMLs</strong> de
+          <code class="font-mono text-xs">C:\Baixar NFSe\XML</code> para este cliente na competência <strong>{{ competencia_rotulo }}</strong>.
+        </p>
+        <p class="mt-1 text-xs text-indigo-800/80">
+          {% if baixar_nfse.windows_local %}
+            {% if baixar_nfse.instalado %}App detectado neste Windows.{% else %}App não detectado — instale o Baixar NFS-e na Microsoft Store.{% endif %}
+            {% if baixar_nfse.pasta_empresa %} · pasta: <code class="font-mono">{{ baixar_nfse.pasta_empresa }}</code>{% elif baixar_nfse.pasta_existe %} · raiz: <code class="font-mono">{{ baixar_nfse.pasta_raiz }}</code>{% endif %}
+          {% else %}
+            No Render o app não abre sozinho: baixe o atalho <strong>.bat</strong> e rode no PC do escritório; depois use <strong>Importar XMLs do app</strong> quando os arquivos estiverem na pasta sincronizada, ou rode o Sentinela local.
+          {% endif %}
+        </p>
+      </div>
+    </div>
+    <div class="mt-3 flex flex-wrap items-center gap-2">
+      {% if baixar_nfse.windows_local %}
+      <form method="post" action="{% url 'abrir_app_baixar_nfse' %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-xl bg-indigo-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-indigo-800">Abrir Baixar NFS-e</button>
+      </form>
+      {% endif %}
+      <form method="post" action="{% url 'importar_app_baixar_nfse' %}">
+        {% csrf_token %}
+        <button type="submit" class="rounded-xl border border-indigo-300 bg-white px-4 py-2 text-sm font-bold text-indigo-900 shadow-sm hover:bg-indigo-50">Importar XMLs do app</button>
+      </form>
+      <a href="{% url 'atalho_baixar_nfse' %}" class="rounded-xl border border-indigo-200 bg-indigo-100/80 px-4 py-2 text-sm font-semibold text-indigo-900 shadow-sm hover:bg-indigo-100">Baixar atalho .bat</a>
+    </div>
+  </div>
+
+  <div class="mt-4 rounded-2xl border border-sky-200 bg-sky-50/60 p-4">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
+        <h2 class="text-base font-bold text-sky-950">Alternativa: Baixar XMLs (ADN Nacional)</h2>
+        <p class="mt-1 text-sm text-sky-900/80">
+          Dentro do Sentinela: usa o <strong>certificado do dono do escritório</strong> já instalado no Windows e a <strong>procuração</strong> de cada cliente na Receita para baixar os XMLs direto da API ADN.
+        </p>
+        <p class="mt-1 text-xs text-sky-800/70">
+          Último NSU deste cliente: <strong>{{ adn_ultimo_nsu }}</strong>
+          {% if adn_config.thumbprint %} · certificado: <code class="font-mono">{{ adn_config.thumbprint|slice:":8" }}…</code>{% endif %}
+          {% if not adn_windows_local %} · disponível só no Sentinela local Windows{% endif %}
+        </p>
+      </div>
+    </div>
+    {% if adn_windows_local %}
+    <div class="mt-3 flex flex-wrap items-end gap-2">
+      <form method="post" action="{% url 'salvar_certificado_adn' %}" class="flex min-w-[16rem] flex-1 flex-wrap items-end gap-2">
+        {% csrf_token %}
+        <label class="block min-w-[14rem] flex-1 text-xs font-semibold text-sky-900">
+          Certificado do escritório
+          <select name="thumbprint" required class="mt-1 w-full rounded-xl border border-sky-300 bg-white px-3 py-2 text-sm text-stone-900">
+            <option value="">Selecione…</option>
+            {% for cert in adn_certificados %}
+            <option value="{{ cert.thumbprint }}" {% if adn_config.thumbprint == cert.thumbprint %}selected{% endif %} data-subject="{{ cert.subject }}">
+              {% if cert.friendly_name %}{{ cert.friendly_name }} — {% endif %}{{ cert.subject|truncatechars:80 }}
+            </option>
+            {% endfor %}
+          </select>
+        </label>
+        <input type="hidden" name="subject" id="adn-cert-subject" value="{{ adn_config.subject|default:'' }}">
+        <button type="submit" class="rounded-xl border border-sky-300 bg-white px-4 py-2 text-sm font-semibold text-sky-900 shadow-sm hover:bg-sky-50">Salvar certificado</button>
+      </form>
+      <form method="post" action="{% url 'sincronizar_adn_nfse' %}" class="flex flex-wrap items-center gap-2">
+        {% csrf_token %}
+        <button type="submit" class="rounded-xl bg-sky-700 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-sky-800">Sincronizar XMLs ADN</button>
+        <label class="flex items-center gap-1 text-xs text-sky-900">
+          <input type="checkbox" name="reiniciar_nsu" value="1" class="rounded border-sky-400">
+          Recomeçar do NSU 0
+        </label>
+      </form>
+    </div>
+    {% else %}
+    <p class="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+      Este servidor não é Windows local. Rode o Sentinela no PC do escritório (`iniciar_escritorio.bat`) para baixar XMLs com o certificado da equipe.
+    </p>
+    {% endif %}
+  </div>
 
   <div class="mt-4 grid gap-4 {% if eh_administrador %}lg:grid-cols-2{% endif %}">
     <form id="form-iniciar-coletor" method="post" action="{% url 'iniciar_coletor_nfse' %}" data-url-login="https://www.nfse.gov.br/EmissorNacional/Login?ReturnUrl=%2femissornacional" class="rounded-2xl border border-stone-200 bg-stone-50 p-4">
       {% csrf_token %}
-      <h2 class="mb-2 text-base font-bold text-stone-800">{% if eh_administrador %}1. {% endif %}Disparar Robô / Abrir Login no Portal Nacional</h2>
+      <h2 class="mb-2 text-base font-bold text-stone-800">{% if eh_administrador %}1. {% endif %}Alternativa antiga: Robô Chrome (Portal Nacional)</h2>
       <div class="space-y-2 text-sm">
         <label class="flex items-center gap-2 font-medium text-stone-800">
           <input type="radio" name="modo_periodo" value="mes" checked onchange="alternarModoPeriodo(this.value)">
@@ -290,6 +372,9 @@
               {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
               <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="whitespace-nowrap rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-stone-700" type="submit">Pendente</button></form>
               {% endif %}
+              {% if n.etapa_escrituracao != 'NAO_ESCRITURAR' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="NAO_ESCRITURAR"><button class="whitespace-nowrap rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-red-800" type="submit">Não escriturar</button></form>
+              {% endif %}
             </div>
           </td>
         </tr>
@@ -351,6 +436,9 @@
               {% endif %}
               {% if n.etapa_escrituracao != 'PENDENTE' and n.status != 'Cancelada' %}
               <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="PENDENTE"><button class="whitespace-nowrap rounded-lg border border-stone-300 bg-white px-2.5 py-1 text-stone-700" type="submit">Pendente</button></form>
+              {% endif %}
+              {% if n.etapa_escrituracao != 'NAO_ESCRITURAR' and n.status != 'Cancelada' %}
+              <form method="post" action="{% url 'alterar_etapa_nfse' n.pk %}" class="shrink-0">{% csrf_token %}<input type="hidden" name="etapa" value="NAO_ESCRITURAR"><button class="whitespace-nowrap rounded-lg border border-red-200 bg-red-50 px-2.5 py-1 text-red-800" type="submit">Não escriturar</button></form>
               {% endif %}
             </div>
           </td>
