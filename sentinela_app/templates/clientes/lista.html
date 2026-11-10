@@ -12,14 +12,6 @@
       </p>
     </div>
     <div class="flex flex-wrap items-center gap-2">
-      <a class="whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-4 py-2.5 text-sm font-bold text-pink-800 shadow-sm hover:bg-pink-100" href="{% url 'exportar_relatorio_clientes' %}" title="Baixa a planilha completa de todos os clientes, sem filtros">
-        Extrair todos (.xlsx)
-      </a>
-      {% if tem_filtro %}
-      <a class="whitespace-nowrap rounded-xl border border-stone-300 bg-white px-4 py-2.5 text-sm font-bold text-stone-800 shadow-sm hover:bg-stone-50" href="{% url 'exportar_relatorio_clientes' %}?{{ query_filtros }}" title="Baixa só os clientes que estão na tela com os filtros atuais">
-        Extrair filtrados (.xlsx)
-      </a>
-      {% endif %}
       {% if permissoes.pode_cadastrar_cliente %}<a class="whitespace-nowrap rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-pink-700" href="{% url 'nova_empresa' %}">Novo cliente</a>{% endif %}
     </div>
   </div>
@@ -28,8 +20,6 @@
     <input class="w-full max-w-xl rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Busca livre: código, nome, CNPJ, CNAE, contato, DCTFWeb…">
     {% include "clientes/_filtro_excel.html" with nome="escopo" rotulo="Checklist" opcoes=opcoes_escopo_pares selecionados=filtro_escopo %}
     <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
-    <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm font-semibold text-stone-700 shadow-sm hover:bg-stone-50">Limpar filtros</a>
-    <span class="text-xs text-stone-500">{{ total_empresas }} cliente{{ total_empresas|pluralize:"s" }} na tela</span>
   </form>
 
   {% if eh_administrador %}
@@ -72,7 +62,23 @@
   {% endif %}
 </section>
 
-<section class="overflow-auto rounded-2xl border border-stone-200 bg-white shadow-sm">
+<section class="rounded-2xl border border-stone-200 bg-white shadow-sm">
+  <div class="flex flex-wrap items-center justify-between gap-2 border-b border-stone-100 px-3 py-2.5">
+    <span class="text-sm text-stone-600">{{ total_empresas }} cliente{{ total_empresas|pluralize:"s" }} na tela{% if tem_filtro %} <span class="text-stone-400">(com filtro)</span>{% endif %}</span>
+    <div class="flex flex-wrap items-center gap-2">
+      {% if tem_filtro %}
+      <a href="{% url 'lista_empresas' %}" class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm font-semibold text-stone-700 shadow-sm hover:bg-stone-50">Limpar filtros</a>
+      <a class="whitespace-nowrap rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-sm font-bold text-stone-800 shadow-sm hover:bg-stone-50" href="{% url 'exportar_relatorio_clientes' %}?{{ query_filtros }}" title="Baixa só o que está na tabela com os filtros atuais">
+        Extrair filtrados (.xlsx)
+      </a>
+      {% else %}
+      <a class="whitespace-nowrap rounded-xl border border-pink-200 bg-pink-50 px-3.5 py-2 text-sm font-bold text-pink-800 shadow-sm hover:bg-pink-100" href="{% url 'exportar_relatorio_clientes' %}" title="Baixa a planilha completa de todos os clientes">
+        Extrair todos (.xlsx)
+      </a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="overflow-auto">
   <table class="w-full text-left text-sm">
     <thead class="bg-pink-50 text-xs uppercase tracking-wide text-pink-800">
       <tr>
@@ -140,6 +146,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </section>
 <script>
   function alternarFiltroExcel(botao) {
