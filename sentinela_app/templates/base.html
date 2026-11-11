@@ -56,6 +56,7 @@
           </div>
           {% endif %}
           {% if permissoes.pode_auditar %}<a href="{% url 'auditoria' %}" class="shrink-0 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-sm {% if modulo == 'auditoria' %}bg-blue-50 font-semibold text-blue-700{% else %}text-stone-500 hover:bg-stone-100{% endif %}">Auditoria</a>{% endif %}
+          <a href="{% url 'fechamento' %}" class="shrink-0 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-sm {% if modulo == 'fechamento' %}bg-amber-50 font-semibold text-amber-800{% else %}text-amber-800/80 hover:bg-amber-50{% endif %}">Fechamento</a>
           <a href="{% url 'historico' %}" class="shrink-0 whitespace-nowrap rounded-xl px-2.5 py-1.5 text-sm {% if modulo == 'historico' %}bg-stone-200 font-semibold text-stone-900{% else %}text-stone-500 hover:bg-stone-100{% endif %}">Histórico</a>
         </nav>
       </div>

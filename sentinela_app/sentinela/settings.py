@@ -51,6 +51,7 @@ INSTALLED_APPS = [
     'clientes',
     'triagem_xml',
     'auditoria',
+    'fechamento',
 ]
 
 MIDDLEWARE = [
@@ -185,6 +186,17 @@ elif os.name == "nt" and _padrao_sharepoint.parent.exists():
 else:
     SHAREPOINT_ROOT_DIR = MEDIA_ROOT / "clientes"
 PASTA_MAE = _caminho_configurado("SENTINELA_PASTA_MAE", SHAREPOINT_ROOT_DIR)
+_fechamento_padrao = Path(
+    r"C:\Users\NASCEL-10\OneDrive - NASCEL CONTABILIDADE LTDA"
+    r"\Nascel Contabilidade - publico\Fiscal\App Mari\manual nascel"
+    r"\Código GITHUB e StreamLit Manual"
+)
+if os.getenv("SENTINELA_FECHAMENTO_SRC", "").strip():
+    FECHAMENTO_SRC = _caminho_configurado("SENTINELA_FECHAMENTO_SRC", _fechamento_padrao)
+elif os.name == "nt" and _fechamento_padrao.exists():
+    FECHAMENTO_SRC = _fechamento_padrao
+else:
+    FECHAMENTO_SRC = BASE_DIR / "fechamento" / "data"
 for _pasta in (STATIC_ROOT, MEDIA_ROOT, SHAREPOINT_ROOT_DIR, PASTA_MAE):
     _pasta.mkdir(parents=True, exist_ok=True)
 

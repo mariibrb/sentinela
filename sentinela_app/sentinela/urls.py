@@ -45,6 +45,7 @@ urlpatterns = [
     path("colaboradores/", include("clientes.urls_colaboradores")),
     path("triagem/", include("triagem_xml.urls")),
     path("auditoria/", include("auditoria.urls")),
+    path("fechamento/", include("fechamento.urls")),
 ]
 handler400 = erro_de_envio
 

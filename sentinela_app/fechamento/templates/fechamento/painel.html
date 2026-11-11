@@ -1,0 +1,372 @@
+{% extends "base.html" %}
+{% load static %}
+{% block titulo %}Fechamento Fiscal · Sentinela{% endblock %}
+{% block corpo %}
+<style>
+  .fc-wrap { --primary:#fca422; --ink:#746a69; --border:#e4dfde; --ok:#15803d; --na:#475569; --pend:#b45309; }
+  .fc-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:0 8px 20px -8px rgba(116,106,105,.15); }
+  .fc-brand { display:flex; gap:14px; align-items:center; }
+  .fc-brand img { height:48px; width:auto; }
+  .fc-tabs, .fc-types { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+  .fc-pill { border:1px solid var(--border); background:#fff; border-radius:999px; padding:7px 12px; font-size:12px; font-weight:700; color:#3f3837; cursor:pointer; }
+  .fc-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
+  .fc-row { display:grid; grid-template-columns:1fr auto; gap:12px; padding:12px 0; border-bottom:1px solid #f0eceb; }
+  .fc-row.ok { background:#f0fdf4; }
+  .fc-row.na { background:#f8fafc; opacity:.85; }
+  .fc-row.pend { background:#fff7ed; }
+  .fc-flags { display:flex; gap:6px; align-items:start; }
+  .fc-flag { border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; }
+  .fc-flag.active-ok { background:var(--ok); color:#fff; border-color:var(--ok); }
+  .fc-flag.active-na { background:var(--na); color:#fff; border-color:var(--na); }
+  .fc-flag.active-pend { background:var(--pend); color:#fff; border-color:var(--pend); }
+  .fc-progress { height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
+  .fc-progress > span { display:block; height:100%; background:var(--primary); width:0%; transition:width .2s; }
+  .fc-muted { color:#746a69; font-size:12px; }
+  .fc-cat { font-size:11px; font-weight:700; text-transform:uppercase; color:#94620f; margin-bottom:4px; }
+  .fc-title { font-weight:700; color:#3f3837; }
+  .fc-desc { font-size:13px; color:#746a69; margin-top:2px; }
+  .fc-path { font-size:11px; color:#94a3b8; margin-top:4px; }
+  .fc-obs { width:100%; margin-top:8px; border:1px solid #e4dfde; border-radius:10px; padding:8px; font-size:12px; }
+  .fc-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
+  .fc-toolbar label { font-size:11px; font-weight:700; color:#746a69; display:block; margin-bottom:4px; }
+  .fc-toolbar select, .fc-toolbar input { border:1px solid #e4dfde; border-radius:10px; padding:8px 10px; min-width:12rem; background:#fff; }
+  .fc-btn { border-radius:10px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid transparent; }
+  .fc-btn-primary { background:#fca422; color:#fff; }
+  .fc-btn-outline { background:#fff; border-color:#e4dfde; color:#3f3837; }
+  .fc-btn-ok { background:#15803d; color:#fff; }
+  .fc-btn-warn { background:#c2410c; color:#fff; }
+  .fc-status { font-size:12px; color:#746a69; }
+  .fc-badge { display:inline-flex; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:800; }
+  .fc-badge.em_execucao { background:#e2e8f0; color:#334155; }
+  .fc-badge.aguardando_revisao { background:#fff7ed; color:#c2410c; }
+  .fc-badge.aprovado { background:#ecfdf5; color:#047857; }
+  .fc-badge.reprovado { background:#fef2f2; color:#b91c1c; }
+  .fc-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
+  .fc-modal.open { display:flex; }
+  .fc-modal-card { width:100%; max-width:420px; background:#fff; border-radius:16px; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,.2); }
+</style>
+
+<section class="fc-wrap space-y-4">
+  <div class="fc-card">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div class="fc-brand">
+        <img src="{% static 'fechamento/nascel_contabilidade.jpg.jpeg' %}" alt="Nascel">
+        <div>
+          <p class="text-xs font-bold uppercase tracking-wide text-amber-700">Central de Fechamentos Fiscais</p>
+          <h1 class="text-2xl font-extrabold text-stone-900">Fechamento operacional no Sentinela</h1>
+          <p class="fc-muted mt-1">Clientes do cadastro · marcações no banco · competência {{ competencia_rotulo|default:"(defina no topo)" }}</p>
+          <p class="mt-2"><span id="fc-badge" class="fc-badge em_execucao">Em execução</span></p>
+        </div>
+      </div>
+      <div class="fc-toolbar">
+        <div>
+          <label>Cliente</label>
+          <select id="fc-empresa"></select>
+        </div>
+        <div>
+          <label>Operador</label>
+          <input id="fc-operador" type="text" placeholder="Seu nome">
+        </div>
+        <div>
+          <label>Revisor (usuário Sentinela)</label>
+          <select id="fc-revisor"></select>
+        </div>
+        <button type="button" class="fc-btn fc-btn-primary" onclick="fcSalvar()">Salvar</button>
+        <button type="button" class="fc-btn fc-btn-warn" onclick="fcEnviarRevisao()">Enviar p/ revisão</button>
+        <button type="button" class="fc-btn fc-btn-ok" onclick="fcAbrirAprovar()">Aprovar revisão</button>
+        <button type="button" class="fc-btn fc-btn-outline" onclick="window.print()">Imprimir</button>
+      </div>
+    </div>
+    <div class="fc-tabs" id="fc-regimes"></div>
+    <div class="fc-types" id="fc-tipos"></div>
+    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
+      <p class="fc-status" id="fc-progress-label">Progresso</p>
+      <p class="fc-status" id="fc-save-status">Pronto.</p>
+    </div>
+    <div class="fc-progress mt-2"><span id="fc-progress-bar"></span></div>
+  </div>
+
+  <div class="fc-card" id="fc-lista"></div>
+</section>
+
+<div id="fc-modal-aprovar" class="fc-modal" onclick="if(event.target===this)fcFecharAprovar()">
+  <div class="fc-modal-card">
+    <h2 class="text-lg font-extrabold text-stone-900">Aprovar com senha do revisador</h2>
+    <p class="fc-muted mt-1">Digite a <strong>mesma senha de login do Sentinela</strong> do revisador selecionado. Sem ela a aprovação não grava.</p>
+    <label class="mt-3 block text-xs font-bold text-stone-600">Senha do revisador
+      <input id="fc-senha-revisor" type="password" autocomplete="current-password" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm">
+    </label>
+    <div class="mt-4 flex flex-wrap gap-2">
+      <button type="button" class="fc-btn fc-btn-ok" onclick="fcConfirmarAprovar()">Confirmar aprovação</button>
+      <button type="button" class="fc-btn fc-btn-outline" onclick="fcFecharAprovar()">Cancelar</button>
+    </div>
+    <p id="fc-aprovar-erro" class="mt-2 text-sm font-semibold text-red-700"></p>
+  </div>
+</div>
+
+<script>
+const FC_DEFS = {{ definicoes_json|safe }};
+const FC_EMPRESA_ATIVA = {{ empresa_ativa_id|default:"null" }};
+const FC_COMPETENCIA = "{{ competencia|escapejs }}";
+const FC_URLS = {
+  empresas: "{% url 'fechamento_api_empresas' %}",
+  revisores: "{% url 'fechamento_api_revisores' %}",
+  estado: "{% url 'fechamento_api_estado' %}",
+  salvar: "{% url 'fechamento_api_salvar' %}",
+  aprovar: "{% url 'fechamento_api_aprovar' %}",
+};
+const FC_STATUS_LABEL = {
+  em_execucao: "Em execução",
+  aguardando_revisao: "Aguardando revisão",
+  aprovado: "Aprovado",
+  reprovado: "Reprovado",
+};
+function fcCsrf() {
+  const m = document.cookie.match(/csrftoken=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : "";
+}
+
+let fcEmpresas = [];
+let fcRevisores = [];
+let fcEstado = {
+  empresa_id: FC_EMPRESA_ATIVA,
+  competencia: FC_COMPETENCIA,
+  regime: "simples",
+  checklist_tipo: "importacao",
+  status: "em_execucao",
+  flags: {},
+  obs_logs: {},
+  anexos: {},
+  operador: "",
+  revisor: "",
+  revisor_usuario_id: null,
+  ie_st: "nao_aplica",
+};
+
+function fcItensVisiveis() {
+  const regime = (FC_DEFS.regimesData || {})[fcEstado.regime] || { items: [] };
+  const map = FC_DEFS.ITEM_TYPE_MAP || {};
+  return (regime.items || []).filter(it => (map[it.id] || "importacao") === fcEstado.checklist_tipo);
+}
+
+function fcRenderAbas() {
+  const regimes = FC_DEFS.regimesData || {};
+  document.getElementById("fc-regimes").innerHTML = Object.entries(regimes).map(([k, v]) =>
+    `<button type="button" class="fc-pill ${fcEstado.regime===k?'active':''}" onclick="fcSetRegime('${k}')">${v.title}</button>`
+  ).join("");
+  const tipos = FC_DEFS.CHECKLIST_TYPES || {};
+  document.getElementById("fc-tipos").innerHTML = Object.entries(tipos).map(([k, v]) =>
+    `<button type="button" class="fc-pill ${fcEstado.checklist_tipo===k?'active':''}" onclick="fcSetTipo('${k}')" title="${(v.hint||'').replace(/"/g,'&quot;')}">${v.title}</button>`
+  ).join("");
+}
+
+function fcSetRegime(k) { fcEstado.regime = k; fcRender(); }
+function fcSetTipo(k) { fcEstado.checklist_tipo = k; fcRender(); }
+
+function fcSetFlag(id, valor) {
+  if (fcEstado.flags[id] === valor) delete fcEstado.flags[id];
+  else fcEstado.flags[id] = valor;
+  fcRenderLista();
+  fcAtualizarProgresso();
+}
+
+function fcObs(id, texto) {
+  const cur = String(texto || "").trim();
+  if (!cur) {
+    if (fcEstado.obs_logs[id]) fcEstado.obs_logs[id].current = "";
+    return;
+  }
+  if (!fcEstado.obs_logs[id]) fcEstado.obs_logs[id] = { current: "", history: [] };
+  fcEstado.obs_logs[id].current = cur;
+}
+
+function fcRenderLista() {
+  const itens = fcItensVisiveis();
+  const box = document.getElementById("fc-lista");
+  if (!itens.length) {
+    box.innerHTML = `<p class="fc-muted">Nenhum item neste tipo para o regime selecionado.</p>`;
+    return;
+  }
+  box.innerHTML = itens.map(it => {
+    const flag = fcEstado.flags[it.id] || "";
+    const obs = (fcEstado.obs_logs[it.id] && fcEstado.obs_logs[it.id].current) || "";
+    const st = flag === "ok" ? "ok" : flag === "na" ? "na" : flag === "pend" ? "pend" : "";
+    return `<div class="fc-row ${st}">
+      <div>
+        <div class="fc-cat">${it.cat || ""}</div>
+        <div class="fc-title">${it.title || ""}</div>
+        <div class="fc-desc">${it.desc || ""}</div>
+        <div class="fc-path">${it.path || ""}</div>
+        <textarea class="fc-obs" rows="2" placeholder="Observação" onchange="fcObs('${it.id}', this.value)">${obs.replace(/</g,"&lt;")}</textarea>
+      </div>
+      <div class="fc-flags">
+        <button type="button" class="fc-flag ${flag==="ok"?"active-ok":""}" onclick="fcSetFlag('${it.id}','ok')">OK</button>
+        <button type="button" class="fc-flag ${flag==="pend"?"active-pend":""}" onclick="fcSetFlag('${it.id}','pend')">PEND</button>
+        <button type="button" class="fc-flag ${flag==="na"?"active-na":""}" onclick="fcSetFlag('${it.id}','na')">N/A</button>
+      </div>
+    </div>`;
+  }).join("");
+}
+
+function fcAtualizarProgresso() {
+  const itens = fcItensVisiveis();
+  const total = itens.length || 1;
+  const feitos = itens.filter(it => !!fcEstado.flags[it.id]).length;
+  const pct = Math.round((feitos / total) * 100);
+  document.getElementById("fc-progress-bar").style.width = pct + "%";
+  const tipo = (FC_DEFS.CHECKLIST_TYPES[fcEstado.checklist_tipo] || {}).title || fcEstado.checklist_tipo;
+  const reg = (FC_DEFS.regimesData[fcEstado.regime] || {}).title || fcEstado.regime;
+  document.getElementById("fc-progress-label").textContent = `${reg} · ${tipo}: ${feitos}/${itens.length} (${pct}%)`;
+  const badge = document.getElementById("fc-badge");
+  badge.className = "fc-badge " + (fcEstado.status || "em_execucao");
+  badge.textContent = FC_STATUS_LABEL[fcEstado.status] || fcEstado.status;
+}
+
+function fcRender() {
+  document.getElementById("fc-operador").value = fcEstado.operador || "";
+  const selRev = document.getElementById("fc-revisor");
+  if (fcEstado.revisor_usuario_id) selRev.value = String(fcEstado.revisor_usuario_id);
+  fcRenderAbas();
+  fcRenderLista();
+  fcAtualizarProgresso();
+}
+
+function fcColetarCabecalho() {
+  fcEstado.operador = document.getElementById("fc-operador").value.trim();
+  fcEstado.empresa_id = Number(document.getElementById("fc-empresa").value || 0);
+  const revId = Number(document.getElementById("fc-revisor").value || 0);
+  fcEstado.revisor_usuario_id = revId || null;
+  const rev = fcRevisores.find(r => r.id === revId);
+  fcEstado.revisor = rev ? rev.nome : "";
+}
+
+async function fcCarregarEmpresas() {
+  const resp = await fetch(FC_URLS.empresas, { credentials: "same-origin" });
+  const data = await resp.json();
+  fcEmpresas = data.empresas || [];
+  const sel = document.getElementById("fc-empresa");
+  sel.innerHTML = fcEmpresas.map(e => `<option value="${e.id}">${e.rotulo}</option>`).join("") || `<option value="">Nenhuma empresa ativa</option>`;
+  const preferida = FC_EMPRESA_ATIVA || (fcEmpresas[0] && fcEmpresas[0].id);
+  if (preferida) sel.value = String(preferida);
+  sel.onchange = () => fcCarregarEstado();
+}
+
+async function fcCarregarRevisores() {
+  const resp = await fetch(FC_URLS.revisores, { credentials: "same-origin" });
+  const data = await resp.json();
+  fcRevisores = data.revisores || [];
+  const sel = document.getElementById("fc-revisor");
+  sel.innerHTML = `<option value="">Selecione o revisador…</option>` + fcRevisores.map(r =>
+    `<option value="${r.id}">${r.rotulo}</option>`
+  ).join("");
+}
+
+async function fcCarregarEstado() {
+  const empresaId = document.getElementById("fc-empresa").value;
+  if (!empresaId || !fcEstado.competencia) {
+    document.getElementById("fc-save-status").textContent = "Escolha empresa e competência no topo do Sentinela.";
+    return;
+  }
+  const url = `${FC_URLS.estado}?empresa_id=${encodeURIComponent(empresaId)}&competencia=${encodeURIComponent(fcEstado.competencia)}`;
+  const resp = await fetch(url, { credentials: "same-origin" });
+  const data = await resp.json();
+  if (!data.ok) {
+    document.getElementById("fc-save-status").textContent = data.erro || "Falha ao carregar.";
+    return;
+  }
+  fcEstado = { ...fcEstado, ...data.estado, empresa_id: Number(empresaId), competencia: fcEstado.competencia };
+  fcRender();
+  document.getElementById("fc-save-status").textContent = data.novo ? "Novo checklist desta competência." : "Checklist carregado do banco.";
+}
+
+async function fcSalvar(extraStatus) {
+  fcColetarCabecalho();
+  if (!fcEstado.empresa_id || !fcEstado.competencia) {
+    document.getElementById("fc-save-status").textContent = "Escolha empresa e competência.";
+    return false;
+  }
+  const body = { ...fcEstado };
+  if (extraStatus) body.status = extraStatus;
+  const resp = await fetch(FC_URLS.salvar, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": fcCsrf() },
+    body: JSON.stringify(body),
+  });
+  const data = await resp.json();
+  if (!data.ok) {
+    document.getElementById("fc-save-status").textContent = data.erro || "Falha ao salvar.";
+    return false;
+  }
+  if (data.status) fcEstado.status = data.status;
+  fcAtualizarProgresso();
+  document.getElementById("fc-save-status").textContent = `Salvo em ${data.atualizado_em}`;
+  return true;
+}
+
+async function fcEnviarRevisao() {
+  fcColetarCabecalho();
+  if (!fcEstado.revisor_usuario_id) {
+    document.getElementById("fc-save-status").textContent = "Selecione o revisador antes de enviar.";
+    return;
+  }
+  const ok = await fcSalvar("aguardando_revisao");
+  if (ok) document.getElementById("fc-save-status").textContent = "Enviado para revisão.";
+}
+
+function fcAbrirAprovar() {
+  fcColetarCabecalho();
+  if (!fcEstado.revisor_usuario_id) {
+    document.getElementById("fc-save-status").textContent = "Selecione o revisador.";
+    return;
+  }
+  document.getElementById("fc-senha-revisor").value = "";
+  document.getElementById("fc-aprovar-erro").textContent = "";
+  document.getElementById("fc-modal-aprovar").classList.add("open");
+  document.getElementById("fc-senha-revisor").focus();
+}
+function fcFecharAprovar() {
+  document.getElementById("fc-modal-aprovar").classList.remove("open");
+  document.getElementById("fc-senha-revisor").value = "";
+}
+
+async function fcConfirmarAprovar() {
+  fcColetarCabecalho();
+  const senha = document.getElementById("fc-senha-revisor").value;
+  const erroEl = document.getElementById("fc-aprovar-erro");
+  erroEl.textContent = "";
+  const resp = await fetch(FC_URLS.aprovar, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "Content-Type": "application/json", "X-CSRFToken": fcCsrf() },
+    body: JSON.stringify({
+      empresa_id: fcEstado.empresa_id,
+      competencia: fcEstado.competencia,
+      revisor_usuario_id: fcEstado.revisor_usuario_id,
+      senha_revisor: senha,
+      flags: fcEstado.flags,
+      obs_logs: fcEstado.obs_logs,
+    }),
+  });
+  const data = await resp.json();
+  if (!data.ok) {
+    erroEl.textContent = data.erro || "Não foi possível aprovar.";
+    return;
+  }
+  fcEstado.status = data.status;
+  fcAtualizarProgresso();
+  fcFecharAprovar();
+  document.getElementById("fc-save-status").textContent = `Aprovado por ${data.revisor} em ${data.aprovado_em}`;
+}
+
+(async function init() {
+  if (!fcEstado.competencia) {
+    document.getElementById("fc-lista").innerHTML = `<p class="fc-muted">Defina a competência na barra superior do Sentinela.</p>`;
+    return;
+  }
+  await fcCarregarEmpresas();
+  await fcCarregarRevisores();
+  await fcCarregarEstado();
+})();
+</script>
+{% endblock %}

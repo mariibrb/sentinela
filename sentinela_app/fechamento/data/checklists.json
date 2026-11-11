@@ -1,0 +1,621 @@
+{
+  "version": 1,
+  "source": "index.html",
+  "regimesData": {
+    "simples": {
+      "title": "Simples Nacional",
+      "items": [
+        {
+          "id": "sn_01",
+          "cat": "1. Parâmetros e Coleta (Domínio / SIEG / App Coletor)",
+          "title": "Selecionar empresa e competência correta no Domínio (F8) e checar Regime",
+          "desc": "Verificar se é Competência ou Caixa.",
+          "path": "Domínio: Controle > Parâmetros > Aba Simples Nacional"
+        },
+        {
+          "id": "sn_02",
+          "cat": "1. Parâmetros e Coleta (Domínio / SIEG / App Coletor)",
+          "title": "Baixar parcelas recebidas (Exclusivo se for Regime de Caixa)",
+          "desc": "Solicitar extrato/financeiro via WhatsApp/Nibo e baixar recebimentos antes de apurar.",
+          "path": "Domínio: Movimentos > Baixa de Parcelas"
+        },
+        {
+          "id": "sn_03",
+          "cat": "1. Parâmetros e Coleta (Domínio / SIEG / App Coletor)",
+          "title": "Baixar e importar XMLs de Mercadorias e Fretes (Ativas e Canceladas)",
+          "desc": "NF-e (55), NFC-e (65), SAT (59) e CT-e (57) capturados no SIEG Cofre XML.",
+          "path": "Domínio: Utilitários > Importação > Importador de XML"
+        },
+        {
+          "id": "sn_04",
+          "cat": "1. Parâmetros e Coleta (Domínio / SIEG / App Coletor)",
+          "title": "Baixar NFS-e (Prefeitura/Portal Nacional), importar na Domínio e rodar App Coletor",
+          "desc": "Passar notas do Emissor Nacional no App Coletor para gerar o relatório de conferência dos Serviços Tomados.",
+          "path": "App Coletor + Domínio: Utilitários > Importação > Importação de NFS-e"
+        },
+        {
+          "id": "sn_05",
+          "cat": "2. Auditoria de Sequência e Entradas (SP / MG / Retenções)",
+          "title": "Auditar quebra de sequência numérica e tratar Canceladas / Inutilizadas",
+          "desc": "Garantir que não há pulo de nota e que canceladas estão R$ 0,00.",
+          "path": "Domínio: Relatórios > Acompanhamento > Verificar Numeração | Movimentos > NF-e Inutilizadas"
+        },
+        {
+          "id": "sn_06",
+          "cat": "2. Auditoria de Sequência e Entradas (SP / MG / Retenções)",
+          "title": "Analisar compras interestaduais (CFOP 2.556/2.551/2.406/2.407) p/ DIFAL Uso/Consumo e Ativo",
+          "desc": "Se alíquota interestadual (4% ou 12%) for menor que a interna, calcular DIFAL e emitir DARE-SP ou DAE-MG.",
+          "path": "Domínio: Movimentos > Entradas | Relatórios > Acompanhamento > Demonstrativo de CFOPs"
+        },
+        {
+          "id": "sn_07",
+          "cat": "2. Auditoria de Sequência e Entradas (SP / MG / Retenções)",
+          "title": "Analisar compras interestaduais de revenda (CFOP 2.101/2.102/2.403) - Regra SP vs. MG",
+          "desc": "Em SP: checar NCM p/ Antecipação ST (Art. 426-A). Em MG: calcular Antecipação de Alíquota MG. Em 2.403: checar GNRE paga.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "sn_08",
+          "cat": "2. Auditoria de Sequência e Entradas (SP / MG / Retenções)",
+          "title": "Cruzar Relatório do App Coletor com Entradas: ISS Retido em Serviços Tomados",
+          "desc": "Conferir notas com ISS Retido = SIM no relatório do Coletor e emitir guia de ISS Tomador na Prefeitura.",
+          "path": "App Coletor + Portal Prefeitura + Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "sn_09",
+          "cat": "2. Auditoria de Sequência e Entradas (SP / MG / Retenções)",
+          "title": "Cruzar Relatório do App Coletor: Retenções Federais (INSS, IRRF e CSRF 4,65%)",
+          "desc": "Lançar retenções de INSS (11%/3,5%), IRRF (1,5%/1%) e CSRF (4,65%) na nota para envio da EFD-Reinf / DCTFWeb.",
+          "path": "App Coletor + Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "sn_10",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Retirar CFOPs de Não-Faturamento da Receita Bruta do Simples",
+          "desc": "Remessas, consertos, brindes, bonificações, devolução de compra (5.910, 5.915, 5.949, 5.202) e cupom referenciado (5.929).",
+          "path": "Domínio: Utilitários > Alterar Notas > Saídas"
+        },
+        {
+          "id": "sn_11",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Conferir Devoluções de Venda (CFOP 1.201, 1.202, 1.411, 2.202)",
+          "desc": "Devem estar em acumulador que DEDUZ da Receita Bruta no mesmo Anexo e regra da venda original.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "sn_12",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Segregar Vendas com Substituição Tributária de ICMS (CFOP 5.405 / 6.404)",
+          "desc": "Alocar no acumulador COM Substituição Tributária de ICMS para zerar o percentual de ICMS no DAS.",
+          "path": "Domínio: Relatórios > Impostos > Simples Nacional"
+        },
+        {
+          "id": "sn_13",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Segregar Vendas de Produtos Monofásicos de PIS e COFINS por NCM",
+          "desc": "Bebidas frias, medicamentos, perfumaria/cosméticos, autopeças/pneus e combustíveis/GLP.",
+          "path": "Domínio: Relatórios > Impostos > Simples Nacional > Produtos"
+        },
+        {
+          "id": "sn_14",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Sincronizar Folha de Salários (12 meses) e validar Fator R (Anexo III vs. Anexo V)",
+          "desc": "Se Fator R >= 28% apura no Anexo III (6%); se < 28% apura no Anexo V (15,5%).",
+          "path": "Domínio: Movimentos > Outros Dados > Simples Nacional > Dados da Folha"
+        },
+        {
+          "id": "sn_15",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Segregar Notas de Serviços Prestados COM Retenção de ISS",
+          "desc": "Notas emitidas com ISS Retido = SIM devem descontar o ISS dentro do DAS.",
+          "path": "Domínio: Movimentos > Saídas"
+        },
+        {
+          "id": "sn_16",
+          "cat": "3. Segregação de Saídas (Comércio, Indústria e Serviços)",
+          "title": "Comunicar DP sobre faturamento no Anexo IV (INSS Patronal / CPP de 20% fora do DAS)",
+          "desc": "Avisar Folha de Pagamento caso a empresa tenha receita no Anexo IV.",
+          "path": "Comunicação Interna DP / DCTFWeb"
+        },
+        {
+          "id": "sn_17",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Processar Apuração (F6) e fazer Prova Real Matemática da Receita Bruta",
+          "desc": "Confirmar na calculadora: (Vendas + Serviços Ativos) - (Devoluções de Venda) = Receita Bruta RPA.",
+          "path": "Domínio: Movimentos > Apuração | Relatórios > Impostos > Simples Nacional"
+        },
+        {
+          "id": "sn_18",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Validar se o RBT12 do Domínio está idêntico ao RBT12 do Portal PGDAS-D",
+          "desc": "Se houver diferença nos 12 meses anteriores, ajustar em Receitas Anteriores.",
+          "path": "Domínio: Movimentos > Outros Dados > Simples Nacional > Receitas Anteriores"
+        },
+        {
+          "id": "sn_19",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Bater centavos (Valor do DAS no PGDAS-D == Valor do Domínio) e gerar Guia/Recibo/Extrato",
+          "desc": "Só transmitir o PGDAS-D após o valor bater 100% com o demonstrativo do Domínio.",
+          "path": "Portal Simples Nacional / e-CAC"
+        },
+        {
+          "id": "sn_20",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Emitir Livros Fiscais (Entradas, Saídas, ISS) e Demonstrativos em PDF na Domínio",
+          "desc": "Salvar todos os relatórios e livros na pasta de rede do cliente.",
+          "path": "Domínio: Relatórios > Livros > Entradas / Saídas / ISS"
+        },
+        {
+          "id": "sn_21",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Montar pacote completo no App Fechamento e enviar p/ Revisão Técnica",
+          "desc": "Subir no App Fechamento: DAS, Extrato/Recibo PGDAS, Relatório Domínio, Relatório App Coletor, Livros e Guias extras.",
+          "path": "App Fechamento"
+        },
+        {
+          "id": "sn_22",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Transmitir DeSTDA (SEDIF-SN) e encerrar escrituração no site da Prefeitura",
+          "desc": "Gerar DeSTDA para contribuintes com IE e fechar competência municipal de ISS.",
+          "path": "Domínio: Relatórios > Informativos > Estaduais > DeSTDA"
+        },
+        {
+          "id": "sn_23",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "(Pós-Revisão) Postar guias validadas para o cliente via Nibo / WhatsApp",
+          "desc": "Liberar para o cliente somente após o OK do revisor no App Fechamento.",
+          "path": "Nibo / WhatsApp"
+        },
+        {
+          "id": "sn_24",
+          "cat": "4. Apuração, PGDAS-D, Livros, App Fechamento e Revisão",
+          "title": "Fechar / Travar o Período Fiscal no Domínio Sistemas",
+          "desc": "Bloquear o mês apurado para impedir alterações acidentais.",
+          "path": "Domínio: Utilitários > Fechamento de Período"
+        }
+      ]
+    },
+    "presumido": {
+      "title": "Lucro Presumido",
+      "items": [
+        {
+          "id": "lp_01",
+          "cat": "1. Coleta, Parâmetros, SIEG e App Coletor",
+          "title": "Selecionar empresa e competência no Domínio (F8) e checar regime (Caixa ou Competência)",
+          "desc": "Conferir parametrização federal/estadual e solicitar extratos de aplicação financeira no trimestre.",
+          "path": "Domínio: Controle > Parâmetros"
+        },
+        {
+          "id": "lp_02",
+          "cat": "1. Coleta, Parâmetros, SIEG e App Coletor",
+          "title": "Baixar no SIEG e importar no Domínio XMLs de NF-e, NFC-e, SAT e CT-e (Ativas e Canceladas)",
+          "desc": "Importar lotes de entradas, saídas e conhecimentos de transporte.",
+          "path": "Domínio: Utilitários > Importação > Importador de XML"
+        },
+        {
+          "id": "lp_03",
+          "cat": "1. Coleta, Parâmetros, SIEG e App Coletor",
+          "title": "Baixar NFS-e (Prefeitura/Portal Nacional), importar na Domínio e rodar o App Coletor",
+          "desc": "Gerar no App Coletor o relatório de auditoria das retenções de Serviços Tomados.",
+          "path": "App Coletor + Domínio: Utilitários > Importação > NFS-e"
+        },
+        {
+          "id": "lp_04",
+          "cat": "1. Coleta, Parâmetros, SIEG e App Coletor",
+          "title": "Auditar sequência numérica de Saídas e tratar Canceladas / Inutilizadas",
+          "desc": "Confirmar que não há pulo de numeração em NF-e, NFC-e e NFS-e.",
+          "path": "Domínio: Relatórios > Acompanhamento > Verificar Numeração"
+        },
+        {
+          "id": "lp_05",
+          "cat": "2. Auditoria de Entradas (Crédito ICMS/IPI, Fronteira e App Coletor)",
+          "title": "Conferir crédito de ICMS/IPI nas entradas de revenda/insumos e bloqueio em ST/Uso e Consumo",
+          "desc": "CFOPs 1.101/1.102/2.102 tributados geram crédito de ICMS; 1.403 (ST) e 1.556 (Uso/Consumo) não geram crédito.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lp_06",
+          "cat": "2. Auditoria de Entradas (Crédito ICMS/IPI, Fronteira e App Coletor)",
+          "title": "Auditar compras interestaduais (CFOP 2.xxx) p/ DIFAL e Antecipações (SP e MG)",
+          "desc": "Verificar DIFAL Uso/Ativo em conta gráfica (SP) ou DAE (MG), Art. 426-A (SP) e Antecipação de Entrada (MG).",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lp_07",
+          "cat": "2. Auditoria de Entradas (Crédito ICMS/IPI, Fronteira e App Coletor)",
+          "title": "Cruzar Relatório do App Coletor com Entradas: Guia de ISS Tomador",
+          "desc": "Emitir guia municipal para todas as notas apontadas com ISS Retido no relatório do Coletor.",
+          "path": "App Coletor + Portal da Prefeitura"
+        },
+        {
+          "id": "lp_08",
+          "cat": "2. Auditoria de Entradas (Crédito ICMS/IPI, Fronteira e App Coletor)",
+          "title": "Cruzar Relatório do App Coletor: Lançar INSS, IRRF e CSRF (4,65%) na Domínio",
+          "desc": "Garantir que as retenções de serviços tomados subam para a EFD-Reinf e gerem DARF na DCTFWeb.",
+          "path": "App Coletor + Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lp_09",
+          "cat": "3. Auditoria de Saídas (ICMS, ISS, PIS/COFINS Cumulativo, IRPJ e CSLL)",
+          "title": "Excluir CFOPs de remessa, conserto, bonificação e devolução de compra da base de faturamento",
+          "desc": "CFOPs 5.910, 5.915, 5.949, 5.202 não podem compor base de PIS, COFINS, IRPJ e CSLL.",
+          "path": "Domínio: Relatórios > Acompanhamento > Demonstrativo de CFOPs"
+        },
+        {
+          "id": "lp_10",
+          "cat": "3. Auditoria de Saídas (ICMS, ISS, PIS/COFINS Cumulativo, IRPJ e CSLL)",
+          "title": "Conferir exclusão do ICMS destacado nas saídas da base do PIS (0,65%) e COFINS (3,00%)",
+          "desc": "Validar se o acumulador está abatendo o ICMS próprio da base de PIS/COFINS (Tema 69 STF).",
+          "path": "Domínio: Relatórios > Impostos > PIS Cumulativo / COFINS Cumulativo"
+        },
+        {
+          "id": "lp_11",
+          "cat": "3. Auditoria de Saídas (ICMS, ISS, PIS/COFINS Cumulativo, IRPJ e CSLL)",
+          "title": "Segregar produtos Monofásicos (CST 04) e abater Devoluções de Venda (1.202/1.411)",
+          "desc": "Itens monofásicos têm alíquota zero na revenda; devoluções deduzem a base do mês.",
+          "path": "Domínio: Movimentos > Saídas / Entradas"
+        },
+        {
+          "id": "lp_12",
+          "cat": "3. Auditoria de Saídas (ICMS, ISS, PIS/COFINS Cumulativo, IRPJ e CSLL)",
+          "title": "Abater retenções sofridas nas notas de saída (IRRF e CSRF 4,65% retidos pelos clientes)",
+          "desc": "Deduzir das guias de PIS, COFINS, IRPJ e CSLL os valores que os clientes descontaram da nossa empresa.",
+          "path": "Domínio: Movimentos > Saídas / Baixa de Parcelas"
+        },
+        {
+          "id": "lp_13",
+          "cat": "3. Auditoria de Saídas (ICMS, ISS, PIS/COFINS Cumulativo, IRPJ e CSLL)",
+          "title": "(Trimestral: Mar/Jun/Set/Dez) Lançar Rendimentos de Aplicação e apurar IRPJ e CSLL Presumido",
+          "desc": "Conferir presunção (8%/12% Comércio ou 32% Serviços), somar receitas financeiras e checar adicional de 10% IRPJ.",
+          "path": "Domínio: Movimentos > Outros Dados > IRPJ/CSLL"
+        },
+        {
+          "id": "lp_14",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Processar Apuração (F6) e emitir Relatórios de Impostos em PDF na Domínio",
+          "desc": "Emitir demonstrativos de PIS, COFINS, ICMS, IPI, ISS, Retenções, IRPJ e CSLL.",
+          "path": "Domínio: Movimentos > Apuração | Relatórios > Impostos"
+        },
+        {
+          "id": "lp_15",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Emitir todos os Livros Fiscais em PDF na Domínio Sistemas",
+          "desc": "Livros de Entradas, Saídas, Apuração de ICMS, Apuração de IPI (se indústria) e ISS.",
+          "path": "Domínio: Relatórios > Livros > Entradas / Saídas / Apuração ICMS / ISS"
+        },
+        {
+          "id": "lp_16",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Gerar e validar SPED Fiscal, EFD-Contribuições, EFD-Reinf, DCTFWeb/MIT e GIA/DAPI",
+          "desc": "Validar arquivos nos PVAs, transmitir obrigações e gerar todos os DARFs, DARE/DAE e guias de ISS.",
+          "path": "Domínio: Relatórios > Informativos > Federais e Estaduais"
+        },
+        {
+          "id": "lp_17",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Salvar na rede, montar pacote completo no App Fechamento e enviar p/ Revisão Técnica",
+          "desc": "Subir no App Fechamento: Relatórios de Impostos, Relatório App Coletor, Livros Fiscais, Recibos SPED e Guias.",
+          "path": "App Fechamento"
+        },
+        {
+          "id": "lp_18",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "(Pós-Revisão) Enviar guias via Nibo/WhatsApp e travar período no Domínio",
+          "desc": "Liberar ao cliente após revisão e bloquear mês fiscal.",
+          "path": "Domínio: Utilitários > Fechamento de Período"
+        }
+      ]
+    },
+    "real": {
+      "title": "Lucro Real",
+      "items": [
+        {
+          "id": "lr_01",
+          "cat": "1. Coleta Rigorosa, SIEG, App Coletor e Despesas Creditáveis",
+          "title": "Selecionar empresa e competência no Domínio (F8)",
+          "desc": "Verificar se apuração de IRPJ/CSLL é Trimestral ou Estimativa Mensal (Balanço de Suspensão/Redução).",
+          "path": "Domínio: Controle > Parâmetros"
+        },
+        {
+          "id": "lr_02",
+          "cat": "1. Coleta Rigorosa, SIEG, App Coletor e Despesas Creditáveis",
+          "title": "Baixar no SIEG e importar XMLs de NF-e, NFC-e, SAT, CT-e e NF3-e Energia",
+          "desc": "Importar 100% dos documentos fiscais estaduais de entradas e saídas.",
+          "path": "Domínio: Utilitários > Importação > Importador de XML"
+        },
+        {
+          "id": "lr_03",
+          "cat": "1. Coleta Rigorosa, SIEG, App Coletor e Despesas Creditáveis",
+          "title": "Baixar NFS-e (Prefeitura/Portal Nacional), importar na Domínio e rodar o App Coletor",
+          "desc": "Emitir o relatório do App Coletor para auditar retenções e serviços tomados.",
+          "path": "App Coletor + Domínio: Utilitários > Importação > NFS-e"
+        },
+        {
+          "id": "lr_04",
+          "cat": "1. Coleta Rigorosa, SIEG, App Coletor e Despesas Creditáveis",
+          "title": "Coletar e lançar faturas de Energia, Aluguéis PJ, Leasing, Fretes e Depreciação",
+          "desc": "Lançar despesas que geram crédito de 1,65% PIS e 7,6% COFINS.",
+          "path": "Domínio: Movimentos > Outros Dados > PIS/COFINS > Créditos / Ativo"
+        },
+        {
+          "id": "lr_05",
+          "cat": "1. Coleta Rigorosa, SIEG, App Coletor e Despesas Creditáveis",
+          "title": "Conferir sequência numérica de Saídas e tratar Canceladas / Inutilizadas",
+          "desc": "Garantir integridade total da numeração antes de apurar os créditos/débitos.",
+          "path": "Domínio: Relatórios > Acompanhamento > Verificar Numeração"
+        },
+        {
+          "id": "lr_06",
+          "cat": "2. Auditoria de Créditos Não-Cumulativos e Retenções nas Entradas",
+          "title": "Auditar créditos de ICMS, IPI, PIS (1,65%) e COFINS (7,6%) nas compras de revenda, insumos e fretes",
+          "desc": "Conferir CST 50 nas entradas tributadas e regras da Lei 14.592/2023.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lr_07",
+          "cat": "2. Auditoria de Créditos Não-Cumulativos e Retenções nas Entradas",
+          "title": "Bloquear crédito de PIS/COFINS em compras de Monofásicos (CST 70), Alíquota Zero (CST 73) e Uso/Consumo",
+          "desc": "Mercadorias monofásicas ou alíquota zero para revenda não dão direito a crédito na entrada.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lr_08",
+          "cat": "2. Auditoria de Créditos Não-Cumulativos e Retenções nas Entradas",
+          "title": "Analisar compras interestaduais (CFOP 2.xxx) p/ DIFAL e Antecipações (SP e MG)",
+          "desc": "Verificar DIFAL de Uso/Consumo e Ativo Imobilizado e antecipações estaduais.",
+          "path": "Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lr_09",
+          "cat": "2. Auditoria de Créditos Não-Cumulativos e Retenções nas Entradas",
+          "title": "Cruzar Relatório do App Coletor com Entradas: ISS Tomador + Retenções Federais (INSS, IRRF, CSRF)",
+          "desc": "Emitir guia municipal de ISS Retido e lançar INSS/IRRF/CSRF na Domínio para EFD-Reinf e DCTFWeb.",
+          "path": "App Coletor + Domínio: Movimentos > Entradas"
+        },
+        {
+          "id": "lr_10",
+          "cat": "3. Auditoria de Saídas, Receitas Financeiras e Integração Contábil (LALUR)",
+          "title": "Conferir exclusão do ICMS próprio destacado nas saídas da base de débito do PIS (1,65%) e COFINS (7,6%)",
+          "desc": "Validar se o ICMS da operação própria foi abatido da base de cálculo.",
+          "path": "Domínio: Relatórios > Impostos > PIS / COFINS Não-Cumulativo"
+        },
+        {
+          "id": "lr_11",
+          "cat": "3. Auditoria de Saídas, Receitas Financeiras e Integração Contábil (LALUR)",
+          "title": "Segregar saídas de produtos Monofásicos (CST 04) e limpar CFOPs de remessa/não-faturamento",
+          "desc": "Garantir que remessas não gerem débito de PIS/COFINS e itens monofásicos fiquem com alíquota zero.",
+          "path": "Domínio: Relatórios > Acompanhamento > Demonstrativo de CFOPs"
+        },
+        {
+          "id": "lr_12",
+          "cat": "3. Auditoria de Saídas, Receitas Financeiras e Integração Contábil (LALUR)",
+          "title": "Lançar Receitas Financeiras do mês p/ tributação de 0,65% PIS e 4,00% COFINS (Decreto 8.426/2015)",
+          "desc": "Tributar rendimentos de aplicação, juros ativos e descontos obtidos.",
+          "path": "Domínio: Movimentos > Outros Dados > PIS/COFINS > Demais Receitas"
+        },
+        {
+          "id": "lr_13",
+          "cat": "3. Auditoria de Saídas, Receitas Financeiras e Integração Contábil (LALUR)",
+          "title": "Abater retenções sofridas nas notas de saída (PIS, COFINS, CSLL e IRRF retidos por clientes)",
+          "desc": "Aproveitar os créditos de impostos retidos na fonte pelos clientes.",
+          "path": "Domínio: Movimentos > Saídas / Baixa de Parcelas"
+        },
+        {
+          "id": "lr_14",
+          "cat": "3. Auditoria de Saídas, Receitas Financeiras e Integração Contábil (LALUR)",
+          "title": "Validar conciliação Fiscal x Contábil (Balancete / LALUR / LACS) p/ apuração de IRPJ e CSLL",
+          "desc": "Alinhar com o Setor Contábil o lucro contábil, adições, exclusões e compensação de prejuízo fiscal.",
+          "path": "Domínio Contábil / LALUR"
+        },
+        {
+          "id": "lr_15",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Processar Apuração (F6) e emitir Relatórios de Impostos (com Memória de Créditos PIS/COFINS)",
+          "desc": "Salvar PDFs de PIS/COFINS Não-Cumulativo, ICMS, IPI, ISS, Retenções, IRPJ e CSLL.",
+          "path": "Domínio: Movimentos > Apuração | Relatórios > Impostos"
+        },
+        {
+          "id": "lr_16",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Emitir todos os Livros Fiscais em PDF (Entradas, Saídas, Apuração ICMS, IPI, ISS e Inventário)",
+          "desc": "Gerar livros oficiais do período para compor o fechamento.",
+          "path": "Domínio: Relatórios > Livros > Entradas / Saídas / ICMS / IPI / ISS / Inventário"
+        },
+        {
+          "id": "lr_17",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Gerar e validar SPED Fiscal, EFD-Contribuições (Blocos F e M), EFD-Reinf, DCTFWeb/MIT e GIA/DAPI",
+          "desc": "Validar no PVA, conferir créditos no Bloco M e gerar todas as guias de pagamento.",
+          "path": "Domínio: Relatórios > Informativos > Federais e Estaduais"
+        },
+        {
+          "id": "lr_18",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "Salvar na rede, montar dossiê completo no App Fechamento e enviar p/ Revisão Técnica",
+          "desc": "Anexar Memória de Créditos, Relatórios Domínio, Relatório App Coletor, Livros, SPEDs e Guias.",
+          "path": "App Fechamento"
+        },
+        {
+          "id": "lr_19",
+          "cat": "4. Apuração, Livros, SPEDs, App Fechamento e Revisão",
+          "title": "(Pós-Revisão) Liberar guias no Nibo/WhatsApp e travar período fiscal no Domínio",
+          "desc": "Enviar ao cliente após validação técnica e bloquear mês na Domínio.",
+          "path": "Domínio: Utilitários > Fechamento de Período"
+        }
+      ]
+    },
+    "mei": {
+      "title": "MEI (Microempreendedor Individual)",
+      "items": [
+        {
+          "id": "mei_01",
+          "cat": "1. Coleta de Dados (SIEG, Portal Nacional, App Coletor e Cliente)",
+          "title": "Baixar XMLs de compras (Entradas) e vendas (Saídas) do MEI no SIEG Cofre XML",
+          "desc": "Capturar todas as NF-e emitidas contra o CNPJ do MEI e emitidas por ele.",
+          "path": "SIEG Cofre XML"
+        },
+        {
+          "id": "mei_02",
+          "cat": "1. Coleta de Dados (SIEG, Portal Nacional, App Coletor e Cliente)",
+          "title": "Baixar NFS-e do Portal Nacional (Emissor Nacional) e rodar no App Coletor",
+          "desc": "Verificar pelo relatório do App Coletor se o MEI tomou serviços com retenção de ISS/INSS.",
+          "path": "Portal Nacional (gov.br/nfse) + App Coletor"
+        },
+        {
+          "id": "mei_03",
+          "cat": "1. Coleta de Dados (SIEG, Portal Nacional, App Coletor e Cliente)",
+          "title": "Receber do cliente (via WhatsApp / Nibo) o faturamento sem nota do mês",
+          "desc": "Coletar controles de vendas em dinheiro, PIX e maquininha de cartão.",
+          "path": "WhatsApp / Nibo"
+        },
+        {
+          "id": "mei_04",
+          "cat": "2. Auditoria de Limites do MEI (Regras SE / SENÃO)",
+          "title": "Conferir Faturamento Acumulado no Ano vs. Limite de R$ 81.000,00 (ou proporcional)",
+          "desc": "Se passou de R$ 81k até R$ 97,2k (20%) ou acima de R$ 97,2k: PARAR e avisar a coordenação/revisão técnica imediatamente!",
+          "path": "Planilha / Controle de Faturamento MEI"
+        },
+        {
+          "id": "mei_05",
+          "cat": "2. Auditoria de Limites do MEI (Regras SE / SENÃO)",
+          "title": "Conferir Volume de Compras no SIEG vs. Limite de 80% das Receitas",
+          "desc": "Alertar a coordenação/revisão técnica se as compras do ano estiverem próximas ou acima de 80% do que o MEI vendeu.",
+          "path": "Relatório de Entradas SIEG"
+        },
+        {
+          "id": "mei_06",
+          "cat": "2. Auditoria de Limites do MEI (Regras SE / SENÃO)",
+          "title": "Verificar se houve Compra Interestadual (CFOP 2.xxx) sujeita a DIFAL/ST ou ISS Tomador",
+          "desc": "Checar se alguma compra de fora do estado exige recolhimento estadual ou guia municipal de ISS retido.",
+          "path": "XMLs de Entrada + Relatório App Coletor"
+        },
+        {
+          "id": "mei_07",
+          "cat": "3. Guia DAS-MEI, App Fechamento, Revisão e Entrega",
+          "title": "Emitir a guia DAS-MEI no portal PGMEI e preencher o Relatório Mensal de Receitas Brutas",
+          "desc": "Gerar documento de arrecadação do mês (vencimento dia 20).",
+          "path": "Portal Simples Nacional > Simei > PGMEI"
+        },
+        {
+          "id": "mei_08",
+          "cat": "3. Guia DAS-MEI, App Fechamento, Revisão e Entrega",
+          "title": "Salvar arquivos na pasta da rede e subir no App Fechamento p/ Revisão Técnica",
+          "desc": "Anexar Guia DAS-MEI, Controle de Receitas/Compras e Relatório do App Coletor.",
+          "path": "App Fechamento"
+        },
+        {
+          "id": "mei_09",
+          "cat": "3. Guia DAS-MEI, App Fechamento, Revisão e Entrega",
+          "title": "(Pós-Revisão) Enviar guia DAS-MEI ao cliente via Nibo / WhatsApp",
+          "desc": "Disponibilizar guia validada para pagamento do cliente.",
+          "path": "Nibo / WhatsApp"
+        }
+      ]
+    }
+  },
+  "CHECKLIST_TYPES": {
+    "importacao": {
+      "title": "Importação",
+      "hint": "Importação: o que a pessoa deve escriturar no período (parâmetros, XMLs, NFS-e, coletor, sequência)."
+    },
+    "analise": {
+      "title": "Conferência",
+      "hint": "Conferência: o executor confere na Domínio o que escriturou (entradas, saídas, retenções, ST/DIFAL/FECP, segregações, prova real)."
+    },
+    "obrigacoes": {
+      "title": "Obrigações Acessórias",
+      "hint": "Obrigações Acessórias: o que deve ser entregue/transmitido (PGDAS, SPEDs, DeSTDA, DCTF, GIA e afins)."
+    },
+    "fechamento": {
+      "title": "Fechamento",
+      "hint": "Fechamento: dossiê para o revisor analisar livros, demonstrativos, relatórios e guias do período."
+    }
+  },
+  "ITEM_TYPE_MAP": {
+    "sn_01": "importacao",
+    "sn_02": "importacao",
+    "sn_03": "importacao",
+    "sn_04": "importacao",
+    "sn_05": "importacao",
+    "sn_06": "analise",
+    "sn_07": "analise",
+    "sn_08": "analise",
+    "sn_09": "analise",
+    "sn_10": "analise",
+    "sn_11": "analise",
+    "sn_12": "analise",
+    "sn_13": "analise",
+    "sn_14": "analise",
+    "sn_15": "analise",
+    "sn_16": "analise",
+    "sn_17": "analise",
+    "sn_25": "analise",
+    "sn_26": "analise",
+    "sn_27": "analise",
+    "sn_28": "analise",
+    "sn_18": "obrigacoes",
+    "sn_19": "obrigacoes",
+    "sn_22": "obrigacoes",
+    "sn_20": "fechamento",
+    "sn_21": "fechamento",
+    "sn_23": "fechamento",
+    "sn_24": "fechamento",
+    "lp_01": "importacao",
+    "lp_02": "importacao",
+    "lp_03": "importacao",
+    "lp_04": "importacao",
+    "lp_05": "analise",
+    "lp_06": "analise",
+    "lp_07": "analise",
+    "lp_08": "analise",
+    "lp_09": "analise",
+    "lp_10": "analise",
+    "lp_11": "analise",
+    "lp_12": "analise",
+    "lp_13": "analise",
+    "lp_19": "analise",
+    "lp_20": "analise",
+    "lp_21": "analise",
+    "lp_22": "analise",
+    "lp_16": "obrigacoes",
+    "lp_14": "fechamento",
+    "lp_15": "fechamento",
+    "lp_17": "fechamento",
+    "lp_18": "fechamento",
+    "lr_01": "importacao",
+    "lr_02": "importacao",
+    "lr_03": "importacao",
+    "lr_04": "importacao",
+    "lr_05": "importacao",
+    "lr_06": "analise",
+    "lr_07": "analise",
+    "lr_08": "analise",
+    "lr_09": "analise",
+    "lr_10": "analise",
+    "lr_11": "analise",
+    "lr_12": "analise",
+    "lr_13": "analise",
+    "lr_14": "analise",
+    "lr_20": "analise",
+    "lr_21": "analise",
+    "lr_22": "analise",
+    "lr_23": "analise",
+    "lr_17": "obrigacoes",
+    "lr_15": "fechamento",
+    "lr_16": "fechamento",
+    "lr_18": "fechamento",
+    "lr_19": "fechamento",
+    "mei_01": "importacao",
+    "mei_02": "importacao",
+    "mei_03": "importacao",
+    "mei_04": "analise",
+    "mei_05": "analise",
+    "mei_06": "analise",
+    "mei_07": "obrigacoes",
+    "mei_08": "fechamento",
+    "mei_09": "fechamento",
+    "id": "mei_fc_06",
+    "shortPrint": "Coletor",
+    "path": "PGMEI"
+  }
+}
