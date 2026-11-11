@@ -989,6 +989,7 @@
     .st-aguardando_revisao { background: #fff7ed; color: #c2410c; }
     .st-devolvido { background: #fff1f2; color: #be123c; }
     .st-aprovado { background: #ecfdf5; color: #047857; }
+    .st-reprovado { background: #fef2f2; color: #b91c1c; }
 
     .flag-btn.active-nh {
       background: #64748b;
@@ -1081,8 +1082,6 @@
   
 /* Sentinela embed */
 .fc-sentinela-root { background: var(--bg); padding: 0; }
-.fc-sentinela-root .work-screen { display: block !important; }
-.fc-sentinela-root .home-screen { display: none !important; }
 .fc-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:80; padding:16px; }
 .fc-modal.open { display:flex; }
 .fc-modal-card { width:100%; max-width:420px; background:#fff; border-radius:16px; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,.2); }

@@ -5,7 +5,49 @@
 <link rel="stylesheet" href="{% static 'fechamento/manual.css' %}">
 
 <div class="fc-sentinela-root">
-  <section class="work-screen active" id="workScreen">
+  <section class="home-screen active" id="homeScreen">
+    <header class="header-card">
+      <div class="header-brand">
+        <img class="header-logo" src="{% static 'fechamento/nascel-logo.jpg' %}" alt="Nascel Contabilidade">
+        <div class="header-title">
+          <h1>Fechamento</h1>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button type="button" class="btn btn-white" onclick="fcNovoFechamento()">+ Novo Fechamento</button>
+      </div>
+    </header>
+    <div class="home-toolbar">
+      <div class="field-group"><label>Código</label><input type="text" id="filterCode" placeholder="000001" oninput="fcRenderHomeTable()"></div>
+      <div class="field-group"><label>Cliente</label><input type="text" id="filterHomeClient" placeholder="Nome ou código" oninput="fcRenderHomeTable()"></div>
+      <div class="field-group"><label>CNPJ</label><input type="text" id="filterHomeCnpj" placeholder="CNPJ" oninput="fcRenderHomeTable()"></div>
+      <div class="field-group"><label>Apuração</label><input type="text" id="filterHomeComp" placeholder="Out/2026 ou 102026" oninput="fcRenderHomeTable()"></div>
+      <div class="field-group"><label>Status</label>
+        <select id="filterHomeStatus" onchange="fcRenderHomeTable()">
+          <option value="">Todos</option>
+          <option value="em_execucao">Em execução</option>
+          <option value="aguardando_revisao">Aguardando revisão</option>
+          <option value="aprovado">Aprovado</option>
+          <option value="reprovado">Reprovado</option>
+        </select>
+      </div>
+      <div class="field-group"><label>Executor</label><input type="text" id="filterHomeExecutor" oninput="fcRenderHomeTable()"></div>
+      <div class="field-group"><label>Revisor</label><input type="text" id="filterHomeReviewer" oninput="fcRenderHomeTable()"></div>
+    </div>
+    <p id="fc-home-hint" style="font-size:0.8rem;color:var(--muted);margin:0 0 10px;">Carregando lista de todos os clientes…</p>
+    <div class="home-table-wrap">
+      <table class="home-table">
+        <thead>
+          <tr>
+            <th>Código</th><th>Cliente</th><th>CNPJ</th><th>Apuração</th><th>Regime</th><th>Status</th><th>Marcações</th><th>Executor</th><th>Revisor</th><th>Atualizado</th>
+          </tr>
+        </thead>
+        <tbody id="homeTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="work-screen" id="workScreen">
     <header class="header-card">
       <div class="header-brand">
         <img class="header-logo" src="{% static 'fechamento/nascel-logo.jpg' %}" alt="Nascel Contabilidade">
@@ -14,6 +56,7 @@
         </div>
       </div>
       <div class="header-actions">
+        <button type="button" class="btn btn-outline" onclick="fcVoltarLista()">← Lista de fechamentos</button>
         <button type="button" class="btn btn-white" onclick="fcSalvar()">Salvar Fechamento</button>
         <button type="button" class="btn btn-outline" onclick="window.print()">Imprimir</button>
       </div>
@@ -145,6 +188,7 @@ const FC_EMPRESA_ATIVA = {{ empresa_ativa_id|default:"null" }};
 const FC_COMPETENCIA = "{{ competencia|escapejs }}";
 const FC_URLS = {
   empresas: "{% url 'fechamento_api_empresas' %}",
+  lista: "{% url 'fechamento_api_lista' %}",
   revisores: "{% url 'fechamento_api_revisores' %}",
   estado: "{% url 'fechamento_api_estado' %}",
   salvar: "{% url 'fechamento_api_salvar' %}",
@@ -156,6 +200,14 @@ const FC_STATUS_LABEL = {
   aprovado: "Aprovado",
   reprovado: "Reprovado",
 };
+const FC_REGIME_LABEL = {
+  simples: "Simples Nacional",
+  presumido: "Lucro Presumido",
+  real: "Lucro Real",
+  mei: "MEI",
+};
+let fcListaItens = [];
+let fcTela = "home";
 
 function fcCsrf() {
   const m = document.cookie.match(/csrftoken=([^;]+)/);
@@ -593,15 +645,126 @@ async function fcConfirmarAprovar() {
   document.getElementById("fc-save-status").textContent = `Aprovado por ${data.revisor} em ${data.aprovado_em}`;
 }
 
-(async function init() {
-  if (!fcEstado.competencia) {
-    document.getElementById("checklistContainer").innerHTML =
-      `<div class="category-header">Defina a competência na barra superior do Sentinela.</div>`;
+function fcShowHome() {
+  fcTela = "home";
+  document.getElementById("homeScreen").classList.add("active");
+  document.getElementById("workScreen").classList.remove("active");
+  fcCarregarLista();
+}
+
+function fcShowWork() {
+  fcTela = "work";
+  document.getElementById("homeScreen").classList.remove("active");
+  document.getElementById("workScreen").classList.add("active");
+}
+
+async function fcVoltarLista() {
+  if (fcTela === "work") {
+    const ok = window.confirm("Deseja salvar e voltar à lista de fechamentos?\n\nOK = salvar e voltar\nCancelar = continuar neste fechamento");
+    if (!ok) return;
+    await fcSalvar();
+  }
+  fcShowHome();
+}
+
+async function fcCarregarLista() {
+  const hint = document.getElementById("fc-home-hint");
+  hint.textContent = "Carregando lista de todos os clientes…";
+  try {
+    const resp = await fetch(FC_URLS.lista, { credentials: "same-origin" });
+    const data = await resp.json();
+    if (!data.ok) {
+      hint.textContent = data.erro || "Falha ao carregar lista.";
+      fcListaItens = [];
+    } else {
+      fcListaItens = data.itens || [];
+      hint.textContent = `${fcListaItens.length} fechamento(s) no banco · filtre por status (ex.: Aguardando revisão) para a fila do revisador.`;
+    }
+  } catch (e) {
+    hint.textContent = "Erro de rede ao carregar a lista.";
+    fcListaItens = [];
+  }
+  fcRenderHomeTable();
+}
+
+function fcRenderHomeTable() {
+  const body = document.getElementById("homeTableBody");
+  if (!body) return;
+  const fCode = (document.getElementById("filterCode").value || "").trim();
+  const fClient = (document.getElementById("filterHomeClient").value || "").trim().toLowerCase();
+  const fCnpj = (document.getElementById("filterHomeCnpj").value || "").replace(/\D/g, "");
+  const fComp = (document.getElementById("filterHomeComp").value || "").trim().toLowerCase();
+  const fStatus = document.getElementById("filterHomeStatus").value || "";
+  const fExec = (document.getElementById("filterHomeExecutor").value || "").trim().toLowerCase();
+  const fRev = (document.getElementById("filterHomeReviewer").value || "").trim().toLowerCase();
+
+  const rows = fcListaItens.filter((r) => {
+    if (fCode && !String(r.codigo).includes(fCode)) return false;
+    if (fClient && !(String(r.cliente || "").toLowerCase().includes(fClient))) return false;
+    if (fCnpj && !(String(r.cnpj || "").replace(/\D/g, "").includes(fCnpj))) return false;
+    if (fComp) {
+      const rot = String(r.competencia_rotulo || "").toLowerCase();
+      const raw = String(r.competencia || "").toLowerCase();
+      if (!rot.includes(fComp) && !raw.includes(fComp)) return false;
+    }
+    if (fStatus && r.status !== fStatus) return false;
+    if (fExec && !String(r.operador || "").toLowerCase().includes(fExec)) return false;
+    if (fRev && !String(r.revisor || "").toLowerCase().includes(fRev)) return false;
+    return true;
+  });
+
+  if (!rows.length) {
+    body.innerHTML = `<tr><td colspan="10">Nenhum fechamento encontrado. Clique em “+ Novo Fechamento” ou ajuste os filtros.</td></tr>`;
     return;
   }
+
+  body.innerHTML = rows.map((r) => `
+    <tr onclick="fcAbrirFechamento(${Number(r.empresa_id)}, '${fcEscapeAttr(r.competencia)}')">
+      <td><strong>${fcEscapeHtml(r.codigo)}</strong></td>
+      <td>${fcEscapeHtml(r.cliente)}</td>
+      <td>${fcEscapeHtml(r.cnpj || "-")}</td>
+      <td>${fcEscapeHtml(r.competencia_rotulo || r.competencia)}</td>
+      <td>${fcEscapeHtml(FC_REGIME_LABEL[r.regime] || r.regime)}</td>
+      <td><span class="status-badge st-${fcEscapeAttr(r.status)}">${fcEscapeHtml(FC_STATUS_LABEL[r.status] || r.status)}</span></td>
+      <td>${Number(r.flags_marcadas || 0)}</td>
+      <td>${fcEscapeHtml(r.operador || "-")}</td>
+      <td>${fcEscapeHtml(r.revisor || "-")}</td>
+      <td>${fcEscapeHtml(fcFormatDateTime(r.atualizado_em))}</td>
+    </tr>
+  `).join("");
+}
+
+async function fcAbrirFechamento(empresaId, competencia) {
+  if (!competencia) {
+    alert("Competência inválida neste registro.");
+    return;
+  }
+  const row = fcListaItens.find((r) => Number(r.empresa_id) === Number(empresaId) && r.competencia === competencia);
+  fcEstado.competencia = competencia;
+  document.getElementById("fc-competencia").value = (row && row.competencia_rotulo) || competencia;
+  const sel = document.getElementById("fc-empresa");
+  if (sel && empresaId) sel.value = String(empresaId);
+  fcShowWork();
+  await fcCarregarEstado();
+}
+
+async function fcNovoFechamento() {
+  if (!FC_COMPETENCIA) {
+    alert("Defina a competência na barra superior do Sentinela antes de criar um novo fechamento.");
+    return;
+  }
+  fcEstado.competencia = FC_COMPETENCIA;
+  document.getElementById("fc-competencia").value = "{{ competencia_rotulo|default:competencia|escapejs }}";
+  const preferida = FC_EMPRESA_ATIVA || (fcEmpresas[0] && fcEmpresas[0].id);
+  if (preferida) document.getElementById("fc-empresa").value = String(preferida);
+  fcShowWork();
+  await fcCarregarEstado();
+}
+
+(async function init() {
   await fcCarregarEmpresas();
   await fcCarregarRevisores();
-  await fcCarregarEstado();
+  await fcCarregarLista();
 })();
 </script>
 {% endblock %}

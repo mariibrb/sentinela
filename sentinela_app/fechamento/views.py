@@ -136,6 +136,56 @@ def api_empresas(request):
 
 @require_GET
 @login_required
+def api_lista(request):
+    """Lista fechamentos de todos os clientes (visão revisador / central)."""
+    if not _pode_fechamento(request.user):
+        return JsonResponse({"ok": False, "erro": "Sem permissão."}, status=403)
+
+    qs = ChecklistFechamento.objects.select_related("empresa", "revisor_usuario").order_by(
+        "-atualizado_em", "empresa__codigo_dominio"
+    )
+    competencia = (request.GET.get("competencia") or "").strip()
+    if competencia and interpretar(competencia) is not None:
+        qs = qs.filter(competencia=competencia)
+    status = (request.GET.get("status") or "").strip()
+    if status and status in dict(ChecklistFechamento.STATUS):
+        qs = qs.filter(status=status)
+
+    itens = []
+    for reg in qs[:2000]:
+        emp = reg.empresa
+        flags = reg.flags or {}
+        feitos = sum(1 for v in flags.values() if v)
+        itens.append(
+            {
+                "id": reg.pk,
+                "codigo": str(reg.pk).zfill(6),
+                "empresa_id": emp.pk,
+                "cliente": f"{str(emp.codigo_dominio).zfill(4)} - {emp.razao_social}",
+                "cnpj": emp.cnpj or "",
+                "competencia": reg.competencia,
+                "competencia_rotulo": rotulo(reg.competencia),
+                "regime": reg.regime,
+                "checklist_tipo": reg.checklist_tipo,
+                "status": reg.status,
+                "operador": reg.operador or "",
+                "revisor": reg.revisor or "",
+                "flags_marcadas": feitos,
+                "atualizado_em": reg.atualizado_em.isoformat() if reg.atualizado_em else "",
+            }
+        )
+    return JsonResponse(
+        {
+            "ok": True,
+            "itens": itens,
+            "competencia_sessao": request.session.get("competencia") or "",
+            "total": len(itens),
+        }
+    )
+
+
+@require_GET
+@login_required
 def api_revisores(request):
     """Lista usuários Sentinela que podem atuar como revisor (senha = login Sentinela)."""
     if not _pode_fechamento(request.user):
