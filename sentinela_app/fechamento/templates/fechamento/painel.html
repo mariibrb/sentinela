@@ -34,7 +34,7 @@
       <div class="field-group"><label>Executor</label><input type="text" id="filterHomeExecutor" oninput="fcRenderHomeTable()"></div>
       <div class="field-group"><label>Revisor</label><input type="text" id="filterHomeReviewer" oninput="fcRenderHomeTable()"></div>
     </div>
-    <p id="fc-home-hint" style="font-size:0.8rem;color:var(--muted);margin:0 0 10px;">Carregando lista de todos os clientes…</p>
+    <p id="fc-home-hint" style="font-size:0.8rem;color:var(--muted);margin:0 0 10px;">Módulo independente da apuração · lista de todos os clientes…</p>
     <div class="home-table-wrap">
       <table class="home-table">
         <thead>
@@ -63,13 +63,30 @@
     </header>
 
     <section class="client-bar">
-      <div class="field-group span-2">
-        <label>Cliente (Código Domínio + Razão Social)</label>
-        <select id="fc-empresa"></select>
+      <div class="field-group">
+        <label>Ano</label>
+        <select id="fc-ano" onchange="fcOnCompetenciaChange()"></select>
       </div>
       <div class="field-group">
-        <label>Competência</label>
-        <input type="text" id="fc-competencia" readonly value="{{ competencia_rotulo|default:competencia }}">
+        <label>Mês</label>
+        <select id="fc-mes" onchange="fcOnCompetenciaChange()">
+          <option value="01">01 - Janeiro</option>
+          <option value="02">02 - Fevereiro</option>
+          <option value="03">03 - Março</option>
+          <option value="04">04 - Abril</option>
+          <option value="05">05 - Maio</option>
+          <option value="06">06 - Junho</option>
+          <option value="07">07 - Julho</option>
+          <option value="08">08 - Agosto</option>
+          <option value="09">09 - Setembro</option>
+          <option value="10">10 - Outubro</option>
+          <option value="11">11 - Novembro</option>
+          <option value="12">12 - Dezembro</option>
+        </select>
+      </div>
+      <div class="field-group span-2">
+        <label>Cliente (Código Domínio + Razão Social)</label>
+        <select id="fc-empresa" onchange="fcCarregarEstado()"></select>
       </div>
       <div class="field-group">
         <label>CNPJ / UF</label>
@@ -184,8 +201,8 @@
 
 <script>
 const FC_DEFS = {{ definicoes_json|safe }};
-const FC_EMPRESA_ATIVA = {{ empresa_ativa_id|default:"null" }};
-const FC_COMPETENCIA = "{{ competencia|escapejs }}";
+const FC_COMPETENCIA_SUGERIDA = "{{ competencia_sugerida|escapejs }}";
+const FC_MESES_ROTULO = ["Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez"];
 const FC_URLS = {
   empresas: "{% url 'fechamento_api_empresas' %}",
   lista: "{% url 'fechamento_api_lista' %}",
@@ -231,8 +248,8 @@ function fcFormatDateTime(iso) {
 let fcEmpresas = [];
 let fcRevisores = [];
 let fcEstado = {
-  empresa_id: FC_EMPRESA_ATIVA,
-  competencia: FC_COMPETENCIA,
+  empresa_id: null,
+  competencia: "",
   regime: "simples",
   checklist_tipo: "importacao",
   status: "em_execucao",
@@ -246,6 +263,54 @@ let fcEstado = {
   ie_st_ufs: "",
   sem_movimento: false,
 };
+
+function fcMontarCompetencia(mes, ano) {
+  const m = String(mes || "").padStart(2, "0");
+  const a = String(ano || "");
+  return m.length === 2 && a.length === 4 ? m + a : "";
+}
+function fcParseCompetencia(comp) {
+  const s = String(comp || "");
+  if (s.length === 6 && /^\d{6}$/.test(s)) {
+    return { mes: s.slice(0, 2), ano: s.slice(2) };
+  }
+  return null;
+}
+function fcRotuloCompetencia(comp) {
+  const p = fcParseCompetencia(comp);
+  if (!p) return comp || "";
+  const idx = Number(p.mes) - 1;
+  return (FC_MESES_ROTULO[idx] || p.mes) + "/" + p.ano;
+}
+function fcCompetenciaAtualDosSelects() {
+  const ano = document.getElementById("fc-ano").value;
+  const mes = document.getElementById("fc-mes").value;
+  return fcMontarCompetencia(mes, ano);
+}
+function fcPreencherAnos() {
+  const sel = document.getElementById("fc-ano");
+  const agora = new Date();
+  const anos = [];
+  for (let y = agora.getFullYear() + 1; y >= agora.getFullYear() - 6; y--) anos.push(String(y));
+  sel.innerHTML = anos.map((y) => `<option value="${y}">${y}</option>`).join("");
+}
+function fcAplicarCompetenciaNosSelects(comp) {
+  const p = fcParseCompetencia(comp) || (() => {
+    const d = new Date();
+    return { mes: String(d.getMonth() + 1).padStart(2, "0"), ano: String(d.getFullYear()) };
+  })();
+  const anoSel = document.getElementById("fc-ano");
+  if (![...anoSel.options].some((o) => o.value === p.ano)) {
+    anoSel.insertAdjacentHTML("afterbegin", `<option value="${p.ano}">${p.ano}</option>`);
+  }
+  anoSel.value = p.ano;
+  document.getElementById("fc-mes").value = p.mes;
+  fcEstado.competencia = fcMontarCompetencia(p.mes, p.ano);
+}
+function fcOnCompetenciaChange() {
+  fcEstado.competencia = fcCompetenciaAtualDosSelects();
+  if (document.getElementById("fc-empresa").value) fcCarregarEstado();
+}
 
 function fcNormalizarFlags(flags) {
   const out = { ...(flags || {}) };
@@ -504,6 +569,7 @@ function fcRender() {
 }
 
 function fcColetarCabecalho() {
+  fcEstado.competencia = fcCompetenciaAtualDosSelects();
   fcEstado.operador = document.getElementById("fc-operador").value.trim();
   fcEstado.empresa_id = Number(document.getElementById("fc-empresa").value || 0);
   fcEstado.ie_st = document.getElementById("fc-ie-st").value || "nao_aplica";
@@ -521,11 +587,10 @@ async function fcCarregarEmpresas() {
   const data = await resp.json();
   fcEmpresas = data.empresas || [];
   const sel = document.getElementById("fc-empresa");
-  sel.innerHTML = fcEmpresas.map(e => `<option value="${e.id}">${fcEscapeHtml(e.rotulo)}</option>`).join("")
-    || `<option value="">Nenhuma empresa ativa</option>`;
-  const preferida = FC_EMPRESA_ATIVA || (fcEmpresas[0] && fcEmpresas[0].id);
-  if (preferida) sel.value = String(preferida);
-  sel.onchange = () => fcCarregarEstado();
+  sel.innerHTML = `<option value="">Selecione o cliente…</option>` +
+    (fcEmpresas.map(e => `<option value="${e.id}">${fcEscapeHtml(e.rotulo)}</option>`).join("")
+      || `<option value="" disabled>Nenhuma empresa cadastrada</option>`);
+  sel.value = "";
 }
 
 async function fcCarregarRevisores() {
@@ -540,8 +605,12 @@ async function fcCarregarRevisores() {
 
 async function fcCarregarEstado() {
   const empresaId = document.getElementById("fc-empresa").value;
+  fcEstado.competencia = fcCompetenciaAtualDosSelects();
   if (!empresaId || !fcEstado.competencia) {
-    document.getElementById("fc-save-status").textContent = "Escolha empresa e competência no topo do Sentinela.";
+    document.getElementById("fc-save-status").textContent = "Escolha o cliente e o ano/mês neste módulo.";
+    document.getElementById("fc-cnpj").value = "";
+    document.getElementById("checklistContainer").innerHTML =
+      `<div class="category-header">Selecione o cliente e a competência (ano/mês) para iniciar.</div>`;
     return;
   }
   const url = `${FC_URLS.estado}?empresa_id=${encodeURIComponent(empresaId)}&competencia=${encodeURIComponent(fcEstado.competencia)}`;
@@ -678,7 +747,7 @@ async function fcCarregarLista() {
       fcListaItens = [];
     } else {
       fcListaItens = data.itens || [];
-      hint.textContent = `${fcListaItens.length} fechamento(s) no banco · filtre por status (ex.: Aguardando revisão) para a fila do revisador.`;
+      hint.textContent = `${fcListaItens.length} fechamento(s) · módulo independente da empresa ativa · filtre por “Aguardando revisão” para a fila do revisador.`;
     }
   } catch (e) {
     hint.textContent = "Erro de rede ao carregar a lista.";
@@ -739,9 +808,7 @@ async function fcAbrirFechamento(empresaId, competencia) {
     alert("Competência inválida neste registro.");
     return;
   }
-  const row = fcListaItens.find((r) => Number(r.empresa_id) === Number(empresaId) && r.competencia === competencia);
-  fcEstado.competencia = competencia;
-  document.getElementById("fc-competencia").value = (row && row.competencia_rotulo) || competencia;
+  fcAplicarCompetenciaNosSelects(competencia);
   const sel = document.getElementById("fc-empresa");
   if (sel && empresaId) sel.value = String(empresaId);
   fcShowWork();
@@ -749,19 +816,36 @@ async function fcAbrirFechamento(empresaId, competencia) {
 }
 
 async function fcNovoFechamento() {
-  if (!FC_COMPETENCIA) {
-    alert("Defina a competência na barra superior do Sentinela antes de criar um novo fechamento.");
-    return;
-  }
-  fcEstado.competencia = FC_COMPETENCIA;
-  document.getElementById("fc-competencia").value = "{{ competencia_rotulo|default:competencia|escapejs }}";
-  const preferida = FC_EMPRESA_ATIVA || (fcEmpresas[0] && fcEmpresas[0].id);
-  if (preferida) document.getElementById("fc-empresa").value = String(preferida);
+  fcAplicarCompetenciaNosSelects(FC_COMPETENCIA_SUGERIDA || fcCompetenciaAtualDosSelects());
+  document.getElementById("fc-empresa").value = "";
+  document.getElementById("fc-cnpj").value = "";
+  document.getElementById("fc-operador").value = "";
+  document.getElementById("fc-revisor").value = "";
+  fcEstado = {
+    ...fcEstado,
+    empresa_id: null,
+    flags: {},
+    obs_logs: {},
+    anexos: {},
+    operador: "",
+    revisor: "",
+    revisor_usuario_id: null,
+    status: "em_execucao",
+    ie_st: "nao_aplica",
+    ie_st_ufs: "",
+    sem_movimento: false,
+    competencia: fcCompetenciaAtualDosSelects(),
+  };
   fcShowWork();
-  await fcCarregarEstado();
+  document.getElementById("fc-save-status").textContent = "Escolha o cliente neste módulo (não usa a empresa ativa da apuração).";
+  document.getElementById("checklistContainer").innerHTML =
+    `<div class="category-header">Selecione o cliente e confirme o ano/mês para iniciar o fechamento.</div>`;
+  fcAtualizarProgresso();
 }
 
 (async function init() {
+  fcPreencherAnos();
+  fcAplicarCompetenciaNosSelects(FC_COMPETENCIA_SUGERIDA);
   await fcCarregarEmpresas();
   await fcCarregarRevisores();
   await fcCarregarLista();

@@ -97,19 +97,17 @@ def painel_fechamento(request):
         messages.error(request, "Seu usuário não tem permissão para o Fechamento.")
         return redirect("painel")
 
+    # Soft defaults only — Fechamento não depende da empresa/competência da apuração.
     competencia = request.session.get("competencia", "")
     partes = interpretar(competencia)
-    empresa = _empresa_ativa(request)
     definicoes = carregar_definicoes()
     return render(
         request,
         "fechamento/painel.html",
         {
-            "empresa_travada": empresa,
-            "competencia": competencia,
-            "competencia_rotulo": rotulo(competencia) if partes else "",
+            "competencia_sugerida": competencia if partes else "",
+            "competencia_sugerida_rotulo": rotulo(competencia) if partes else "",
             "definicoes_json": json.dumps(definicoes, ensure_ascii=False),
-            "empresa_ativa_id": empresa.pk if empresa else None,
         },
     )
 
