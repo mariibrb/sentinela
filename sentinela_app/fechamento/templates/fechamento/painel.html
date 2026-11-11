@@ -1,106 +1,141 @@
 {% extends "base.html" %}
 {% load static %}
-{% block titulo %}Fechamento Fiscal · Sentinela{% endblock %}
+{% block titulo %}Fechamento · Sentinela{% endblock %}
 {% block corpo %}
-<style>
-  .fc-wrap { --primary:#fca422; --ink:#746a69; --border:#e4dfde; --ok:#15803d; --na:#475569; --pend:#b45309; }
-  .fc-card { background:#fff; border:1px solid var(--border); border-radius:14px; padding:16px 18px; box-shadow:0 8px 20px -8px rgba(116,106,105,.15); }
-  .fc-brand { display:flex; gap:14px; align-items:center; }
-  .fc-brand img { height:48px; width:auto; }
-  .fc-tabs, .fc-types { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
-  .fc-pill { border:1px solid var(--border); background:#fff; border-radius:999px; padding:7px 12px; font-size:12px; font-weight:700; color:#3f3837; cursor:pointer; }
-  .fc-pill.active { background:var(--primary); border-color:var(--primary); color:#fff; }
-  .fc-row { display:grid; grid-template-columns:1fr auto; gap:12px; padding:12px 0; border-bottom:1px solid #f0eceb; }
-  .fc-row.ok { background:#f0fdf4; }
-  .fc-row.na { background:#f8fafc; opacity:.85; }
-  .fc-row.pend { background:#fff7ed; }
-  .fc-flags { display:flex; gap:6px; align-items:start; }
-  .fc-flag { border:1px solid #cbd5e1; background:#fff; border-radius:8px; padding:4px 8px; font-size:11px; font-weight:700; cursor:pointer; }
-  .fc-flag.active-ok { background:var(--ok); color:#fff; border-color:var(--ok); }
-  .fc-flag.active-na { background:var(--na); color:#fff; border-color:var(--na); }
-  .fc-flag.active-pend { background:var(--pend); color:#fff; border-color:var(--pend); }
-  .fc-progress { height:10px; background:#f1f5f9; border-radius:999px; overflow:hidden; }
-  .fc-progress > span { display:block; height:100%; background:var(--primary); width:0%; transition:width .2s; }
-  .fc-muted { color:#746a69; font-size:12px; }
-  .fc-cat { font-size:11px; font-weight:700; text-transform:uppercase; color:#94620f; margin-bottom:4px; }
-  .fc-title { font-weight:700; color:#3f3837; }
-  .fc-desc { font-size:13px; color:#746a69; margin-top:2px; }
-  .fc-path { font-size:11px; color:#94a3b8; margin-top:4px; }
-  .fc-obs { width:100%; margin-top:8px; border:1px solid #e4dfde; border-radius:10px; padding:8px; font-size:12px; }
-  .fc-toolbar { display:flex; flex-wrap:wrap; gap:8px; align-items:end; }
-  .fc-toolbar label { font-size:11px; font-weight:700; color:#746a69; display:block; margin-bottom:4px; }
-  .fc-toolbar select, .fc-toolbar input { border:1px solid #e4dfde; border-radius:10px; padding:8px 10px; min-width:12rem; background:#fff; }
-  .fc-btn { border-radius:10px; padding:9px 14px; font-size:13px; font-weight:700; cursor:pointer; border:1px solid transparent; }
-  .fc-btn-primary { background:#fca422; color:#fff; }
-  .fc-btn-outline { background:#fff; border-color:#e4dfde; color:#3f3837; }
-  .fc-btn-ok { background:#15803d; color:#fff; }
-  .fc-btn-warn { background:#c2410c; color:#fff; }
-  .fc-status { font-size:12px; color:#746a69; }
-  .fc-badge { display:inline-flex; border-radius:999px; padding:4px 10px; font-size:11px; font-weight:800; }
-  .fc-badge.em_execucao { background:#e2e8f0; color:#334155; }
-  .fc-badge.aguardando_revisao { background:#fff7ed; color:#c2410c; }
-  .fc-badge.aprovado { background:#ecfdf5; color:#047857; }
-  .fc-badge.reprovado { background:#fef2f2; color:#b91c1c; }
-  .fc-modal { position:fixed; inset:0; background:rgba(15,23,42,.45); display:none; align-items:center; justify-content:center; z-index:50; padding:16px; }
-  .fc-modal.open { display:flex; }
-  .fc-modal-card { width:100%; max-width:420px; background:#fff; border-radius:16px; padding:18px; box-shadow:0 20px 40px rgba(0,0,0,.2); }
-</style>
+<link rel="stylesheet" href="{% static 'fechamento/manual.css' %}">
 
-<section class="fc-wrap space-y-4">
-  <div class="fc-card">
-    <div class="flex flex-wrap items-start justify-between gap-3">
-      <div class="fc-brand">
-        <img src="{% static 'fechamento/nascel_contabilidade.jpg.jpeg' %}" alt="Nascel">
-        <div>
-          <p class="text-xs font-bold uppercase tracking-wide text-amber-700">Central de Fechamentos Fiscais</p>
-          <h1 class="text-2xl font-extrabold text-stone-900">Fechamento operacional no Sentinela</h1>
-          <p class="fc-muted mt-1">Clientes do cadastro · marcações no banco · competência {{ competencia_rotulo|default:"(defina no topo)" }}</p>
-          <p class="mt-2"><span id="fc-badge" class="fc-badge em_execucao">Em execução</span></p>
+<div class="fc-sentinela-root">
+  <section class="work-screen active" id="workScreen">
+    <header class="header-card">
+      <div class="header-brand">
+        <img class="header-logo" src="{% static 'fechamento/nascel-logo.jpg' %}" alt="Nascel Contabilidade">
+        <div class="header-title">
+          <h1 id="pageMainTitle">Fechamento</h1>
         </div>
       </div>
-      <div class="fc-toolbar">
-        <div>
-          <label>Cliente</label>
-          <select id="fc-empresa"></select>
+      <div class="header-actions">
+        <button type="button" class="btn btn-white" onclick="fcSalvar()">Salvar Fechamento</button>
+        <button type="button" class="btn btn-outline" onclick="window.print()">Imprimir</button>
+      </div>
+    </header>
+
+    <section class="client-bar">
+      <div class="field-group span-2">
+        <label>Cliente (Código Domínio + Razão Social)</label>
+        <select id="fc-empresa"></select>
+      </div>
+      <div class="field-group">
+        <label>Competência</label>
+        <input type="text" id="fc-competencia" readonly value="{{ competencia_rotulo|default:competencia }}">
+      </div>
+      <div class="field-group">
+        <label>CNPJ / UF</label>
+        <input type="text" id="fc-cnpj" readonly placeholder="—">
+      </div>
+      <div class="field-group span-2">
+        <label>IE-ST (modo de recolhimento + UFs ativas, se houver)</label>
+        <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;">
+          <select id="fc-ie-st" onchange="fcEstado.ie_st=this.value">
+            <option value="nao_aplica">Não se aplica</option>
+            <option value="por_operacao">Sem IE-ST → Por Operação (GNRE/DARE/DAE)</option>
+            <option value="por_apuracao">Com IE-ST → Por Apuração (GIA-ST/DeSTDA/SPED)</option>
+          </select>
+          <input type="text" id="fc-ie-st-ufs" placeholder="UFs com IE-ST (ex: MG, RJ)" title="Preencha só se houver IE-ST em outras UFs">
         </div>
-        <div>
-          <label>Operador</label>
-          <input id="fc-operador" type="text" placeholder="Seu nome">
-        </div>
-        <div>
-          <label>Revisor (usuário Sentinela)</label>
-          <select id="fc-revisor"></select>
-        </div>
-        <button type="button" class="fc-btn fc-btn-primary" onclick="fcSalvar()">Salvar</button>
-        <button type="button" class="fc-btn fc-btn-warn" onclick="fcEnviarRevisao()">Enviar p/ revisão</button>
-        <button type="button" class="fc-btn fc-btn-ok" onclick="fcAbrirAprovar()">Aprovar revisão</button>
-        <button type="button" class="fc-btn fc-btn-outline" onclick="window.print()">Imprimir</button>
+      </div>
+      <div class="field-group">
+        <label>Responsável Apuração</label>
+        <input type="text" id="fc-operador" placeholder="Nome do Operador">
+      </div>
+      <div class="field-group">
+        <label>Revisor Técnico (usuário Sentinela)</label>
+        <select id="fc-revisor"></select>
+      </div>
+      <div class="field-group">
+        <label>Status</label>
+        <input type="text" id="fc-status-label" readonly value="Em execução">
+      </div>
+    </section>
+
+    <div class="total-status-bar">
+      <div>
+        <strong>Status do fechamento:</strong>
+        <span class="status-badge" id="closingStatusBadge">Em execução</span>
+        <span id="closingTotalProgress" style="margin-left:8px;font-size:0.85rem;color:var(--muted);"></span>
+        <span id="fc-save-status" style="margin-left:10px;font-size:0.8rem;color:var(--muted);">Pronto.</span>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button type="button" class="btn-print-mini" onclick="fcEnviarRevisao()">Enviar p/ revisão</button>
+        <button type="button" class="btn-print-mini" onclick="fcAbrirAprovar()">Aprovar revisão</button>
+        <button type="button" class="btn-print-mini" onclick="fcSalvar('em_execucao')">Voltar p/ execução</button>
       </div>
     </div>
-    <div class="fc-tabs" id="fc-regimes"></div>
-    <div class="fc-types" id="fc-tipos"></div>
-    <div class="mt-3 flex flex-wrap items-center justify-between gap-2">
-      <p class="fc-status" id="fc-progress-label">Progresso</p>
-      <p class="fc-status" id="fc-save-status">Pronto.</p>
-    </div>
-    <div class="fc-progress mt-2"><span id="fc-progress-bar"></span></div>
-  </div>
 
-  <div class="fc-card" id="fc-lista"></div>
-</section>
+    <div class="sem-mov-box">
+      <label style="display:flex;gap:8px;align-items:center;font-weight:700;color:var(--ink);">
+        <input type="checkbox" id="fc-sem-movimento" onchange="fcEstado.sem_movimento=this.checked;fcAtualizarProgresso()">
+        Empresa SEM MOVIMENTO no período
+      </label>
+      <span style="font-size:0.8rem;color:var(--muted);">Nesse caso, no Fechamento fica obrigatória a declaração de faturamento.</span>
+    </div>
+
+    <div class="print-actions-bar">
+      <button type="button" class="btn-print-mini" onclick="window.print()">Imprimir esta etapa (lista)</button>
+    </div>
+
+    <nav class="tabs-bar" id="fc-regimes"></nav>
+
+    <div class="type-bar">
+      <span class="type-bar-label">Etapa:</span>
+      <div id="fc-tipos" style="display:contents;"></div>
+      <p class="type-hint" id="typeHintText"></p>
+    </div>
+
+    <section class="status-panel">
+      <div class="progress-wrap">
+        <div class="progress-header">
+          <span id="regimeProgressLabel">Progresso</span>
+          <span id="regimeProgressPct">0% concluído</span>
+        </div>
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" id="progressBarFill"></div>
+        </div>
+      </div>
+      <div class="counters">
+        <div class="counter-pill pill-ok">OK: <span id="countOk">0</span></div>
+        <div class="counter-pill pill-na">NH/SC: <span id="countNhSc">0</span></div>
+        <div class="counter-pill pill-pend">PENDENTE: <span id="countPend">0</span></div>
+        <button type="button" class="btn-clear-flags" onclick="fcLimparEtapa()">Limpar etapa</button>
+      </div>
+    </section>
+
+    <main class="checklist-card" id="checklistContainer"></main>
+
+    <footer class="Signoff-card">
+      <div>
+        <strong>Status para revisão:</strong>
+        <p style="font-size: 0.8rem; color: var(--muted); margin-top: 4px;">
+          Só envie para revisão técnica após todos os itens estarem marcados com <strong>OK</strong>, <strong>NÃO HOUVE</strong> ou <strong>SALDO CREDOR</strong> (com motivo na observação quando NÃO HOUVE / SALDO CREDOR / PEND).
+        </p>
+      </div>
+      <div class="sign-box">Assinatura / Visto - Operador Fiscal</div>
+      <div class="sign-box">Aprovação - Revisão Técnica</div>
+    </footer>
+  </section>
+</div>
 
 <div id="fc-modal-aprovar" class="fc-modal" onclick="if(event.target===this)fcFecharAprovar()">
   <div class="fc-modal-card">
-    <h2 class="text-lg font-extrabold text-stone-900">Aprovar com senha do revisador</h2>
-    <p class="fc-muted mt-1">Digite a <strong>mesma senha de login do Sentinela</strong> do revisador selecionado. Sem ela a aprovação não grava.</p>
-    <label class="mt-3 block text-xs font-bold text-stone-600">Senha do revisador
-      <input id="fc-senha-revisor" type="password" autocomplete="current-password" class="mt-1 w-full rounded-xl border border-stone-300 px-3 py-2 text-sm">
+    <h2 style="font-size:1.1rem;font-weight:800;color:var(--text);">Aprovar com senha do revisador</h2>
+    <p style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Digite a <strong>mesma senha de login do Sentinela</strong> do revisador selecionado. Sem ela a aprovação não grava.</p>
+    <label style="display:block;margin-top:12px;font-size:0.75rem;font-weight:700;color:var(--muted);">Senha do revisador
+      <input id="fc-senha-revisor" type="password" autocomplete="current-password" style="display:block;width:100%;margin-top:4px;border:1px solid var(--border);border-radius:10px;padding:8px 10px;font-size:0.9rem;">
     </label>
-    <div class="mt-4 flex flex-wrap gap-2">
-      <button type="button" class="fc-btn fc-btn-ok" onclick="fcConfirmarAprovar()">Confirmar aprovação</button>
-      <button type="button" class="fc-btn fc-btn-outline" onclick="fcFecharAprovar()">Cancelar</button>
+    <div style="margin-top:14px;display:flex;flex-wrap:wrap;gap:8px;">
+      <button type="button" class="btn btn-white" onclick="fcConfirmarAprovar()">Confirmar aprovação</button>
+      <button type="button" class="btn btn-outline" onclick="fcFecharAprovar()">Cancelar</button>
     </div>
-    <p id="fc-aprovar-erro" class="mt-2 text-sm font-semibold text-red-700"></p>
+    <p id="fc-aprovar-erro" style="margin-top:8px;font-size:0.85rem;font-weight:700;color:#b91c1c;"></p>
   </div>
 </div>
 
@@ -121,9 +156,24 @@ const FC_STATUS_LABEL = {
   aprovado: "Aprovado",
   reprovado: "Reprovado",
 };
+
 function fcCsrf() {
   const m = document.cookie.match(/csrftoken=([^;]+)/);
   return m ? decodeURIComponent(m[1]) : "";
+}
+function fcEscapeHtml(text) {
+  return String(text || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+function fcEscapeAttr(text) {
+  return fcEscapeHtml(text).replace(/'/g, "&#39;");
+}
+function fcFormatDateTime(iso) {
+  try { return new Date(iso).toLocaleString("pt-BR"); }
+  catch (e) { return iso || ""; }
 }
 
 let fcEmpresas = [];
@@ -141,7 +191,33 @@ let fcEstado = {
   revisor: "",
   revisor_usuario_id: null,
   ie_st: "nao_aplica",
+  ie_st_ufs: "",
+  sem_movimento: false,
 };
+
+function fcNormalizarFlags(flags) {
+  const out = { ...(flags || {}) };
+  Object.keys(out).forEach((k) => {
+    if (out[k] === "na") out[k] = "nh";
+  });
+  return out;
+}
+
+function fcMetaFromAnexos(anexos) {
+  const meta = (anexos && anexos.__meta) || {};
+  return {
+    ie_st_ufs: meta.ie_st_ufs || "",
+    sem_movimento: !!meta.sem_movimento,
+  };
+}
+function fcAnexosComMeta(anexos) {
+  const base = { ...(anexos || {}) };
+  base.__meta = {
+    ie_st_ufs: (document.getElementById("fc-ie-st-ufs").value || "").trim(),
+    sem_movimento: !!document.getElementById("fc-sem-movimento").checked,
+  };
+  return base;
+}
 
 function fcItensVisiveis() {
   const regime = (FC_DEFS.regimesData || {})[fcEstado.regime] || { items: [] };
@@ -152,80 +228,224 @@ function fcItensVisiveis() {
 function fcRenderAbas() {
   const regimes = FC_DEFS.regimesData || {};
   document.getElementById("fc-regimes").innerHTML = Object.entries(regimes).map(([k, v]) =>
-    `<button type="button" class="fc-pill ${fcEstado.regime===k?'active':''}" onclick="fcSetRegime('${k}')">${v.title}</button>`
+    `<button type="button" class="tab-btn ${fcEstado.regime===k?'active':''}" id="regime-${k}" onclick="fcSetRegime('${k}')">${v.title}</button>`
   ).join("");
+
   const tipos = FC_DEFS.CHECKLIST_TYPES || {};
   document.getElementById("fc-tipos").innerHTML = Object.entries(tipos).map(([k, v]) =>
-    `<button type="button" class="fc-pill ${fcEstado.checklist_tipo===k?'active':''}" onclick="fcSetTipo('${k}')" title="${(v.hint||'').replace(/"/g,'&quot;')}">${v.title}</button>`
+    `<button type="button" class="type-pill ${fcEstado.checklist_tipo===k?'active':''}" id="tab-${k}" onclick="fcSetTipo('${k}')">${v.title}</button>`
   ).join("");
+
+  const hint = (tipos[fcEstado.checklist_tipo] || {}).hint || "";
+  document.getElementById("typeHintText").textContent = hint;
 }
 
 function fcSetRegime(k) { fcEstado.regime = k; fcRender(); }
 function fcSetTipo(k) { fcEstado.checklist_tipo = k; fcRender(); }
 
-function fcSetFlag(id, valor) {
-  if (fcEstado.flags[id] === valor) delete fcEstado.flags[id];
-  else fcEstado.flags[id] = valor;
+function fcGetObsLog(itemId) {
+  if (!fcEstado.obs_logs) fcEstado.obs_logs = {};
+  if (!fcEstado.obs_logs[itemId]) fcEstado.obs_logs[itemId] = { current: "", history: [] };
+  if (!Array.isArray(fcEstado.obs_logs[itemId].history)) fcEstado.obs_logs[itemId].history = [];
+  if (typeof fcEstado.obs_logs[itemId].current !== "string") fcEstado.obs_logs[itemId].current = "";
+  return fcEstado.obs_logs[itemId];
+}
+
+function fcSetFlag(itemId, flagValue) {
+  if (!fcEstado.flags) fcEstado.flags = {};
+  if (fcEstado.flags[itemId] === flagValue) delete fcEstado.flags[itemId];
+  else fcEstado.flags[itemId] = flagValue;
+  if (fcEstado.checklist_tipo === "fechamento" && (flagValue === "nh" || flagValue === "sc" || flagValue === "pend")) {
+    const obs = (fcEstado.obs_logs[itemId] && fcEstado.obs_logs[itemId].current) || "";
+    if (!String(obs).trim()) {
+      alert("Para NÃO HOUVE / SALDO CREDOR / PEND no Fechamento, descreva o motivo na observação.");
+    }
+  }
   fcRenderLista();
   fcAtualizarProgresso();
 }
 
-function fcObs(id, texto) {
-  const cur = String(texto || "").trim();
-  if (!cur) {
-    if (fcEstado.obs_logs[id]) fcEstado.obs_logs[id].current = "";
-    return;
+function fcToggleMainCheck(itemId, checked) {
+  if (!fcEstado.flags) fcEstado.flags = {};
+  if (checked) fcEstado.flags[itemId] = "ok";
+  else delete fcEstado.flags[itemId];
+  fcRenderLista();
+  fcAtualizarProgresso();
+}
+
+function fcSaveObsDraft(itemId, text) {
+  const log = fcGetObsLog(itemId);
+  log.current = text;
+  const row = document.getElementById("row-" + itemId);
+  if (row) {
+    const currentBox = row.querySelector(".obs-current");
+    if (currentBox) {
+      currentBox.innerHTML = "<strong>Atual:</strong> " + (String(text || "").trim()
+        ? fcEscapeHtml(text)
+        : "<em style='color:#94a3b8'>sem observação</em>");
+    }
   }
-  if (!fcEstado.obs_logs[id]) fcEstado.obs_logs[id] = { current: "", history: [] };
-  fcEstado.obs_logs[id].current = cur;
+}
+
+function fcRegisterObsLog(itemId) {
+  const log = fcGetObsLog(itemId);
+  const text = String(log.current || "").trim();
+  if (!text) { alert("Digite uma observação antes de registrar no log."); return; }
+  const last = log.history[log.history.length - 1];
+  if (last && last.text === text) { alert("Essa observação já está registrada no log."); return; }
+  log.history.push({
+    text,
+    at: new Date().toISOString(),
+    by: document.getElementById("fc-operador").value || "Operador",
+    flag: (fcEstado.flags || {})[itemId] || ""
+  });
+  fcRenderLista();
+}
+
+function fcRenderObsCell(itemId) {
+  const log = fcGetObsLog(itemId);
+  const current = log.current || "";
+  const history = (log.history || []).slice().reverse();
+  const older = history.filter((entry, idx) => !(idx === 0 && entry.text === current));
+  let historyHtml = older.length
+    ? `<ul class="obs-history">${older.map(entry => `
+        <li>
+          <span class="obs-meta">${fcEscapeHtml(fcFormatDateTime(entry.at))} · ${fcEscapeHtml(entry.by || "Operador")}${entry.flag ? " · " + fcEscapeHtml(String(entry.flag).toUpperCase()) : ""}</span><br>
+          ${fcEscapeHtml(entry.text)}
+        </li>`).join("")}</ul>`
+    : `<div class="obs-empty">Sem histórico anterior</div>`;
+
+  return `
+    <div class="obs-box" data-item-id="${itemId}">
+      <div class="obs-row">
+        <input type="text" class="obs-input" placeholder="Anotar dúvida / motivo..." value="${fcEscapeAttr(current)}" oninput="fcSaveObsDraft('${itemId}', this.value)" onkeydown="if(event.key==='Enter'){event.preventDefault();fcRegisterObsLog('${itemId}');}">
+        <button type="button" class="obs-log-btn" onclick="fcRegisterObsLog('${itemId}')" title="Registrar no log">Log</button>
+      </div>
+      <div class="obs-current"><strong>Atual:</strong> ${current ? fcEscapeHtml(current) : "<em style='color:#94a3b8'>sem observação</em>"}</div>
+      ${historyHtml}
+    </div>
+  `;
 }
 
 function fcRenderLista() {
-  const itens = fcItensVisiveis();
-  const box = document.getElementById("fc-lista");
-  if (!itens.length) {
-    box.innerHTML = `<p class="fc-muted">Nenhum item neste tipo para o regime selecionado.</p>`;
+  const container = document.getElementById("checklistContainer");
+  const items = fcItensVisiveis();
+  if (!document.getElementById("fc-empresa").value) {
+    container.innerHTML = `<div class="category-header">Selecione o cliente para iniciar o fechamento.</div>`;
     return;
   }
-  box.innerHTML = itens.map(it => {
-    const flag = fcEstado.flags[it.id] || "";
-    const obs = (fcEstado.obs_logs[it.id] && fcEstado.obs_logs[it.id].current) || "";
-    const st = flag === "ok" ? "ok" : flag === "na" ? "na" : flag === "pend" ? "pend" : "";
-    return `<div class="fc-row ${st}">
-      <div>
-        <div class="fc-cat">${it.cat || ""}</div>
-        <div class="fc-title">${it.title || ""}</div>
-        <div class="fc-desc">${it.desc || ""}</div>
-        <div class="fc-path">${it.path || ""}</div>
-        <textarea class="fc-obs" rows="2" placeholder="Observação" onchange="fcObs('${it.id}', this.value)">${obs.replace(/</g,"&lt;")}</textarea>
-      </div>
-      <div class="fc-flags">
-        <button type="button" class="fc-flag ${flag==="ok"?"active-ok":""}" onclick="fcSetFlag('${it.id}','ok')">OK</button>
-        <button type="button" class="fc-flag ${flag==="pend"?"active-pend":""}" onclick="fcSetFlag('${it.id}','pend')">PEND</button>
-        <button type="button" class="fc-flag ${flag==="na"?"active-na":""}" onclick="fcSetFlag('${it.id}','na')">N/A</button>
-      </div>
-    </div>`;
-  }).join("");
+  if (!items.length) {
+    container.innerHTML = `<div class="category-header">Nenhum item nesta etapa para o regime selecionado.</div>`;
+    return;
+  }
+
+  const flags = fcEstado.flags || {};
+  let html = "";
+  let lastCategory = "";
+
+  items.forEach((item, index) => {
+    if (item.cat !== lastCategory) {
+      if (lastCategory !== "") html += `</tbody></table>`;
+      lastCategory = item.cat;
+      html += `
+        <div class="category-header">${fcEscapeHtml(item.cat)}</div>
+        <table class="checklist-table">
+          <thead>
+            <tr>
+              <th class="col-num">#</th>
+              <th class="col-check">✓</th>
+              <th>O que fazer / Onde clicar na Domínio e Sistemas</th>
+              <th class="col-flags">Flag Mensal</th>
+              <th class="col-obs">Observação / Log / Anexo</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+    }
+
+    const currentFlag = flags[item.id] || "";
+    const rowStatusClass = currentFlag ? `status-${currentFlag}` : "";
+    const isChecked = currentFlag === "ok" ? "checked" : "";
+
+    html += `
+      <tr class="checklist-row ${rowStatusClass}" id="row-${item.id}">
+        <td class="col-num">${String(index + 1).padStart(2, "0")}</td>
+        <td class="col-check">
+          <input type="checkbox" class="main-checkbox" ${isChecked} onchange="fcToggleMainCheck('${item.id}', this.checked)">
+        </td>
+        <td>
+          <div class="task-title">${fcEscapeHtml(item.title)}</div>
+          <div class="task-desc">${fcEscapeHtml(item.desc)}</div>
+          <span class="dominio-badge">${fcEscapeHtml(item.path || "")}</span>
+        </td>
+        <td class="col-flags">
+          <div class="flag-group">
+            <button type="button" class="flag-btn ${currentFlag === 'ok' ? 'active-ok' : ''}" onclick="fcSetFlag('${item.id}', 'ok')">[ OK ]</button>
+            <button type="button" class="flag-btn ${currentFlag === 'nh' ? 'active-nh' : ''}" onclick="fcSetFlag('${item.id}', 'nh')">[ NÃO HOUVE ]</button>
+            <button type="button" class="flag-btn ${currentFlag === 'sc' ? 'active-sc' : ''}" onclick="fcSetFlag('${item.id}', 'sc')">[ SALDO CREDOR ]</button>
+            <button type="button" class="flag-btn ${currentFlag === 'pend' ? 'active-pend' : ''}" onclick="fcSetFlag('${item.id}', 'pend')">[ PEND ]</button>
+          </div>
+        </td>
+        <td class="col-obs">${fcRenderObsCell(item.id)}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+}
+
+function fcCountFlags(items, flags) {
+  let ok = 0, nh = 0, sc = 0, pend = 0;
+  items.forEach((item) => {
+    const f = flags[item.id];
+    if (f === "ok") ok++;
+    if (f === "nh" || f === "na") nh++;
+    if (f === "sc") sc++;
+    if (f === "pend") pend++;
+  });
+  return { ok, nh, sc, pend, nhSc: nh + sc, total: items.length, done: ok + nh + sc + pend };
 }
 
 function fcAtualizarProgresso() {
-  const itens = fcItensVisiveis();
-  const total = itens.length || 1;
-  const feitos = itens.filter(it => !!fcEstado.flags[it.id]).length;
-  const pct = Math.round((feitos / total) * 100);
-  document.getElementById("fc-progress-bar").style.width = pct + "%";
+  const items = fcItensVisiveis();
+  const counts = fcCountFlags(items, fcEstado.flags || {});
+  const pct = counts.total ? Math.round((counts.done / counts.total) * 100) : 0;
+  document.getElementById("progressBarFill").style.width = pct + "%";
+  document.getElementById("regimeProgressPct").textContent = pct + "% concluído";
   const tipo = (FC_DEFS.CHECKLIST_TYPES[fcEstado.checklist_tipo] || {}).title || fcEstado.checklist_tipo;
   const reg = (FC_DEFS.regimesData[fcEstado.regime] || {}).title || fcEstado.regime;
-  document.getElementById("fc-progress-label").textContent = `${reg} · ${tipo}: ${feitos}/${itens.length} (${pct}%)`;
-  const badge = document.getElementById("fc-badge");
-  badge.className = "fc-badge " + (fcEstado.status || "em_execucao");
-  badge.textContent = FC_STATUS_LABEL[fcEstado.status] || fcEstado.status;
+  const semMov = document.getElementById("fc-sem-movimento").checked;
+  document.getElementById("regimeProgressLabel").textContent =
+    (semMov ? "SEM MOVIMENTO · " : "") + `Progresso do Fechamento (${reg} · ${tipo})`;
+  document.getElementById("countOk").textContent = String(counts.ok);
+  document.getElementById("countNhSc").textContent = String(counts.nhSc);
+  document.getElementById("countPend").textContent = String(counts.pend);
+  document.getElementById("closingTotalProgress").textContent =
+    `Progresso: ${counts.done}/${counts.total} · PEND ${counts.pend}`;
+
+  const label = FC_STATUS_LABEL[fcEstado.status] || fcEstado.status;
+  document.getElementById("closingStatusBadge").textContent = label;
+  document.getElementById("fc-status-label").value = label;
+}
+
+function fcLimparEtapa() {
+  if (!confirm("Limpar todas as flags desta etapa?")) return;
+  const items = fcItensVisiveis();
+  items.forEach((it) => { delete fcEstado.flags[it.id]; });
+  fcRenderLista();
+  fcAtualizarProgresso();
 }
 
 function fcRender() {
   document.getElementById("fc-operador").value = fcEstado.operador || "";
+  document.getElementById("fc-ie-st").value = fcEstado.ie_st || "nao_aplica";
+  document.getElementById("fc-ie-st-ufs").value = fcEstado.ie_st_ufs || "";
+  document.getElementById("fc-sem-movimento").checked = !!fcEstado.sem_movimento;
   const selRev = document.getElementById("fc-revisor");
   if (fcEstado.revisor_usuario_id) selRev.value = String(fcEstado.revisor_usuario_id);
+  const emp = fcEmpresas.find(e => e.id === Number(fcEstado.empresa_id));
+  document.getElementById("fc-cnpj").value = emp ? (emp.cnpj || "") : ((fcEstado.header && fcEstado.header.cnpj) || "");
   fcRenderAbas();
   fcRenderLista();
   fcAtualizarProgresso();
@@ -234,10 +454,14 @@ function fcRender() {
 function fcColetarCabecalho() {
   fcEstado.operador = document.getElementById("fc-operador").value.trim();
   fcEstado.empresa_id = Number(document.getElementById("fc-empresa").value || 0);
+  fcEstado.ie_st = document.getElementById("fc-ie-st").value || "nao_aplica";
+  fcEstado.ie_st_ufs = document.getElementById("fc-ie-st-ufs").value.trim();
+  fcEstado.sem_movimento = !!document.getElementById("fc-sem-movimento").checked;
   const revId = Number(document.getElementById("fc-revisor").value || 0);
   fcEstado.revisor_usuario_id = revId || null;
   const rev = fcRevisores.find(r => r.id === revId);
   fcEstado.revisor = rev ? rev.nome : "";
+  fcEstado.anexos = fcAnexosComMeta(fcEstado.anexos);
 }
 
 async function fcCarregarEmpresas() {
@@ -245,7 +469,8 @@ async function fcCarregarEmpresas() {
   const data = await resp.json();
   fcEmpresas = data.empresas || [];
   const sel = document.getElementById("fc-empresa");
-  sel.innerHTML = fcEmpresas.map(e => `<option value="${e.id}">${e.rotulo}</option>`).join("") || `<option value="">Nenhuma empresa ativa</option>`;
+  sel.innerHTML = fcEmpresas.map(e => `<option value="${e.id}">${fcEscapeHtml(e.rotulo)}</option>`).join("")
+    || `<option value="">Nenhuma empresa ativa</option>`;
   const preferida = FC_EMPRESA_ATIVA || (fcEmpresas[0] && fcEmpresas[0].id);
   if (preferida) sel.value = String(preferida);
   sel.onchange = () => fcCarregarEstado();
@@ -257,7 +482,7 @@ async function fcCarregarRevisores() {
   fcRevisores = data.revisores || [];
   const sel = document.getElementById("fc-revisor");
   sel.innerHTML = `<option value="">Selecione o revisador…</option>` + fcRevisores.map(r =>
-    `<option value="${r.id}">${r.rotulo}</option>`
+    `<option value="${r.id}">${fcEscapeHtml(r.rotulo)}</option>`
   ).join("");
 }
 
@@ -274,7 +499,16 @@ async function fcCarregarEstado() {
     document.getElementById("fc-save-status").textContent = data.erro || "Falha ao carregar.";
     return;
   }
-  fcEstado = { ...fcEstado, ...data.estado, empresa_id: Number(empresaId), competencia: fcEstado.competencia };
+  const meta = fcMetaFromAnexos((data.estado || {}).anexos);
+  fcEstado = {
+    ...fcEstado,
+    ...data.estado,
+    empresa_id: Number(empresaId),
+    competencia: fcEstado.competencia,
+    flags: fcNormalizarFlags((data.estado || {}).flags),
+    ie_st_ufs: meta.ie_st_ufs,
+    sem_movimento: meta.sem_movimento,
+  };
   fcRender();
   document.getElementById("fc-save-status").textContent = data.novo ? "Novo checklist desta competência." : "Checklist carregado do banco.";
 }
@@ -361,7 +595,8 @@ async function fcConfirmarAprovar() {
 
 (async function init() {
   if (!fcEstado.competencia) {
-    document.getElementById("fc-lista").innerHTML = `<p class="fc-muted">Defina a competência na barra superior do Sentinela.</p>`;
+    document.getElementById("checklistContainer").innerHTML =
+      `<div class="category-header">Defina a competência na barra superior do Sentinela.</div>`;
     return;
   }
   await fcCarregarEmpresas();

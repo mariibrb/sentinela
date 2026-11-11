@@ -809,68 +809,98 @@
       }
 
       .print-capa {
-        font-family: Helvetica, Arial, sans-serif;
+        font-family: inherit;
         color: #000;
       }
-      .print-capa-title {
-        text-align: center;
-        font-size: 24px;
-        font-weight: 700;
-        margin: 8px 0 4px;
+      .print-capa-brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border: 2px solid #000;
+        padding: 8px 10px;
+        margin-bottom: 8px;
       }
-      .print-capa-regime {
-        text-align: center;
-        font-size: 13px;
-        margin-bottom: 14px;
+      .print-capa-brand img {
+        height: 42px;
+        width: auto;
       }
-      .print-capa-box {
-        border: 1px solid #000;
-        margin-bottom: 10px;
+      .print-capa-brand h1 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 800;
       }
-      .print-capa-row {
+      .print-capa-brand p {
+        margin: 2px 0 0;
+        font-size: 10px;
+      }
+      .print-capa-client {
         display: grid;
-        grid-template-columns: 140px 1fr;
-        border-bottom: 1px solid #000;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 4px 8px;
+        border: 1px solid #000;
+        padding: 6px 8px;
+        margin-bottom: 8px;
       }
-      .print-capa-row:last-child {
+      .print-capa-client .fg label {
+        display: block;
+        font-size: 7px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        margin-bottom: 1px;
+      }
+      .print-capa-client .fg .v {
+        font-size: 9px;
+        font-weight: 600;
+        border: 1px solid #999;
+        padding: 2px 4px;
+        min-height: 14px;
+      }
+      .print-capa-client .span-2 { grid-column: span 2; }
+      .print-capa .category-header {
+        margin-top: 8px;
+        margin-bottom: 0;
+        border: 1px solid #000;
         border-bottom: none;
-      }
-      .print-capa-row .lbl {
-        padding: 7px 8px;
-        font-weight: 700;
-        border-right: 1px solid #000;
+        padding: 4px 6px;
+        font-size: 10px;
+        font-weight: 800;
         background: #f3f3f3;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
-      .print-capa-row .val {
-        padding: 7px 8px;
-      }
-      .print-capa-grid3 {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-      }
-      .print-capa-grid3 > div {
-        border-right: 1px solid #000;
-        padding: 7px 8px;
-      }
-      .print-capa-grid3 > div:last-child {
-        border-right: none;
-      }
       .print-capa-table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 8px;
+        margin: 0 0 6px;
       }
       .print-capa-table th,
       .print-capa-table td {
-        border: 1px solid #000;
+        border: 1px solid #999;
+        border-top-color: #000;
         padding: 5px 6px;
         text-align: left;
         font-size: 10px;
+        vertical-align: top;
       }
       .print-capa-table th {
-        background: #f3f3f3;
+        background: #f8f8f8;
+        font-size: 9px;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .print-capa-table .col-num { width: 28px; text-align: center; }
+      .print-capa-table .col-flags { width: 120px; white-space: nowrap; }
+      .print-capa .flag-chip {
+        display: inline-block;
+        border: 1px solid #000;
+        padding: 1px 5px;
+        font-size: 8px;
+        font-weight: 700;
+        margin: 1px 0;
+      }
+      .print-capa .flag-chip.on {
+        background: #000;
+        color: #fff;
         -webkit-print-color-adjust: exact;
         print-color-adjust: exact;
       }
@@ -878,19 +908,24 @@
         display: grid;
         grid-template-columns: 1fr 1fr;
         gap: 18px;
-        margin-top: 28px;
+        margin-top: 16px;
+        border: 1px solid #000;
+        padding: 10px;
       }
       .print-sign-box {
         border-top: 1px solid #000;
         padding-top: 6px;
-        min-height: 54px;
+        margin-top: 18px;
+        min-height: 48px;
         font-size: 10px;
+        text-align: center;
       }
       .print-obs {
-        margin-top: 16px;
+        margin-top: 10px;
         border: 1px solid #000;
-        min-height: 70px;
-        padding: 8px;
+        min-height: 48px;
+        padding: 6px 8px;
+        font-size: 10px;
       }
     }
 
@@ -1087,7 +1122,7 @@
       <table class="home-table">
         <thead>
           <tr>
-            <th>Código</th><th>Cliente</th><th>CNPJ</th><th>Apuração</th><th>Regime</th><th>Status</th><th>Executor</th><th>Revisor</th>
+            <th>Código</th><th>Origem</th><th>Cliente</th><th>CNPJ</th><th>Apuração</th><th>Regime</th><th>Status</th><th>Executor</th><th>Revisor</th><th></th>
           </tr>
         </thead>
         <tbody id="homeTableBody"></tbody>
@@ -1162,6 +1197,10 @@
       <label>Código do Fechamento</label>
       <input type="text" id="closingCode" readonly placeholder="000001">
     </div>
+    <div class="field-group span-2" id="retificacaoInfoWrap" style="display:none;">
+      <label>Retificação de</label>
+      <input type="text" id="closingRetificaDe" readonly placeholder="-">
+    </div>
   </section>
 
   <div class="total-status-bar">
@@ -1175,6 +1214,7 @@
       <button type="button" class="btn-print-mini" onclick="setClosingStatus('devolvido')">Devolver ao executor</button>
       <button type="button" class="btn-print-mini" onclick="setClosingStatus('aprovado')">Aprovar revisão</button>
       <button type="button" class="btn-print-mini" onclick="setClosingStatus('em_execucao')">Voltar p/ execução</button>
+      <button type="button" class="btn-print-mini" id="btnCriarRetificacao" style="display:none;" onclick="criarRetificacaoAtual()">Criar retificação (RT)</button>
     </div>
   </div>
 
@@ -1565,6 +1605,7 @@
   let currentRegime = "simples";
   let currentChecklistType = "importacao";
   let skipAutoSave = false;
+  let currentStorageKey = "";
   let appDb = loadDatabase();
 
   function sanitizePersonName(value) {
@@ -1586,6 +1627,8 @@
       code: "",
       status: "em_execucao",
       semMovimento: false,
+      isRetificacao: false,
+      retificaDe: "",
       header: { name: "", cnpj: "", operator: "", reviewer: "", ieSt: "nao_aplica", ieStUfs: "" },
       regime: "simples",
       checklistType: "importacao",
@@ -1602,7 +1645,8 @@
     return {
       version: 4,
       nextCode: 1,
-      ui: { year: n.year, month: n.month, clientKey: "", code: "" },
+      nextRectCode: 1,
+      ui: { year: n.year, month: n.month, clientKey: "", code: "", screen: "home" },
       db: {}
     };
   }
@@ -1616,6 +1660,18 @@
     const code = padClosingCode(appDb.nextCode);
     appDb.nextCode += 1;
     return code;
+  }
+
+  function allocateRectificationCode() {
+    if (!appDb.nextRectCode || appDb.nextRectCode < 1) appDb.nextRectCode = 1;
+    const code = "RT" + padClosingCode(appDb.nextRectCode);
+    appDb.nextRectCode += 1;
+    return code;
+  }
+
+  function getActiveStorageKey() {
+    if (currentStorageKey) return currentStorageKey;
+    return clientKeyFromName(document.getElementById("clientName").value);
   }
 
   function statusLabel(status) {
@@ -1640,6 +1696,8 @@
           rows.push({
             year, month, clientKey, rec,
             code: rec.code,
+            retificaDe: rec.retificaDe || "",
+            isRetificacao: !!rec.isRetificacao || /^RT\d{6}$/i.test(String(rec.code || "")),
             name: (rec.header && rec.header.name) || clientKey,
             cnpj: (rec.header && rec.header.cnpj) || "",
             status: rec.status || "em_execucao",
@@ -1745,31 +1803,37 @@
   function getCurrentClientRecord() {
     const year = getSelectedYear();
     const month = getSelectedMonth();
-    const key = clientKeyFromName(document.getElementById("clientName").value);
+    const key = getActiveStorageKey();
     if (!key) return null;
     const bucket = (appDb.db[year] && appDb.db[year][month]) || {};
     return bucket[key] || null;
   }
 
   function ensureWorkingRecord() {
-    const key = clientKeyFromName(document.getElementById("clientName").value);
-    if (!key) return null;
+    let key = getActiveStorageKey();
+    const displayName = clientKeyFromName(document.getElementById("clientName").value);
+    if (!key) {
+      if (!displayName) return null;
+      key = displayName;
+      currentStorageKey = key;
+    }
     const year = getSelectedYear();
     const month = getSelectedMonth();
     const bucket = ensureDbPath(year, month);
     if (!bucket[key]) {
       bucket[key] = emptyClientRecord();
-      bucket[key].header.name = key;
+      bucket[key].header.name = displayName || key;
       bucket[key].code = allocateClosingCode();
     } else if (!bucket[key].code) {
-      bucket[key].code = allocateClosingCode();
+      bucket[key].code = bucket[key].isRetificacao ? allocateRectificationCode() : allocateClosingCode();
     }
     return bucket[key];
   }
 
   function readFormIntoRecord(rec) {
+    const displayName = clientKeyFromName(document.getElementById("clientName").value);
     rec.header = {
-      name: clientKeyFromName(document.getElementById("clientName").value),
+      name: displayName || (rec.header && rec.header.name) || getActiveStorageKey(),
       cnpj: document.getElementById("clientCnpj").value,
       operator: sanitizePersonName(document.getElementById("clientOperator").value),
       reviewer: sanitizePersonName(document.getElementById("clientReviewer").value),
@@ -1778,26 +1842,33 @@
     };
     rec.semMovimento = !!(document.getElementById("semMovimento") && document.getElementById("semMovimento").checked);
     if (!rec.status) rec.status = "em_execucao";
-    if (!rec.code) rec.code = allocateClosingCode();
+    if (!rec.code) {
+      rec.code = rec.isRetificacao ? allocateRectificationCode() : allocateClosingCode();
+    }
     rec.regime = currentRegime;
     rec.checklistType = currentChecklistType;
     rec.updatedAt = new Date().toISOString();
     const codeEl = document.getElementById("closingCode");
     if (codeEl) codeEl.value = rec.code;
+    const retEl = document.getElementById("closingRetificaDe");
+    if (retEl) retEl.value = rec.retificaDe || "";
   }
 
   function persistWorkingDraft() {
     if (skipAutoSave) return;
-    const key = clientKeyFromName(document.getElementById("clientName").value);
+    const key = getActiveStorageKey() || clientKeyFromName(document.getElementById("clientName").value);
     if (!key) return;
+    if (!currentStorageKey) currentStorageKey = key;
     const rec = ensureWorkingRecord();
     if (!rec) return;
     readFormIntoRecord(rec);
     appDb.ui.year = getSelectedYear();
     appDb.ui.month = getSelectedMonth();
-    appDb.ui.clientKey = key;
+    appDb.ui.clientKey = currentStorageKey;
+    appDb.ui.code = rec.code || "";
+    appDb.ui.screen = "work";
     saveDatabase();
-    refreshClientSelect(key);
+    refreshClientSelect();
   }
 
   function fillYearOptions() {
@@ -1823,6 +1894,8 @@
     document.getElementById("clientIeSt").value = (rec.header && rec.header.ieSt) || "nao_aplica";
     document.getElementById("clientIeStUfs").value = (rec.header && rec.header.ieStUfs) || "";
     document.getElementById("closingCode").value = rec.code || "";
+    document.getElementById("closingRetificaDe").value = rec.retificaDe || "";
+    document.getElementById("retificacaoInfoWrap").style.display = (rec.isRetificacao || rec.retificaDe) ? "" : "none";
     document.getElementById("semMovimento").checked = !!rec.semMovimento;
     currentRegime = rec.regime || "simples";
     currentChecklistType = rec.checklistType || "importacao";
@@ -1835,6 +1908,7 @@
 
   function clearFormForNewClient() {
     skipAutoSave = true;
+    currentStorageKey = "";
     document.getElementById("clientName").value = "";
     document.getElementById("clientCnpj").value = "";
     document.getElementById("clientOperator").value = "";
@@ -1842,6 +1916,8 @@
     document.getElementById("clientIeSt").value = "nao_aplica";
     document.getElementById("clientIeStUfs").value = "";
     document.getElementById("closingCode").value = "";
+    document.getElementById("closingRetificaDe").value = "";
+    document.getElementById("retificacaoInfoWrap").style.display = "none";
     document.getElementById("semMovimento").checked = false;
     currentRegime = "simples";
     currentChecklistType = "importacao";
@@ -1856,7 +1932,7 @@
     appDb.ui.year = getSelectedYear();
     appDb.ui.month = getSelectedMonth();
     saveDatabase();
-    refreshClientSelect("");
+    refreshClientSelect();
     clearFormForNewClient();
   }
 
@@ -1865,19 +1941,22 @@
   }
 
   function saveCurrentClient() {
-    const key = clientKeyFromName(document.getElementById("clientName").value);
+    const key = getActiveStorageKey() || clientKeyFromName(document.getElementById("clientName").value);
     if (!key) {
       alert("Informe o nome do cliente antes de salvar.");
       return;
     }
+    if (!currentStorageKey) currentStorageKey = key;
     const rec = ensureWorkingRecord();
     readFormIntoRecord(rec);
-    appDb.ui.clientKey = key;
+    appDb.ui.clientKey = currentStorageKey;
     appDb.ui.code = rec.code;
+    appDb.ui.screen = "work";
     saveDatabase();
-    refreshClientSelect(key);
+    refreshClientSelect();
     updateClosingStatusUI();
-    alert("Fechamento " + rec.code + " salvo em " + getSelectedYear() + " > " + MONTH_NAMES[getSelectedMonth()] + " > " + key);
+    const origem = rec.retificaDe ? " (retifica " + rec.retificaDe + ")" : "";
+    alert("Fechamento " + rec.code + origem + " salvo.");
   }
 
   function exportBackupJson() {
@@ -1972,20 +2051,56 @@
     return items;
   }
 
+  function isWorkScreenActive() {
+    const work = document.getElementById("workScreen");
+    return !!(work && work.classList.contains("active"));
+  }
+
   function showHome() {
     document.getElementById("homeScreen").classList.add("active");
     document.getElementById("workScreen").classList.remove("active");
+    if (!appDb.ui) appDb.ui = {};
+    appDb.ui.screen = "home";
+    saveDatabase();
     renderHomeTable();
   }
 
   function showWork() {
     document.getElementById("homeScreen").classList.remove("active");
     document.getElementById("workScreen").classList.add("active");
+    if (!appDb.ui) appDb.ui = {};
+    appDb.ui.screen = "work";
+    appDb.ui.year = getSelectedYear();
+    appDb.ui.month = getSelectedMonth();
+    appDb.ui.clientKey = clientKeyFromName(document.getElementById("clientName").value) || appDb.ui.clientKey || "";
+    saveDatabase();
   }
 
   function backToHome() {
+    if (!confirmLeaveWork("Deseja salvar e voltar à lista de fechamentos?\n\nOK = salvar e voltar\nCancelar = continuar neste fechamento")) return;
     persistWorkingDraft();
     showHome();
+  }
+
+  function restoreLastSession() {
+    const ui = appDb.ui || {};
+    if (ui.screen !== "work") return false;
+    const year = ui.year;
+    const month = ui.month;
+    const key = ui.clientKey;
+    if (!year || !month || !key) return false;
+    const rec = appDb.db[year] && appDb.db[year][month] && appDb.db[year][month][key];
+    if (!rec) return false;
+    openClosing(year, month, key);
+    return true;
+  }
+
+  function confirmLeaveWork(message) {
+    if (!isWorkScreenActive()) return true;
+    const name = clientKeyFromName(document.getElementById("clientName").value);
+    if (!name) return true;
+    persistWorkingDraft();
+    return window.confirm(message || "Deseja salvar o fechamento antes de sair?\n\nOK = salvar e continuar\nCancelar = permanecer nesta tela");
   }
 
   function renderHomeTable() {
@@ -2011,13 +2126,14 @@
     });
 
     if (!rows.length) {
-      body.innerHTML = `<tr><td colspan="8">Nenhum fechamento encontrado. Clique em “+ Novo Fechamento”.</td></tr>`;
+      body.innerHTML = `<tr><td colspan="10">Nenhum fechamento encontrado. Clique em “+ Novo Fechamento”.</td></tr>`;
       return;
     }
 
     body.innerHTML = rows.map(r => `
       <tr onclick="openClosing('${r.year}','${r.month}','${escapeAttr(r.clientKey)}')">
-        <td><strong>${escapeHtml(r.code)}</strong></td>
+        <td><strong>${escapeHtml(r.code)}</strong>${r.isRetificacao ? '<div style="font-size:0.72rem;color:#9f1239;">Retificação</div>' : ""}</td>
+        <td>${escapeHtml(r.retificaDe || "-")}</td>
         <td>${escapeHtml(r.name)}</td>
         <td>${escapeHtml(r.cnpj || "-")}</td>
         <td>${escapeHtml(r.comp)}</td>
@@ -2025,14 +2141,69 @@
         <td><span class="status-badge st-${escapeAttr(r.status)}">${escapeHtml(statusLabel(r.status))}</span></td>
         <td>${escapeHtml(r.operator || "-")}</td>
         <td>${escapeHtml(r.reviewer || "-")}</td>
+        <td>${r.status === "aprovado" ? `<button type="button" class="btn-print-mini" style="padding:4px 8px;font-size:0.75rem;" onclick="event.stopPropagation();criarRetificacao('${r.year}','${r.month}','${escapeAttr(r.clientKey)}')">Retificar</button>` : ""}</td>
       </tr>
     `).join("");
+  }
+
+  function deepClone(obj) {
+    return JSON.parse(JSON.stringify(obj || {}));
+  }
+
+  function criarRetificacao(year, month, sourceKey) {
+    const source = appDb.db[year] && appDb.db[year][month] && appDb.db[year][month][sourceKey];
+    if (!source) {
+      alert("Fechamento de origem não encontrado.");
+      return;
+    }
+    if ((source.status || "") !== "aprovado") {
+      alert("Só é possível criar retificação de um fechamento com status Aprovado.");
+      return;
+    }
+    if (!confirm("Criar uma cópia de retificação deste fechamento?\n\nO novo código será no formato RT000001 e fará referência ao " + (source.code || "original") + ".")) {
+      return;
+    }
+    const rtCode = allocateRectificationCode();
+    const copy = deepClone(source);
+    copy.code = rtCode;
+    copy.isRetificacao = true;
+    copy.retificaDe = source.code || "";
+    copy.status = "em_execucao";
+    copy.createdAt = new Date().toISOString();
+    copy.updatedAt = copy.createdAt;
+    copy.checklistType = "importacao";
+    if (!copy.header) copy.header = {};
+    const baseName = copy.header.name || sourceKey;
+    copy.header.name = baseName;
+    const newKey = baseName + " · " + rtCode;
+    const bucket = ensureDbPath(year, month);
+    if (bucket[newKey]) {
+      alert("Já existe uma retificação com esta chave. Abra pela lista.");
+      openClosing(year, month, newKey);
+      return;
+    }
+    bucket[newKey] = copy;
+    saveDatabase();
+    openClosing(year, month, newKey);
+    alert("Retificação " + rtCode + " criada a partir do fechamento " + (source.code || "") + ".");
+  }
+
+  function criarRetificacaoAtual() {
+    const year = getSelectedYear();
+    const month = getSelectedMonth();
+    const key = getActiveStorageKey();
+    if (!key) {
+      alert("Abra um fechamento aprovado para retificar.");
+      return;
+    }
+    criarRetificacao(year, month, key);
   }
 
   function createNewClosing() {
     const n = nowParts();
     fillYearOptions();
     skipAutoSave = true;
+    currentStorageKey = "";
     document.getElementById("filterYear").value = n.year;
     document.getElementById("filterMonth").value = n.month;
     document.getElementById("clientName").value = "";
@@ -2042,13 +2213,15 @@
     document.getElementById("clientIeSt").value = "nao_aplica";
     document.getElementById("clientIeStUfs").value = "";
     document.getElementById("closingCode").value = "";
+    document.getElementById("closingRetificaDe").value = "";
+    document.getElementById("retificacaoInfoWrap").style.display = "none";
     document.getElementById("semMovimento").checked = false;
     currentRegime = "simples";
     currentChecklistType = "importacao";
-    appDb.ui = { year: n.year, month: n.month, clientKey: "", code: "" };
+    appDb.ui = { year: n.year, month: n.month, clientKey: "", code: "", screen: "work" };
     skipAutoSave = false;
     showWork();
-    refreshClientSelect("");
+    refreshClientSelect();
     switchRegime("simples");
     onIeStModeChange();
     applySemMovimentoUI();
@@ -2057,15 +2230,30 @@
 
   function openClosing(year, month, clientKey) {
     skipAutoSave = true;
+    currentStorageKey = clientKey;
     document.getElementById("filterYear").value = year;
     document.getElementById("filterMonth").value = month;
     const rec = appDb.db[year] && appDb.db[year][month] && appDb.db[year][month][clientKey];
     skipAutoSave = false;
     if (!rec) return;
+    if (!appDb.ui) appDb.ui = {};
+    appDb.ui.year = year;
+    appDb.ui.month = month;
+    appDb.ui.clientKey = clientKey;
+    appDb.ui.code = rec.code || "";
+    appDb.ui.screen = "work";
     showWork();
-    refreshClientSelect(clientKey);
+    refreshClientSelect();
     applyRecordToForm(rec);
     updateClosingStatusUI();
+  }
+
+  function readSemMovimentoFlag() {
+    const box = document.getElementById("semMovimento");
+    const checked = !!(box && box.checked);
+    const rec = getCurrentClientRecord();
+    if (rec) rec.semMovimento = checked;
+    return checked;
   }
 
   function updateClosingStatusUI() {
@@ -2078,16 +2266,34 @@
       badge.innerText = statusLabel(status);
     }
     if (prog) {
-      const semMov = !!(rec && rec.semMovimento);
-      let all = getRegimeItems().filter(i => ["importacao","analise","obrigacoes","fechamento"].includes(getItemType(i.id)));
-      if (semMov) all = all.filter(i => getItemType(i.id) === "fechamento" && /faturamento|receitas/i.test(i.title));
-      const flags = (rec && rec.flags) || {};
-      const counts = countFlagsForItems(all, flags);
-      const done = counts.okCount + counts.nhCount + counts.scCount;
-      prog.innerText = (semMov ? "SEM MOVIMENTO · " : "") + "Progresso: " + done + "/" + counts.total + " · PEND " + counts.pendCount;
+      if (!rec) {
+        prog.innerText = "";
+      } else {
+        const semMov = readSemMovimentoFlag();
+        let all = getRegimeItems().filter(i => ["importacao","analise","obrigacoes","fechamento"].includes(getItemType(i.id)));
+        if (semMov) {
+          all = all.filter(i => getItemType(i.id) === "fechamento" && /faturamento|receitas/i.test(i.title));
+        }
+        const flags = rec.flags || {};
+        const counts = countFlagsForItems(all, flags);
+        const done = counts.okCount + counts.nhCount + counts.scCount;
+        prog.innerText = (semMov ? "SEM MOVIMENTO · " : "") + "Progresso: " + done + "/" + counts.total + " · PEND " + counts.pendCount;
+      }
     }
     const codeEl = document.getElementById("closingCode");
     if (codeEl) codeEl.value = (rec && rec.code) || "";
+    const retWrap = document.getElementById("retificacaoInfoWrap");
+    const retEl = document.getElementById("closingRetificaDe");
+    if (retWrap && retEl) {
+      const showRet = !!(rec && (rec.isRetificacao || rec.retificaDe));
+      retWrap.style.display = showRet ? "" : "none";
+      retEl.value = (rec && rec.retificaDe) || "";
+    }
+    const btnRt = document.getElementById("btnCriarRetificacao");
+    if (btnRt) btnRt.style.display = (rec && rec.status === "aprovado") ? "" : "none";
+    if (prog && rec && (rec.isRetificacao || rec.retificaDe)) {
+      prog.innerText = (prog.innerText ? prog.innerText + " · " : "") + "Retifica " + (rec.retificaDe || "");
+    }
   }
 
   function setClosingStatus(nextStatus) {
@@ -2120,7 +2326,7 @@
   }
 
   function applySemMovimentoUI() {
-    const semMov = !!(document.getElementById("semMovimento") && document.getElementById("semMovimento").checked);
+    const semMov = readSemMovimentoFlag();
     ["importacao", "analise", "obrigacoes"].forEach(key => {
       const btn = document.getElementById("tab-" + key);
       if (btn) btn.style.display = semMov ? "none" : "";
@@ -2140,9 +2346,11 @@
 
   function onSemMovimentoChange() {
     const rec = ensureWorkingRecord();
-    if (rec) rec.semMovimento = document.getElementById("semMovimento").checked;
+    const checked = !!(document.getElementById("semMovimento") && document.getElementById("semMovimento").checked);
+    if (rec) rec.semMovimento = checked;
     persistWorkingDraft();
     applySemMovimentoUI();
+    updateClosingStatusUI();
   }
 
   function onIeStModeChange() {
@@ -2159,12 +2367,24 @@
 
   function initApp() {
     if (!appDb.nextCode) appDb.nextCode = 1;
+    if (!appDb.nextRectCode) appDb.nextRectCode = 1;
+    if (!appDb.ui) appDb.ui = defaultDatabase().ui;
     fillYearOptions();
     const n = nowParts();
     document.getElementById("filterYear").value = appDb.ui.year || n.year;
     document.getElementById("filterMonth").value = appDb.ui.month || n.month;
-    showHome();
+    if (!restoreLastSession()) showHome();
   }
+
+  window.addEventListener("beforeunload", function (event) {
+    if (!isWorkScreenActive()) return;
+    const name = clientKeyFromName(document.getElementById("clientName").value);
+    if (!name) return;
+    try { persistWorkingDraft(); } catch (e) {}
+    event.preventDefault();
+    event.returnValue = "Há um fechamento aberto. Salve antes de atualizar ou sair da página.";
+    return event.returnValue;
+  });
 
   function switchRegime(regimeKey) {
     currentRegime = regimeKey;
@@ -2222,6 +2442,11 @@
     };
   }
 
+  function flagChipHtml(current, value, label) {
+    const on = current === value ? " on" : "";
+    return `<span class="flag-chip${on}">[ ${label} ]</span>`;
+  }
+
   function buildFechamentoCapaHtml() {
     const year = getSelectedYear();
     const month = getSelectedMonth();
@@ -2232,7 +2457,7 @@
     const ieSt = ieStLabel(document.getElementById("clientIeSt").value);
     const ieStUfs = document.getElementById("clientIeStUfs").value || "-";
     const code = document.getElementById("closingCode").value || "-";
-    const semMov = document.getElementById("semMovimento").checked;
+    const semMov = readSemMovimentoFlag();
     const rec = getCurrentClientRecord();
     const statusTxt = statusLabel((rec && rec.status) || "em_execucao");
     const regimeTitle = regimesData[currentRegime].title;
@@ -2241,10 +2466,6 @@
     if (semMov) {
       fechamentoItems = fechamentoItems.filter(item => /faturamento|receitas/i.test(item.title));
     }
-    const etapaRows = Object.keys(CHECKLIST_TYPES).map(key => {
-      const s = summarizeType(key);
-      return `<tr><td>${escapeHtml(s.title)}</td><td>${s.done}/${s.total}</td><td>${s.pend}</td><td>${s.pct}%</td></tr>`;
-    }).join("");
 
     const byCat = {};
     fechamentoItems.forEach(item => {
@@ -2253,62 +2474,51 @@
       byCat[cat].push(item);
     });
 
+    let num = 0;
     const sectionsHtml = Object.keys(byCat).map(cat => {
-      const rows = byCat[cat].map((item, idx) => {
-        const flag = (flags[item.id] || "").toUpperCase() || "-";
+      const rows = byCat[cat].map(item => {
+        num += 1;
+        const current = flags[item.id] || "";
         const obs = (getObsLog(item.id).current || "").trim();
-        const attachCount = (getAttachments(item.id) || []).length;
         return `<tr>
-          <td>${String(idx + 1).padStart(2, "0")}</td>
-          <td><strong>${escapeHtml(item.shortPrint || item.title)}</strong><br><span style="font-size:10px">${escapeHtml(item.title)}</span></td>
-          <td>${escapeHtml(flag)}</td>
-          <td>${escapeHtml(obs || "-")}${attachCount ? " · " + attachCount + " anexo(s)" : ""}</td>
+          <td class="col-num">${String(num).padStart(2, "0")}</td>
+          <td>${escapeHtml(item.shortPrint || item.title)}</td>
+          <td class="col-flags">
+            ${flagChipHtml(current, "ok", "OK")}
+            ${flagChipHtml(current, "nh", "NÃO HOUVE")}
+            ${flagChipHtml(current, "sc", "SALDO CREDOR")}
+            ${flagChipHtml(current, "pend", "PEND")}
+          </td>
+          <td>${escapeHtml(obs || "")}</td>
         </tr>`;
       }).join("");
-      return `<strong style="display:block;margin-top:12px;">${escapeHtml(cat)}</strong>
+      return `<div class="category-header">${escapeHtml(cat)}</div>
         <table class="print-capa-table">
-          <thead><tr><th>#</th><th>Documento / Relatório + Guia</th><th>Flag</th><th>Observação</th></tr></thead>
+          <thead><tr><th class="col-num">#</th><th>Item / relatório + guia</th><th class="col-flags">Flag</th><th>Observação</th></tr></thead>
           <tbody>${rows}</tbody>
         </table>`;
     }).join("");
 
     return `
-      <div class="print-capa-title">Fechamento</div>
-      <div class="print-capa-regime">${escapeHtml(regimeTitle)} · Código ${escapeHtml(code)} · ${escapeHtml(statusTxt)}${semMov ? " · SEM MOVIMENTO" : ""}</div>
-      <div class="print-capa-box">
-        <div class="print-capa-row"><div class="lbl">Razão Social:</div><div class="val">${escapeHtml(name)}</div></div>
-        <div class="print-capa-row"><div class="lbl">CNPJ:</div><div class="val">${escapeHtml(cnpj)}</div></div>
-        <div class="print-capa-row">
-          <div class="lbl">Mês/Ano apuração:</div>
-          <div class="val">
-            <div class="print-capa-grid3">
-              <div>${escapeHtml(MONTH_NAMES[month] || month)}/${escapeHtml(year)}</div>
-              <div>IE-ST: ${escapeHtml(ieSt)}</div>
-              <div>UFs IE-ST: ${escapeHtml(ieStUfs)}</div>
-            </div>
-          </div>
+      <div class="print-capa-brand">
+        <img src="assets/nascel-logo.jpg" alt="Nascel">
+        <div>
+          <h1>Fechamento - (${escapeHtml(regimeTitle)})</h1>
+          <p>Código ${escapeHtml(code)}${(rec && rec.retificaDe) ? " · Retifica " + escapeHtml(rec.retificaDe) : ""} · ${escapeHtml(statusTxt)}${semMov ? " · SEM MOVIMENTO" : ""} · ${escapeHtml(MONTH_NAMES[month] || month)}/${escapeHtml(year)}</p>
         </div>
       </div>
-
-      <strong>Resumo das etapas</strong>
-      <table class="print-capa-table">
-        <thead><tr><th>Etapa</th><th>Concluídos</th><th>PEND</th><th>%</th></tr></thead>
-        <tbody>${etapaRows}</tbody>
-      </table>
-
-      ${sectionsHtml || `<p style="margin-top:12px;">Sem itens de fechamento nesta visão.</p>`}
-
+      <div class="print-capa-client">
+        <div class="fg span-2"><label>Cliente</label><div class="v">${escapeHtml(name)}</div></div>
+        <div class="fg"><label>CNPJ / UF</label><div class="v">${escapeHtml(cnpj)}</div></div>
+        <div class="fg"><label>Código</label><div class="v">${escapeHtml(code)}</div></div>
+        <div class="fg span-2"><label>IE-ST</label><div class="v">${escapeHtml(ieSt)}${ieStUfs && ieStUfs !== "-" ? " · " + escapeHtml(ieStUfs) : ""}</div></div>
+        <div class="fg"><label>Responsável</label><div class="v">${escapeHtml(operator)}</div></div>
+        <div class="fg"><label>Revisor</label><div class="v">${escapeHtml(reviewer)}</div></div>
+      </div>
+      ${sectionsHtml || `<p>Sem itens de fechamento nesta visão.</p>`}
       <div class="print-sign-grid">
-        <div class="print-sign-box">
-          Produzido por: ${escapeHtml(operator)}<br>
-          Data: ____/____/________<br><br>
-          Assinatura:
-        </div>
-        <div class="print-sign-box">
-          Revisado por: ${escapeHtml(reviewer)}<br>
-          Data: ____/____/________<br><br>
-          Assinatura:
-        </div>
+        <div class="print-sign-box">Assinatura / Visto - Operador Fiscal<br>${escapeHtml(operator)}<br>____/____/________</div>
+        <div class="print-sign-box">Aprovação - Revisão Técnica<br>${escapeHtml(reviewer)}<br>____/____/________</div>
       </div>
       <div class="print-obs"><strong>Observação geral:</strong></div>
     `;
