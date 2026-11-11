@@ -2365,10 +2365,73 @@
     persistWorkingDraft();
   }
 
+  function seedDemoRetificacaoExemplo() {
+    const n = nowParts();
+    const year = n.year;
+    const month = n.month;
+    const baseName = "0145 - EMPRESA EXEMPLO LTDA";
+    const baseKey = baseName;
+    const rtKey = baseName + " · RT000001";
+    const bucket = ensureDbPath(year, month);
+
+    if (!bucket[baseKey]) {
+      const original = emptyClientRecord();
+      original.code = "000001";
+      original.status = "aprovado";
+      original.regime = "simples";
+      original.checklistType = "fechamento";
+      original.semMovimento = false;
+      original.header = {
+        name: baseName,
+        cnpj: "12.345.678/0001-90 (SP)",
+        operator: "Operador Exemplo",
+        reviewer: "Revisor Exemplo",
+        ieSt: "por_apuracao",
+        ieStUfs: "MG, RJ"
+      };
+      original.flags = { sn_fc_01: "ok", sn_fc_02: "ok", sn_fc_03: "nh" };
+      original.obsLogs = {
+        sn_fc_03: { current: "Exemplo: não houve livro de entradas no período.", history: [] }
+      };
+      bucket[baseKey] = original;
+    } else if ((bucket[baseKey].status || "") !== "aprovado") {
+      bucket[baseKey].status = "aprovado";
+      if (!bucket[baseKey].code) bucket[baseKey].code = "000001";
+    }
+
+    if (!bucket[rtKey]) {
+      const origem = bucket[baseKey];
+      const rt = deepClone(origem);
+      rt.code = "RT000001";
+      rt.isRetificacao = true;
+      rt.retificaDe = origem.code || "000001";
+      rt.status = "em_execucao";
+      rt.checklistType = "importacao";
+      rt.createdAt = new Date().toISOString();
+      rt.updatedAt = rt.createdAt;
+      if (!rt.header) rt.header = {};
+      rt.header.name = baseName;
+      rt.obsLogs = rt.obsLogs || {};
+      rt.obsLogs._retificacao = {
+        current: "Retificação de exemplo criada a partir do fechamento " + (origem.code || "000001") + ".",
+        history: []
+      };
+      bucket[rtKey] = rt;
+    }
+
+    if (!appDb.nextCode || appDb.nextCode < 2) appDb.nextCode = 2;
+    if (!appDb.nextRectCode || appDb.nextRectCode < 2) appDb.nextRectCode = 2;
+    if (!appDb.ui) appDb.ui = defaultDatabase().ui;
+    appDb.ui.year = year;
+    appDb.ui.month = month;
+    saveDatabase();
+  }
+
   function initApp() {
     if (!appDb.nextCode) appDb.nextCode = 1;
     if (!appDb.nextRectCode) appDb.nextRectCode = 1;
     if (!appDb.ui) appDb.ui = defaultDatabase().ui;
+    seedDemoRetificacaoExemplo();
     fillYearOptions();
     const n = nowParts();
     document.getElementById("filterYear").value = appDb.ui.year || n.year;
