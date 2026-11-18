@@ -30,6 +30,14 @@ class Command(BaseCommand):
                 usuario.set_password(admin_pass)
                 usuario.save()
 
+        # Administrador adicional (mesma visibilidade: staff + superuser).
+        self._garantir_administrador(
+            User,
+            os.getenv("SENTINELA_ISMAEL_USER", "ismael").strip(),
+            os.getenv("SENTINELA_ISMAEL_PASSWORD", "adm").strip(),
+            os.getenv("SENTINELA_ISMAEL_EMAIL", "").strip(),
+        )
+
         self._garantir_analista(
             User,
             os.getenv("SENTINELA_COLABORADOR_USER", "mariana.barbosa").strip(),
@@ -58,6 +66,28 @@ class Command(BaseCommand):
                 f"(seed {resultado['total_seed']})."
             )
         )
+
+    def _garantir_administrador(self, User, username, senha, email=""):
+        if not username or not senha:
+            return
+        usuario, criado = User.objects.get_or_create(
+            username=username,
+            defaults={
+                "email": email,
+                "first_name": "Ismael",
+                "is_staff": True,
+                "is_superuser": True,
+            },
+        )
+        usuario.is_staff = True
+        usuario.is_superuser = True
+        if email:
+            usuario.email = email
+        if not usuario.first_name:
+            usuario.first_name = "Ismael"
+        usuario.set_password(senha)
+        usuario.save()
+        self.stdout.write(self.style.SUCCESS(f"Administrador garantido: {username}"))
 
     def _garantir_analista(self, User, username, senha, email, nome, sobrenome):
         if not username or not senha:
