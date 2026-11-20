@@ -9,7 +9,12 @@ from django.views.decorators.http import require_POST
 from auditoria.apuracao_motor import MotorApuracaoSentinela
 from clientes.competencia import deslocar, montar
 from clientes.forms import EmpresaForm
-from clientes.governance import CadastroIncompleto, avisar_cadastro_incompleto, validar_cadastro_para_apuracao
+from clientes.governance import (
+    CadastroIncompleto,
+    avisar_cadastro_incompleto,
+    pendencias_cadastro,
+    validar_cadastro_para_apuracao,
+)
 from clientes.acesso import administrador, apenas_administrador, exige, pode
 from clientes.backup import exportar_pacote
 from clientes.forms import ColaboradorForm
@@ -336,6 +341,10 @@ def _opcoes_filtros_dos_cadastros():
     ids_ops = set(base.exclude(responsavel_apuracao_id=None).values_list("responsavel_apuracao_id", flat=True))
     colaboradores = list(Colaborador.objects.filter(pk__in=ids_ops).order_by("nome"))
 
+    def _opcoes_responsavel(campo: str) -> list[tuple[str, str]]:
+        ids = set(base.exclude(**{campo: None}).values_list(campo, flat=True))
+        return [(str(c.pk), c.nome) for c in Colaborador.objects.filter(pk__in=ids).order_by("nome")]
+
     # Checklist: só itens que algum cliente realmente marcou (via índice busca_escopo)
     textos_busca = list(base.exclude(busca_escopo="").values_list("busca_escopo", flat=True))
     blob = "\n".join(textos_busca).lower()
@@ -359,6 +368,12 @@ def _opcoes_filtros_dos_cadastros():
         "opcoes_especial": opcoes_especial,
         "opcoes_perfil": opcoes_perfil,
         "opcoes_colaboradores": [(str(c.pk), c.nome) for c in colaboradores],
+        "opcoes_op_fiscal": _opcoes_responsavel("responsavel_apuracao_id"),
+        "opcoes_rev_fiscal": _opcoes_responsavel("responsavel_revisao_id"),
+        "opcoes_op_contabil": _opcoes_responsavel("responsavel_operacional_contabil_id"),
+        "opcoes_rev_contabil": _opcoes_responsavel("responsavel_revisador_contabil_id"),
+        "opcoes_op_dp": _opcoes_responsavel("responsavel_operacional_dp_id"),
+        "opcoes_rev_dp": _opcoes_responsavel("responsavel_revisador_dp_id"),
         "opcoes_escopo_pares": opcoes_escopo_pares,
     }
 
@@ -433,6 +448,9 @@ def editar_empresa(request, empresa_id=None):
         return [{"nome": item, "marcado": bool(mapa.get(item))} for item in lista]
 
     aba_inicial = "escopo" if request.GET.get("aba") == "escopo" else "informacoes"
+    pendencias = None
+    if empresa is not None and empresa.pk:
+        pendencias = pendencias_cadastro(Empresa.objects.get(pk=empresa.pk))
 
     return render(
         request,
@@ -440,6 +458,7 @@ def editar_empresa(request, empresa_id=None):
         {
             "form": form,
             "empresa": empresa,
+            "pendencias_cadastro": pendencias,
             "aba_inicial": aba_inicial,
             "setores_contato": SETORES_CONTATO,
             "contatos_json": json.dumps(contatos_atuais, ensure_ascii=False),

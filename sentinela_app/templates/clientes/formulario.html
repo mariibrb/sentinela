@@ -16,7 +16,21 @@
     </div>
   </div>
 
+  {% if pendencias_cadastro is not None %}
+    {% if pendencias_cadastro %}
+    <div id="selo-prontidao" class="mb-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900 shadow-sm">
+      <p class="font-bold">⚠ Cadastro Pendente para Apuração</p>
+      <p class="mt-1 text-sm">Falta: {{ pendencias_cadastro|join:", " }}.</p>
+    </div>
+    {% else %}
+    <div id="selo-prontidao" class="mb-4 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 font-bold text-emerald-900 shadow-sm">
+      ✓ Cadastro Apto para Operação Fiscal
+    </div>
+    {% endif %}
+  {% endif %}
+
   <p id="aviso-cnpj" class="mb-4 hidden rounded-xl border px-4 py-3 shadow-sm"></p>
+  <p id="aviso-situacao-receita" class="mb-4 hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 font-semibold text-amber-900 shadow-sm"></p>
   {% if form.non_field_errors %}<p class="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-red-700 shadow-sm">{{ form.non_field_errors }}</p>{% endif %}
 
   <!-- Navegação por Abas -->
@@ -494,6 +508,8 @@
       mostrar("Informe os 14 números do CNPJ. Pontos, barra e traço são ignorados.", false);
       return;
     }
+    const avisoSituacao = document.getElementById("aviso-situacao-receita");
+    avisoSituacao.classList.add("hidden");
     mostrar("Consultando o CNPJ…", true);
     try {
       const resposta = await fetch(`/clientes/cnpj/${cnpj}/`);
@@ -506,7 +522,7 @@
         return;
       }
       Object.entries(dados.campos || {}).forEach(([nome, valor]) => {
-        if (nome === "regime_tributario" || nome === "regime_pis_cofins") return;
+        if (nome === "regime_tributario" || nome === "regime_pis_cofins" || nome === "status" || nome === "situacao_receita") return;
         const campo = document.getElementById(`id_${nome}`);
         if (campo && valor) {
           campo.value = valor;
@@ -517,6 +533,11 @@
         const campo = document.getElementById(`id_ie_st_${uf}`);
         if (campo && valor) campo.value = valor;
       });
+      const situacao = (dados.campos || {}).situacao_receita || "";
+      if (situacao && situacao.toUpperCase() !== "ATIVA") {
+        avisoSituacao.textContent = `Atenção: na Receita Federal este CNPJ consta com situação ${situacao}. Verifique se deseja inativar o cliente e informar a data de saída.`;
+        avisoSituacao.classList.remove("hidden");
+      }
       mostrar("Dados públicos do CNPJ preenchidos. Selecione o regime na lista e preencha a aba Escopo de Trabalho.", true);
     } catch (_erro) {
       mostrar("Consulta automática indisponível no momento. Preencha razão social, endereço, município e código IBGE neste formulário.", true);

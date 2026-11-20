@@ -81,6 +81,7 @@ class ServicoConsultaCNPJ:
             "data_abertura": data_abertura,
             "tipo_estabelecimento": "Matriz" if data.get("identificador_matriz_filial") == 1 else "Filial",
             "status": "Ativo" if data.get("descricao_situacao_cadastral") == "ATIVA" else "Inativo",
+            "situacao_receita": str(data.get("descricao_situacao_cadastral") or "").strip(),
             "cep": "".join(caractere for caractere in str(data.get("cep", "")) if caractere.isdigit()),
             "logradouro": data.get("logradouro", "") or "",
             "numero": data.get("numero", "") or "",

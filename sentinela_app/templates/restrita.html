@@ -12,11 +12,19 @@
     <strong class="mt-1 block text-xl">Colaboradores</strong>
     <p class="mt-2 text-stone-600">Nome, cargo, e-mail e quem apura ou revisa cada empresa.</p>
   </a>
-  <a class="rounded-2xl border border-pink-200 bg-white p-5 shadow-sm" href="{% url 'baixar_planilha_clientes' %}">
-    <p class="text-sm font-semibold text-pink-700">Somente Desenvolvedor</p>
+  {% if eh_administrador %}
+  <div class="rounded-2xl border border-pink-200 bg-white p-5 shadow-sm">
+    <p class="text-sm font-semibold text-pink-700">Somente administrador</p>
     <strong class="mt-1 block text-xl">Planilha de Clientes em Lote (.xlsx)</strong>
-    <p class="mt-2 text-stone-600">Baixar planilha modelo/atualizada e subir todos os clientes e escopos de uma vez na tela de Clientes.</p>
-  </a>
+    <p class="mt-2 text-stone-600">Baixe a planilha modelo (já com os clientes atuais), preencha e envie aqui. Cada CNPJ é consultado automaticamente e os clientes são criados ou atualizados.</p>
+    <a class="mt-3 inline-block text-sm font-semibold text-pink-700 underline" href="{% url 'baixar_planilha_clientes' %}">Baixar planilha modelo</a>
+    <form class="mt-3 flex flex-col gap-2" method="post" action="{% url 'importar_lote_clientes' %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <input class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm" type="file" name="planilha_clientes" accept=".xlsx" required>
+      <button class="rounded-xl bg-pink-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-pink-700" type="submit">Importar planilha preenchida</button>
+    </form>
+  </div>
+  {% endif %}
   <a class="rounded-2xl border border-stone-200 bg-white p-5 shadow-sm" href="{% url 'admin:index' %}">
     <p class="text-sm text-stone-500">Django</p>
     <strong class="mt-1 block text-xl">Painel administrativo</strong>

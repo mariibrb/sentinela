@@ -188,6 +188,150 @@ class FluxoSentinelaTest(TestCase):
         self.assertTrue(empresa.possui_regime_especial)
         self.assertEqual(empresa.regime_pis_cofins, "Não-Cumulativo")
 
+    def _dados_formulario(self, **extra):
+        dados = {
+            "codigo_dominio": "700",
+            "cnpj": CNPJ,
+            "tipo_estabelecimento": "Matriz",
+            "razao_social": "CLIENTE FORMULARIO",
+            "status": "Ativo",
+            "responsavel_apuracao": self.apuracao.pk,
+            "responsavel_revisao": self.revisao.pk,
+            "inscricao_estadual": "0047805660026",
+            "cnae_principal": "4649499",
+            "cep": "37646028",
+            "logradouro": "RUA TESTE",
+            "numero": "1",
+            "bairro": "CENTRO",
+            "uf": "MG",
+            "municipio": "EXTREMA",
+            "codigo_ibge": "3125101",
+            "regime_tributario": "Lucro Presumido",
+            "perfil_estabelecimento": "GERAL",
+        }
+        dados.update(extra)
+        return dados
+
+    def test_formulario_recusa_cnpj_com_digito_verificador_invalido(self):
+        from clientes.forms import EmpresaForm
+
+        form = EmpresaForm(data=self._dados_formulario(cnpj="45785442000391"))
+        self.assertFalse(form.is_valid())
+        self.assertIn("CNPJ inválido: os dígitos verificadores não conferem.", form.errors["cnpj"])
+        resposta = self.client.post("/clientes/nova/", self._dados_formulario(cnpj="45.785.442/0003-91"))
+        self.assertEqual(resposta.status_code, 200)
+        self.assertContains(resposta, "os dígitos verificadores não conferem")
+        self.assertFalse(Empresa.objects.filter(codigo_dominio="700").exists())
+
+    def test_edicao_salva_sem_nfse_ultimo_nsu_e_preserva_o_cursor(self):
+        criado = self.client.post("/clientes/nova/", self._dados_formulario())
+        self.assertEqual(criado.status_code, 302)
+        empresa = Empresa.objects.get(codigo_dominio="700")
+        empresa.nfse_ultimo_nsu = 42
+        empresa.save(update_fields=["nfse_ultimo_nsu"])
+        editado = self.client.post(f"/clientes/{empresa.pk}/", self._dados_formulario(razao_social="CLIENTE EDITADO"))
+        self.assertEqual(editado.status_code, 302)
+        empresa.refresh_from_db()
+        self.assertEqual(empresa.razao_social, "CLIENTE EDITADO")
+        self.assertEqual(empresa.nfse_ultimo_nsu, 42)
+
+    def test_governanca_bloqueia_valores_provisorios_da_semente(self):
+        from clientes.governance import CadastroIncompleto, pendencias_cadastro, validar_cadastro_para_apuracao
+
+        base = dict(
+            razao_social="SEMENTE PROVISORIA",
+            responsavel_apuracao=self.apuracao,
+            responsavel_revisao=self.revisao,
+            inscricao_estadual="ISENTO",
+            cep="01310930",
+            logradouro="PAULISTA",
+            numero="1",
+            bairro="BELA VISTA",
+            uf="SP",
+            municipio="SAO PAULO",
+            regime_tributario="Lucro Presumido",
+        )
+        so_ibge = Empresa.objects.create(codigo_dominio="801", cnpj="11222333000181", codigo_ibge="0000000", cnae_principal="4649499", **base)
+        with self.assertRaises(CadastroIncompleto) as erro:
+            validar_cadastro_para_apuracao(so_ibge)
+        self.assertIn("Código IBGE válido", str(erro.exception))
+
+        so_cnae = Empresa.objects.create(codigo_dominio="802", cnpj="12345678000195", codigo_ibge="3550308", cnae_principal="0000000", **base)
+        with self.assertRaises(CadastroIncompleto) as erro:
+            validar_cadastro_para_apuracao(so_cnae)
+        self.assertIn("CNAE Principal válido", str(erro.exception))
+
+        endereco = Empresa.objects.create(
+            codigo_dominio="803",
+            cnpj=CNPJ,
+            codigo_ibge="3550308",
+            cnae_principal="4649499",
+            **{**base, "cep": "00000000", "logradouro": "A definir", "municipio": "a DEFINIR"},
+        )
+        pendencias = pendencias_cadastro(endereco)
+        self.assertEqual(len(pendencias), 3)
+        self.assertTrue(any("CEP" in p for p in pendencias))
+        self.assertTrue(any("Logradouro" in p for p in pendencias))
+        self.assertTrue(any("Município" in p for p in pendencias))
+
+        ficha = self.client.get(f"/clientes/{so_ibge.pk}/")
+        self.assertContains(ficha, "Cadastro Pendente para Apuração")
+        self.assertContains(ficha, "Código IBGE válido")
+        so_ibge.codigo_ibge = "3550308"
+        so_ibge.save()
+        self.assertTrue(validar_cadastro_para_apuracao(so_ibge))
+        self.assertContains(self.client.get(f"/clientes/{so_ibge.pk}/"), "Cadastro Apto para Operação Fiscal")
+
+    def test_lista_filtra_por_operacional_e_revisador_fiscal(self):
+        outro = Colaborador.objects.create(nome="Joana", cargo="Auxiliar Fiscal")
+        comum = dict(
+            cep="01310930",
+            logradouro="PAULISTA",
+            numero="1",
+            bairro="BELA VISTA",
+            uf="SP",
+            municipio="SAO PAULO",
+            codigo_ibge="3550308",
+            cnae_principal="4649499",
+            regime_tributario="Lucro Presumido",
+        )
+        Empresa.objects.create(
+            codigo_dominio="901", cnpj="11222333000181", razao_social="CLIENTE DO ISMAEL",
+            responsavel_apuracao=self.apuracao, responsavel_revisao=self.revisao, **comum,
+        )
+        Empresa.objects.create(
+            codigo_dominio="902", cnpj="12345678000195", razao_social="CLIENTE DA JOANA",
+            responsavel_apuracao=outro, responsavel_revisao=outro, **comum,
+        )
+        por_op = self.client.get(f"/clientes/?op_fiscal={self.apuracao.pk}")
+        self.assertEqual(por_op.context["total_empresas"], 1)
+        self.assertEqual([e.razao_social for e in por_op.context["empresas"]], ["CLIENTE DO ISMAEL"])
+        self.assertContains(por_op, "Limpar filtros")
+        self.assertIn(f"op_fiscal={self.apuracao.pk}", por_op.context["query_filtros"])
+
+        por_rev = self.client.get(f"/clientes/?rev_fiscal={outro.pk}")
+        self.assertEqual(por_rev.context["total_empresas"], 1)
+        self.assertEqual([e.razao_social for e in por_rev.context["empresas"]], ["CLIENTE DA JOANA"])
+
+        self.assertIn((str(outro.pk), "Joana"), por_op.context["opcoes_op_fiscal"])
+        self.assertIn((str(self.revisao.pk), "Mariana Barbosa"), por_op.context["opcoes_rev_fiscal"])
+
+        extraido = self.client.get(f"/clientes/exportar-relatorio/?op_fiscal={self.apuracao.pk}")
+        self.assertEqual(extraido.status_code, 200)
+
+    def test_buscar_cnpj_devolve_situacao_da_receita(self):
+        from unittest.mock import patch
+
+        baixado = {"razao_social": "BAIXADA LTDA", "descricao_situacao_cadastral": "BAIXADA", "uf": "SP", "municipio": "SAO PAULO"}
+        with patch.object(ServicoConsultaCNPJ, "_baixar_cadastro", return_value=baixado), \
+                patch.object(ServicoConsultaCNPJ, "baixar_inscricoes", return_value=[]), \
+                patch.object(ServicoConsultaCNPJ, "buscar_codigo_ibge", return_value="3550308"):
+            resposta = self.client.get(f"/clientes/cnpj/{CNPJ}/")
+        self.assertEqual(resposta.json()["campos"]["situacao_receita"], "BAIXADA")
+        tela = self.client.get("/clientes/nova/")
+        self.assertContains(tela, "aviso-situacao-receita")
+        self.assertContains(tela, 'nome === "status"')
+
     def test_acoes_respeitam_a_permissao_do_colaborador(self):
         empresa = Empresa.objects.create(
             codigo_dominio="2",
@@ -514,6 +658,10 @@ class FluxoSentinelaTest(TestCase):
         self.assertNotContains(lista_dev, "Subir Planilha em Lote Único")
         self.assertNotContains(lista_dev, "Subir Carteira Fiscal")
         self.assertNotContains(lista_dev, "Cadastro e Atualização de Clientes em Lote Único")
+        restrita = self.client.get("/restrita/")
+        self.assertContains(restrita, 'action="/clientes/importar-lote/"')
+        self.assertContains(restrita, 'name="planilha_clientes"')
+        self.assertNotContains(restrita, "na tela de Clientes")
 
         down = self.client.get("/clientes/planilha-modelo/?vazia=1")
         self.assertEqual(down.status_code, 200)
@@ -610,7 +758,9 @@ class FluxoSentinelaTest(TestCase):
         self.assertNotContains(lista, ">Escopo de Trabalho</th>")
         self.assertContains(lista, "Extrair todos")
         self.assertNotContains(lista, "Limpar filtros")
-        self.assertNotContains(lista, "Filtrar Operacional Fiscal")
+        self.assertContains(lista, "Filtrar Operacional Fiscal")
+        self.assertContains(lista, "Filtrar Revisador Fiscal")
+        self.assertContains(lista, "Mais filtros de responsáveis")
         filtrada = self.client.get("/clientes/?uf=MG&uf=SP&regime=Lucro Presumido&especial=nao")
         self.assertContains(filtrada, "AFFONSO DESCARTAVEIS LTDA")
         self.assertContains(filtrada, "Limpar filtros")

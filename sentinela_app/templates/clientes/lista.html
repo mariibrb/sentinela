@@ -19,8 +19,19 @@
   <form method="get" id="form-filtros-clientes" class="mb-3 flex flex-wrap items-center gap-2">
     <input class="w-full max-w-xl rounded-xl border border-stone-200 bg-white px-3 py-2.5 text-sm shadow-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100" name="q" value="{{ termo }}" placeholder="Busca livre: código, nome, CNPJ, CNAE, contato, DCTFWeb…">
     {% include "clientes/_filtro_excel.html" with nome="escopo" rotulo="Checklist" opcoes=opcoes_escopo_pares selecionados=filtro_escopo %}
+    <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="op_fiscal" rotulo="Operacional Fiscal" opcoes=opcoes_op_fiscal selecionados=filtro_op_fiscal %}</span>
+    <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="rev_fiscal" rotulo="Revisador Fiscal" opcoes=opcoes_rev_fiscal selecionados=filtro_rev_fiscal %}</span>
     <button class="rounded-xl bg-pink-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm" type="submit">Pesquisar</button>
   </form>
+  <details class="mb-1" {% if filtro_op_contabil or filtro_rev_contabil or filtro_op_dp or filtro_rev_dp %}open{% endif %}>
+    <summary class="cursor-pointer text-sm font-semibold text-pink-700">Mais filtros de responsáveis</summary>
+    <div class="mt-2 flex flex-wrap items-center gap-2">
+      <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="op_contabil" rotulo="Operacional Contábil" opcoes=opcoes_op_contabil selecionados=filtro_op_contabil %}</span>
+      <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="rev_contabil" rotulo="Revisador Contábil" opcoes=opcoes_rev_contabil selecionados=filtro_rev_contabil %}</span>
+      <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="op_dp" rotulo="Operacional DP" opcoes=opcoes_op_dp selecionados=filtro_op_dp %}</span>
+      <span class="rounded-xl border border-stone-200 bg-white px-3 py-2 text-sm shadow-sm">{% include "clientes/_filtro_excel.html" with nome="rev_dp" rotulo="Revisador DP" opcoes=opcoes_rev_dp selecionados=filtro_rev_dp %}</span>
+    </div>
+  </details>
 
 </section>
 

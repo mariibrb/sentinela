@@ -4,7 +4,7 @@ from django import forms
 from django.contrib.auth import get_user_model
 from django.db.models import Q
 
-from clientes.cnpj import somente_digitos
+from clientes.cnpj import digitos_conferem, somente_digitos
 from clientes.escopo import (
     ESTADOS_BR,
     ITENS_CONTABEIS,
@@ -43,6 +43,7 @@ class EmpresaForm(forms.ModelForm):
             "escopo_regularizacao",
             "estados_st",
             "busca_escopo",
+            "nfse_ultimo_nsu",
         )
         widgets = {
             "codigo_dominio": forms.TextInput(attrs={**CAMPO, "maxlength": "4", "inputmode": "numeric"}),
@@ -271,6 +272,8 @@ class EmpresaForm(forms.ModelForm):
         cnpj = somente_digitos(self.cleaned_data["cnpj"])
         if len(cnpj) != 14:
             raise forms.ValidationError("O CNPJ precisa ter 14 números.")
+        if not digitos_conferem(cnpj):
+            raise forms.ValidationError("CNPJ inválido: os dígitos verificadores não conferem.")
         return cnpj
 
     def clean_uf(self):

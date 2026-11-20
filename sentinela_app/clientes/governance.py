@@ -5,30 +5,61 @@ class CadastroIncompleto(ValueError):
         self.campos = list(campos or [])
 
 
-def validar_cadastro_para_apuracao(empresa_obj):
-    campos_faltantes = []
-    if not empresa_obj.codigo_dominio:
-        campos_faltantes.append("Código Domínio")
-    if not empresa_obj.cnpj:
-        campos_faltantes.append("CNPJ")
-    if not empresa_obj.codigo_ibge:
-        campos_faltantes.append("Código IBGE (Obrigatório para SPED e ISS)")
-    if not empresa_obj.cnae_principal:
-        campos_faltantes.append("CNAE Principal")
-    if not empresa_obj.regime_tributario:
-        campos_faltantes.append("Regime Tributário")
-    if not (empresa_obj.inscricao_estadual or "").strip():
-        campos_faltantes.append("Inscrição estadual")
-    if empresa_obj.responsavel_apuracao_id is None:
-        campos_faltantes.append("Responsável Operacional — Fiscal")
-    if empresa_obj.responsavel_revisao_id is None:
-        campos_faltantes.append("Responsável Revisador — Fiscal")
+VALOR_PROVISORIO_IBGE = "0000000"
+VALOR_PROVISORIO_CNAE = "0000000"
+VALOR_PROVISORIO_CEP = "00000000"
+VALOR_PROVISORIO_TEXTO = "a definir"
 
+
+def _texto(valor) -> str:
+    return str(valor or "").strip()
+
+
+def pendencias_cadastro(empresa_obj) -> list[str]:
+    """Campos obrigatórios que faltam ou ainda têm o valor provisório da carga inicial."""
+    pendencias = []
+    if not empresa_obj.codigo_dominio:
+        pendencias.append("Código Domínio")
+    if not empresa_obj.cnpj:
+        pendencias.append("CNPJ")
+
+    ibge = _texto(empresa_obj.codigo_ibge)
+    if not ibge:
+        pendencias.append("Código IBGE (Obrigatório para SPED e ISS)")
+    elif ibge == VALOR_PROVISORIO_IBGE:
+        pendencias.append("Código IBGE válido (está com o provisório 0000000)")
+
+    cnae = _texto(empresa_obj.cnae_principal)
+    if not cnae:
+        pendencias.append("CNAE Principal")
+    elif cnae == VALOR_PROVISORIO_CNAE:
+        pendencias.append("CNAE Principal válido (está com o provisório 0000000)")
+
+    if not empresa_obj.regime_tributario:
+        pendencias.append("Regime Tributário")
+    if not _texto(empresa_obj.inscricao_estadual):
+        pendencias.append("Inscrição estadual")
+    if empresa_obj.responsavel_apuracao_id is None:
+        pendencias.append("Responsável Operacional — Fiscal")
+    if empresa_obj.responsavel_revisao_id is None:
+        pendencias.append("Responsável Revisador — Fiscal")
+
+    if _texto(empresa_obj.cep) == VALOR_PROVISORIO_CEP:
+        pendencias.append("CEP válido (está com o provisório 00000000)")
+    if _texto(empresa_obj.logradouro).casefold() == VALOR_PROVISORIO_TEXTO:
+        pendencias.append("Logradouro (está como «A definir»)")
+    if _texto(empresa_obj.municipio).casefold() == VALOR_PROVISORIO_TEXTO:
+        pendencias.append("Município (está como «A definir»)")
+    return pendencias
+
+
+def validar_cadastro_para_apuracao(empresa_obj):
+    campos_faltantes = pendencias_cadastro(empresa_obj)
     if campos_faltantes:
         raise CadastroIncompleto(
             (
                 f"APURAÇÃO BLOQUEADA: O cadastro da empresa {empresa_obj.razao_social} está incompleto. "
-                f"Faltam os seguintes campos obrigatórios: {', '.join(campos_faltantes)}. "
+                f"Faltam ou estão provisórios os seguintes campos obrigatórios: {', '.join(campos_faltantes)}. "
                 f"Atualize o cadastro antes de prosseguir."
             ),
             empresa_id=getattr(empresa_obj, "pk", None),
